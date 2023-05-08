@@ -15,8 +15,8 @@ int main(int argc, char *argv[])
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
 
-    if (pcl::io::loadPCDFile<pcl::PointXYZ>("input_cloud/ICH_room.pcd", *cloud) == -1) {
-        PCL_ERROR("Couldn't read file segmented_1.pcd\n");
+    if (pcl::io::loadPCDFile<pcl::PointXYZ>("files/input_cloud/segmented_1.pcd", *cloud) == -1) {
+        PCL_ERROR("Couldn't read file\n");
         return (-1);
     }
 
@@ -27,8 +27,9 @@ int main(int argc, char *argv[])
     Reconstruction recon;
     
     // recon.poissonReconstruction(cloud);
-    prop.calculateDensity(cloud); // file will be saved in output_cloud folder
+    // prop.calculateDensity(cloud);
     // prop.calculateLocalPointNeighborhood(cloud);
+    prop.boundaryEstimation(cloud, 110);
 
 
     return 0;

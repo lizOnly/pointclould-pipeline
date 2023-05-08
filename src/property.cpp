@@ -1,9 +1,15 @@
+#define _USE_MATH_DEFINES
+
+#include <cmath>
+#include <vector>
 #include <iostream>
 #include <pcl/point_types.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl/io/ply_io.h>
 #include <pcl/kdtree/kdtree_flann.h>
 #include <pcl/point_cloud.h>
+#include <pcl/features/normal_3d.h>
+#include <pcl/features/boundary.h>
 
 #include "../headers/property.h"
 /*
@@ -110,4 +116,62 @@ void Property::calculateLocalPointNeighborhood(pcl::PointCloud<pcl::PointXYZ>::P
         }
         std::cout << std::endl;
     }
+}
+
+
+void Property::boundaryEstimation(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, double angle_threshold)
+{   
+    // compute normals
+    pcl::PointCloud<pcl::Normal>::Ptr normals(new pcl::PointCloud<pcl::Normal>);
+    pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> normal_estimation;
+    normal_estimation.setInputCloud(cloud);
+    pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
+    normal_estimation.setSearchMethod(tree);
+    normal_estimation.setRadiusSearch(0.02);
+    normal_estimation.compute(*normals);
+
+    pcl::PointCloud<pcl::Boundary>::Ptr boundaries(new pcl::PointCloud<pcl::Boundary>);
+    // boundary estimation
+    pcl::BoundaryEstimation<pcl::PointXYZ, pcl::Normal, pcl::Boundary> boundary_estimation;
+    boundary_estimation.setInputCloud(cloud);
+    boundary_estimation.setInputNormals(normals);
+    boundary_estimation.setRadiusSearch(0.02);
+    boundary_estimation.setSearchMethod(tree);
+    double angle_threshold_rad = angle_threshold * (M_PI / 180.0);
+    boundary_estimation.setAngleThreshold(angle_threshold_rad);
+    boundary_estimation.compute(*boundaries);
+
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr colored_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+
+    for (int i = 0; i < cloud->size(); ++i)
+    {
+        pcl::PointXYZRGB colored_point;
+        colored_point.x = cloud->points[i].x;
+        colored_point.y = cloud->points[i].y;
+        colored_point.z = cloud->points[i].z;
+
+        if (boundaries->points[i].boundary_point)
+        {
+            // red boundary points
+            colored_point.r = 255;
+            colored_point.g = 0;
+            colored_point.b = 0;
+        }
+        else
+        {
+            // white points
+            colored_point.r = 255;
+            colored_point.g = 255;
+            colored_point.b = 255;
+        }
+
+        colored_cloud->points.push_back(colored_point);
+    }
+
+    colored_cloud->width = colored_cloud->points.size();
+    colored_cloud->height = 1;
+    colored_cloud->is_dense = true;
+
+    pcl::io::savePCDFile<pcl::PointXYZRGB>("files/output_cloud/colored_cloud_3.pcd", *colored_cloud);
+    std::cout << "Colored point cloud saved as colored_cloud.pcd." << std::endl;
 }
