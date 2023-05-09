@@ -3,6 +3,8 @@
 #include <cmath>
 #include <vector>
 #include <iostream>
+#include <string>
+
 #include <pcl/point_types.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl/io/ply_io.h>
@@ -12,6 +14,8 @@
 #include <pcl/features/boundary.h>
 
 #include "../headers/property.h"
+#include "../headers/reconstruction.h"
+
 /*
     a class named Property, which can be used to calculate properties of a point cloud, and store them as a new channel in the point cloud. 
     including density, distribution, etc.
@@ -119,7 +123,7 @@ void Property::calculateLocalPointNeighborhood(pcl::PointCloud<pcl::PointXYZ>::P
 }
 
 
-void Property::boundaryEstimation(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, double angle_threshold)
+void Property::boundaryEstimation(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, double angle_threshold, std::string input_path)
 {   
     // compute normals
     pcl::PointCloud<pcl::Normal>::Ptr normals(new pcl::PointCloud<pcl::Normal>);
@@ -127,7 +131,7 @@ void Property::boundaryEstimation(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, dou
     normal_estimation.setInputCloud(cloud);
     pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
     normal_estimation.setSearchMethod(tree);
-    normal_estimation.setRadiusSearch(0.02);
+    normal_estimation.setRadiusSearch(0.05);
     normal_estimation.compute(*normals);
 
     pcl::PointCloud<pcl::Boundary>::Ptr boundaries(new pcl::PointCloud<pcl::Boundary>);
@@ -135,7 +139,7 @@ void Property::boundaryEstimation(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, dou
     pcl::BoundaryEstimation<pcl::PointXYZ, pcl::Normal, pcl::Boundary> boundary_estimation;
     boundary_estimation.setInputCloud(cloud);
     boundary_estimation.setInputNormals(normals);
-    boundary_estimation.setRadiusSearch(0.02);
+    boundary_estimation.setRadiusSearch(0.075);
     boundary_estimation.setSearchMethod(tree);
     double angle_threshold_rad = angle_threshold * (M_PI / 180.0);
     boundary_estimation.setAngleThreshold(angle_threshold_rad);
@@ -152,16 +156,16 @@ void Property::boundaryEstimation(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, dou
 
         if (boundaries->points[i].boundary_point)
         {
-            // red boundary points
+            // yellow boundary points
             colored_point.r = 255;
-            colored_point.g = 0;
+            colored_point.g = 255;
             colored_point.b = 0;
         }
         else
         {
-            // white points
-            colored_point.r = 255;
-            colored_point.g = 255;
+            // blue points
+            colored_point.r = 0;
+            colored_point.g = 0;
             colored_point.b = 255;
         }
 
@@ -172,6 +176,23 @@ void Property::boundaryEstimation(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, dou
     colored_cloud->height = 1;
     colored_cloud->is_dense = true;
 
-    pcl::io::savePCDFile<pcl::PointXYZRGB>("files/output_cloud/colored_cloud_3.pcd", *colored_cloud);
-    std::cout << "Colored point cloud saved as colored_cloud.pcd." << std::endl;
+    std::string output_path = input_path;
+    std::size_t pos = output_path.find("input");
+    if(pos != std::string::npos) {
+        output_path.replace(pos, 5, "output");
+    }
+
+    output_path.replace(output_path.end()-4, output_path.end(), "_boundary.pcd");
+
+    pcl::io::savePCDFile<pcl::PointXYZRGB>(output_path, *colored_cloud);
+    std::cout << "Colored point cloud saved as "
+              << output_path 
+              << std::endl;
+}
+
+
+double Property::volumeEstimation(pcl::PolygonMesh mesh){
+   
+
+
 }

@@ -28,7 +28,7 @@ void Reconstruction::poissonReconstruction(pcl::PointCloud<pcl::PointXYZ>::Ptr c
 
     pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>);
     normal_estimation.setSearchMethod(tree);
-    normal_estimation.setRadiusSearch(0.03); 
+    normal_estimation.setRadiusSearch(0.05); 
     normal_estimation.compute(*normals);
 
     // concatenate points and normals
@@ -38,11 +38,11 @@ void Reconstruction::poissonReconstruction(pcl::PointCloud<pcl::PointXYZ>::Ptr c
     // poisson reconstruction
     pcl::Poisson<pcl::PointNormal> poisson;
     poisson.setInputCloud(cloud_with_normals);
-    poisson.setDepth(9); 
+    poisson.setDepth(10); 
     pcl::PolygonMesh mesh;
     poisson.reconstruct(mesh);
 
-    pcl::io::saveOBJFile("mesh.obj", mesh);
+    pcl::io::saveOBJFile("files/output/mesh.obj", mesh);
 
     std::cout << "Saved " << mesh.polygons.size() << " polygons " << std::endl;
     // saveMeshAsOBJWithMTL(mesh, "mesh.obj", "mesh.mtl");
