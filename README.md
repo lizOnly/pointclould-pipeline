@@ -15,7 +15,6 @@ cmake ..
 make    # run this whenever code has been changed
 
 # then run at root dir
-cd ..
-./build/pcd_pipeline
+./pcd_pipeline
 ```
 

@@ -1,3 +1,6 @@
 # Ignore all files in build directory
 **/.build
 **/build
+
+**/files/input/*
+**/files/output/*

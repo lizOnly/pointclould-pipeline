@@ -125,25 +125,33 @@ void Property::calculateLocalPointNeighborhood(pcl::PointCloud<pcl::PointXYZ>::P
 
 void Property::boundaryEstimation(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, double angle_threshold, std::string input_path)
 {   
+    std::cout << "Estimating boundary... "
+              << std::endl;
     // compute normals
     pcl::PointCloud<pcl::Normal>::Ptr normals(new pcl::PointCloud<pcl::Normal>);
     pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> normal_estimation;
     normal_estimation.setInputCloud(cloud);
     pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
     normal_estimation.setSearchMethod(tree);
-    normal_estimation.setRadiusSearch(0.05);
+    normal_estimation.setRadiusSearch(0.01);
     normal_estimation.compute(*normals);
+
+    std::cout << "Normal estimation finished. "
+              << std::endl;
 
     pcl::PointCloud<pcl::Boundary>::Ptr boundaries(new pcl::PointCloud<pcl::Boundary>);
     // boundary estimation
     pcl::BoundaryEstimation<pcl::PointXYZ, pcl::Normal, pcl::Boundary> boundary_estimation;
     boundary_estimation.setInputCloud(cloud);
     boundary_estimation.setInputNormals(normals);
-    boundary_estimation.setRadiusSearch(0.075);
+    boundary_estimation.setRadiusSearch(0.035);
     boundary_estimation.setSearchMethod(tree);
     double angle_threshold_rad = angle_threshold * (M_PI / 180.0);
     boundary_estimation.setAngleThreshold(angle_threshold_rad);
     boundary_estimation.compute(*boundaries);
+
+    std::cout << "Boundary estimation finished."
+              << std::endl;
 
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr colored_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
 
@@ -171,6 +179,8 @@ void Property::boundaryEstimation(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, dou
 
         colored_cloud->points.push_back(colored_point);
     }
+    std::cout << "Boundary colored. "
+              << std::endl;
 
     colored_cloud->width = colored_cloud->points.size();
     colored_cloud->height = 1;
