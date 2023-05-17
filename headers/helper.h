@@ -13,5 +13,9 @@ class Helper {
         void estimateOcclusion(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);
         void removeOutliers(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);
         void removePointsInSpecificColor(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, int color[3]);
+        void regionGrowingSegmentation(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);
+        pcl::PointCloud<pcl::Normal>::Ptr normalEstimation(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);
+
+
 };
 

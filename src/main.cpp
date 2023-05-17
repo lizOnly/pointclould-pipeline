@@ -14,7 +14,7 @@
 int main(int argc, char *argv[])
 {
 
-    std::string input_path = "../files/input/segmented_1.pcd";
+    std::string input_path = "../files/input/ICH_room.pcd";
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
 
@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
     // recon.poissonReconstruction(cloud);
     // recon.marchingCubesReconstruction(cloud);
     std::string s3dTxtPath = "/mnt/c/Users/yufeng/Desktop/Stanford3dDataset_v1.2_Aligned_Version/Area_1/conferenceRoom_1/conferenceRoom_1.txt";
-    recon.pointCloudReconstructionFromTxt(s3dTxtPath);
+    // recon.pointCloudReconstructionFromTxt(s3dTxtPath);
 
     // prop.calculateDensity(cloud);
     // prop.calculateLocalPointNeighborhood(cloud);
@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
     // helper.removeOutliers(cloud);
     // int color[3] = {188, 189, 34};
     // helper.removePointsInSpecificColor(colored_cloud, color);
-
+    helper.regionGrowingSegmentation(cloud);
 
     return 0;
 }

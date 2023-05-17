@@ -7,6 +7,9 @@
 #include <pcl/filters/voxel_grid_occlusion_estimation.h>
 #include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/octree/octree.h>
+#include <pcl/segmentation/region_growing.h>
+#include <pcl/features/normal_3d.h>
+#include <pcl/filters/passthrough.h>
 
 #include "../headers/helper.h"
 
@@ -118,3 +121,44 @@ void Helper::removePointsInSpecificColor(pcl::PointCloud<pcl::PointXYZRGB>::Ptr 
     pcl::io::savePCDFileASCII("../files/output/specific_color_filtered_cloud.pcd", *filtered_cloud);
 
 }
+
+
+void Helper::regionGrowingSegmentation(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud) {
+
+    pcl::PointCloud<pcl::Normal>::Ptr normals(new pcl::PointCloud<pcl::Normal>);
+    pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> normal_estimation;
+    normal_estimation.setInputCloud(cloud);
+    pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
+    normal_estimation.setSearchMethod(tree);
+    normal_estimation.setRadiusSearch(0.02);
+    normal_estimation.compute(*normals);
+
+    pcl::IndicesPtr indices(new std::vector <int>);
+    pcl::PassThrough<pcl::PointXYZ> pass;
+    pass.setInputCloud(cloud);
+    pass.setFilterFieldName("z");
+    pass.setFilterLimits(0.0, 1.0);
+    pass.filter(*indices);
+
+    pcl::RegionGrowing<pcl::PointXYZ, pcl::Normal> reg;
+    reg.setMinClusterSize(50);
+    reg.setMaxClusterSize(100000);
+    reg.setSearchMethod(tree);
+    reg.setNumberOfNeighbours(40);
+    reg.setInputCloud(cloud);
+    //reg.setIndices (indices);
+    reg.setInputNormals(normals);
+    reg.setSmoothnessThreshold(1.0 / 180.0 * M_PI);
+    reg.setCurvatureThreshold(0.5);
+
+    std::vector <pcl::PointIndices> clusters;
+    reg.extract(clusters);
+
+    std::cout << "Number of clusters is equal to " << clusters.size() << std::endl;
+    std::cout << "First cluster has " << clusters[0].indices.size() << " points." << std::endl;
+
+
+    pcl::PointCloud <pcl::PointXYZRGB>::Ptr colored_cloud = reg.getColoredCloud();
+    pcl::io::savePCDFileASCII("../files/output/region_growing_segmentation.pcd", *colored_cloud);
+}
+

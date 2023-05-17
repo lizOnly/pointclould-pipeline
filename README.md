@@ -13,8 +13,6 @@ mkdir build
 cd build
 cmake ..
 make    # run this whenever code has been changed
-
-# then run at root dir
 ./pcd_pipeline
 ```
 
