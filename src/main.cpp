@@ -1,4 +1,6 @@
 #include <iostream>
+#include <chrono>
+
 #include <pcl/point_types.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl/io/ply_io.h>
@@ -12,7 +14,8 @@
 
 
 int main(int argc, char *argv[])
-{
+{   
+    auto start = std::chrono::high_resolution_clock::now();
 
     std::string input_path = "../files/input/ICH_room.pcd";
 
@@ -42,7 +45,7 @@ int main(int argc, char *argv[])
 
     // recon.poissonReconstruction(cloud);
     // recon.marchingCubesReconstruction(cloud);
-    std::string s3dTxtPath = "/mnt/c/Users/yufeng/Desktop/Stanford3dDataset_v1.2_Aligned_Version/Area_1/conferenceRoom_1/conferenceRoom_1.txt";
+    // std::string s3dTxtPath = "/mnt/c/Users/yufeng/Desktop/Stanford3dDataset_v1.2_Aligned_Version/Area_1/conferenceRoom_1/conferenceRoom_1.txt";
     // recon.pointCloudReconstructionFromTxt(s3dTxtPath);
 
     // prop.calculateDensity(cloud);
@@ -55,7 +58,12 @@ int main(int argc, char *argv[])
     // helper.removeOutliers(cloud);
     // int color[3] = {188, 189, 34};
     // helper.removePointsInSpecificColor(colored_cloud, color);
-    helper.regionGrowingSegmentation(cloud);
+    double occlusionLevel = 0.0;
+    occlusionLevel = helper.rayBasedOcclusionLevel(cloud, 100);
 
+    auto stop = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
+
+    std::cout << "Time taken by this run: " << duration.count() << " seconds" << std::endl;
     return 0;
 }

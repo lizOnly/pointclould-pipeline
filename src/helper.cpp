@@ -1,4 +1,9 @@
 #include <iostream>
+#include <cmath>
+#include <vector>
+#include <string>
+#include <random>
+
 #include <pcl/point_types.h>
 #include <pcl/kdtree/kdtree_flann.h>
 #include <pcl/point_cloud.h>
@@ -12,6 +17,8 @@
 #include <pcl/filters/passthrough.h>
 
 #include "../headers/helper.h"
+#include "../headers/BaseStruct.h"
+
 
 Helper::Helper() {
     // empty constructor
@@ -162,3 +169,189 @@ void Helper::regionGrowingSegmentation(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud
     pcl::io::savePCDFileASCII("../files/output/region_growing_segmentation.pcd", *colored_cloud);
 }
 
+
+pcl::PointCloud<pcl::Normal>::Ptr normalEstimation(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud) {
+    pcl::PointCloud<pcl::Normal>::Ptr normals(new pcl::PointCloud<pcl::Normal>);
+    pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> normal_estimation;
+    normal_estimation.setInputCloud(cloud);
+    pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
+    normal_estimation.setSearchMethod(tree);
+    normal_estimation.setRadiusSearch(0.02);
+    normal_estimation.compute(*normals);
+
+    return normals;
+}
+
+std::vector<pcl::PointXYZ> Helper::getSphereLightSourceCenters(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud){
+    std::vector<pcl::PointXYZ> centers;
+    // calculate bounding box
+    pcl::PointXYZ minPt, maxPt;
+    pcl::getMinMax3D(*cloud, minPt, maxPt);
+    std::cout << "Max x: " << maxPt.x << ", Max y: " << maxPt.y << ", Max z: " << maxPt.z << std::endl;
+    std::cout << "Min x: " << minPt.x << ", Min y: " << minPt.y << ", Min z: " << minPt.z << std::endl;
+
+    pcl::PointXYZ center;
+    center.x = (maxPt.x + minPt.x) / 2;
+    center.y = (maxPt.y + minPt.y) / 2;
+    center.z = (maxPt.z + minPt.z) / 2;
+
+    // Points at the midpoints of the body diagonals (diagonal was divided by center point )
+    pcl::PointXYZ midpoint1, midpoint2, midpoint3, midpoint4,
+                  midpoint5, midpoint6, midpoint7, midpoint8;
+    midpoint1.x = (center.x + minPt.x) / 2; midpoint1.y = (center.y + minPt.y) / 2; midpoint1.z = (center.z + minPt.z) / 2; 
+    midpoint2.x = (center.x + minPt.x) / 2; midpoint2.y = (center.y + minPt.y) / 2; midpoint2.z = (center.z + maxPt.z) / 2;
+    midpoint3.x = (center.x + minPt.x) / 2; midpoint3.y = (center.y + maxPt.y) / 2; midpoint3.z = (center.z + minPt.z) / 2;
+    midpoint4.x = (center.x + minPt.x) / 2; midpoint4.y = (center.y + maxPt.y) / 2; midpoint4.z = (center.z + maxPt.z) / 2;
+    midpoint5.x = (center.x + maxPt.x) / 2; midpoint5.y = (center.y + minPt.y) / 2; midpoint5.z = (center.z + minPt.z) / 2;
+    midpoint6.x = (center.x + maxPt.x) / 2; midpoint6.y = (center.y + minPt.y) / 2; midpoint6.z = (center.z + maxPt.z) / 2;
+    midpoint7.x = (center.x + maxPt.x) / 2; midpoint7.y = (center.y + maxPt.y) / 2; midpoint7.z = (center.z + minPt.z) / 2;
+    midpoint8.x = (center.x + maxPt.x) / 2; midpoint8.y = (center.y + maxPt.y) / 2; midpoint8.z = (center.z + maxPt.z) / 2;
+
+    centers.push_back(midpoint1); centers.push_back(midpoint2); centers.push_back(midpoint3); centers.push_back(midpoint4);
+    centers.push_back(midpoint5); centers.push_back(midpoint6); centers.push_back(midpoint7); centers.push_back(midpoint8);
+
+    return centers;
+}
+
+std::vector<pcl::PointXYZ> Helper::UniformSamplingSphere(pcl::PointXYZ center, double radius, size_t num_samples) {
+    
+    static std::default_random_engine generator;
+    static std::uniform_real_distribution<double> distribution(0.0, 1.0);
+
+    std::vector<pcl::PointXYZ> samples;
+    samples.reserve(num_samples);
+
+    for (size_t i = 0; i < num_samples; ++i) {
+        double theta = 2 * M_PI * distribution(generator);  // Azimuthal angle
+        double phi = acos(2 * distribution(generator) - 1); // Polar angle
+        pcl::PointXYZ sample;
+        sample.x = center.x + radius * sin(phi) * cos(theta);
+        sample.y = center.y + radius * sin(phi) * sin(theta);
+        sample.z = center.z + radius * cos(phi);
+        samples.push_back(sample);
+    }
+
+    return samples;
+}   
+
+Ray3D Helper::generateRay(const pcl::PointXYZ& center, const pcl::PointXYZ& surfacePoint) {
+    Ray3D ray;
+    ray.origin = center;
+
+    // Compute the direction of the ray
+    ray.direction.x = surfacePoint.x - center.x;
+    ray.direction.y = surfacePoint.y - center.y;
+    ray.direction.z = surfacePoint.z - center.z;
+
+    // Normalize the direction to make it a unit vector
+    double magnitude = sqrt(ray.direction.x * ray.direction.x +
+                            ray.direction.y * ray.direction.y +
+                            ray.direction.z * ray.direction.z);
+    ray.direction.x /= magnitude;
+    ray.direction.y /= magnitude;
+    ray.direction.z /= magnitude;
+
+    return ray;
+}
+
+
+bool Helper::rayIntersectDisk(const Ray3D& ray, const Disk3D& disk) {
+    // Compute the vector from the ray origin to the disk center
+    pcl::PointXYZ oc;
+    oc.x = disk.center.x - ray.origin.x;
+    oc.y = disk.center.y - ray.origin.y;
+    oc.z = disk.center.z - ray.origin.z;
+
+    // Compute the projection of oc onto the ray direction
+    double projection = oc.x * ray.direction.x + oc.y * ray.direction.y + oc.z * ray.direction.z;
+
+    // Compute the squared distance from the disk center to the projection point
+    double oc_squared = oc.x * oc.x + oc.y * oc.y + oc.z * oc.z;
+    double distance_squared = oc_squared - projection * projection;
+
+    // If the squared distance is less than or equal to the squared radius, the ray intersects the disk
+    if (distance_squared <= disk.radius * disk.radius) {
+        return true;
+    }
+    
+    // If we get here, the ray does not intersect any disk
+    return false;
+}
+
+Disk3D Helper::convertPointToDisk(const pcl::PointXYZ& point, const pcl::Normal& normal, const double& radius) {
+    Disk3D disk;
+    disk.center = point;
+    disk.normal = normal;
+    disk.radius = radius;
+
+    return disk;
+}
+
+/*
+    * This function checks if a ray intersects a point cloud.
+    * It returns true if the ray intersects the point cloud, and false otherwise.
+*/
+bool Helper::rayIntersectPointCloud(const Ray3D& ray, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, double step) {
+    // get the bounding box of the point cloud 
+    pcl::PointXYZ minPt, maxPt;
+    pcl::getMinMax3D(*cloud, minPt, maxPt);
+
+    // create a KdTree for efficient nearest neighbor search
+    pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
+    kdtree.setInputCloud(cloud);
+
+    // define the search radius
+    const float radius = step / 5;
+
+    // initialize the current point to the origin of the ray
+    pcl::PointXYZ currentPoint = ray.origin;
+
+    while (currentPoint.x >= minPt.x && currentPoint.x <= maxPt.x &&
+           currentPoint.y >= minPt.y && currentPoint.y <= maxPt.y &&
+           currentPoint.z >= minPt.z && currentPoint.z <= maxPt.z) {
+        std::vector<int> pointIdxRadiusSearch;
+        std::vector<float> pointRadiusSquaredDistance;
+
+        if (kdtree.radiusSearch(currentPoint, radius, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
+            return true;
+        }
+
+        // update the current point along the ray
+        currentPoint.x += step * ray.direction.x;
+        currentPoint.y += step * ray.direction.y;
+        currentPoint.z += step * ray.direction.z;
+    }
+
+    return false;
+}
+
+/*
+    * Compute the occlusion level of a point cloud using ray-based occlusion
+    * @param cloud: the point cloud
+    * @param num_samples: the number of samples to use for each light source
+    * @return: the occlusion level of the point cloud
+*/
+
+double Helper::rayBasedOcclusionLevel(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, size_t num_samples) {
+    std::vector<pcl::PointXYZ> centers = Helper::getSphereLightSourceCenters(cloud);
+    double occlusionLevel = 0.0;
+    int numRays = centers.size() * num_samples;
+    int occlusionRays = 0;
+    for (size_t i = 0; i < centers.size(); ++i) {
+        std::cout << "-----------Center " << i << ": " << centers[i].x << ", " << centers[i].y << ", " << centers[i].z << "-----------" << std::endl;
+        std::vector<pcl::PointXYZ> samples = Helper::UniformSamplingSphere(centers[i], 0.1, num_samples);
+        for (size_t j = 0; j < samples.size(); ++j) {
+            std::cout << "Sample " << j << ": " << samples[j].x << ", " << samples[j].y << ", " << samples[j].z << std::endl;
+            Ray3D ray = Helper::generateRay(centers[i], samples[j]);
+            if (!Helper::rayIntersectPointCloud(ray, cloud, 0.2)) {
+                std::cout << "Ray hit occlusion" << std::endl;
+                occlusionRays++;
+            }
+        }
+    }
+    occlusionLevel = (double) occlusionRays / (double) numRays;
+    std::cout << "Number of rays: " << numRays << std::endl;
+    std::cout << "Number of occlusion rays: " << occlusionRays << std::endl;
+    std::cout << "Occlusion level: " << occlusionLevel << std::endl;
+    return occlusionLevel;
+}
