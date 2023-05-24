@@ -23,9 +23,10 @@ class Helper {
         
         Ray3D generateRay(const pcl::PointXYZ& center, const pcl::PointXYZ& surfacePoint);
         bool rayIntersectDisk(const Ray3D& ray, const Disk3D& disk);
-        bool rayIntersectPointCloud(const Ray3D& ray, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, double step);
+        pcl::PointXYZ rayBoxIntersection(const Ray3D& ray, const pcl::PointXYZ& minPt, const pcl::PointXYZ& maxPt);
+        bool rayIntersectPointCloud(const Ray3D& ray, double step, double radius, pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt, pcl::KdTreeFLANN<pcl::PointXYZ>& kdtree);
         Disk3D convertPointToDisk(const pcl::PointXYZ& point, const pcl::Normal& normal, const double& radius);
-        double rayBasedOcclusionLevel(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, size_t num_samples);
+        double rayBasedOcclusionLevel(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, size_t num_samples, double step, double radius);
 
 };
 

@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
     // int color[3] = {188, 189, 34};
     // helper.removePointsInSpecificColor(colored_cloud, color);
     double occlusionLevel = 0.0;
-    occlusionLevel = helper.rayBasedOcclusionLevel(cloud, 100);
+    occlusionLevel = helper.rayBasedOcclusionLevel(cloud, 2000, 0.05, 0.05);
 
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);

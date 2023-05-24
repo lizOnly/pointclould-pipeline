@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include <random>
+#include <chrono>
 
 #include <pcl/point_types.h>
 #include <pcl/kdtree/kdtree_flann.h>
@@ -195,6 +196,8 @@ std::vector<pcl::PointXYZ> Helper::getSphereLightSourceCenters(pcl::PointCloud<p
     center.y = (maxPt.y + minPt.y) / 2;
     center.z = (maxPt.z + minPt.z) / 2;
 
+    centers.push_back(center);
+
     // Points at the midpoints of the body diagonals (diagonal was divided by center point )
     pcl::PointXYZ midpoint1, midpoint2, midpoint3, midpoint4,
                   midpoint5, midpoint6, midpoint7, midpoint8;
@@ -232,7 +235,7 @@ std::vector<pcl::PointXYZ> Helper::UniformSamplingSphere(pcl::PointXYZ center, d
     }
 
     return samples;
-}   
+} 
 
 Ray3D Helper::generateRay(const pcl::PointXYZ& center, const pcl::PointXYZ& surfacePoint) {
     Ray3D ray;
@@ -287,41 +290,63 @@ Disk3D Helper::convertPointToDisk(const pcl::PointXYZ& point, const pcl::Normal&
     return disk;
 }
 
+
+pcl::PointXYZ Helper::rayBoxIntersection(const Ray3D& ray, const pcl::PointXYZ& minPt, const pcl::PointXYZ& maxPt) {
+    double tx, ty, tz, t;
+
+    if (ray.direction.x >= 0) {
+        tx = (maxPt.x - ray.origin.x) / ray.direction.x;
+    } else {
+        tx = (minPt.x - ray.origin.x) / ray.direction.x;
+    }
+
+    if (ray.direction.y >= 0) {
+        ty = (maxPt.y - ray.origin.y) / ray.direction.y;
+    } else {
+        ty = (minPt.y - ray.origin.y) / ray.direction.y;
+    }
+
+    if (ray.direction.z >= 0) {
+        tz = (maxPt.z - ray.origin.z) / ray.direction.z;
+    } else {
+        tz = (minPt.z - ray.origin.z) / ray.direction.z;
+    }
+
+    t = std::min(std::min(tx, ty), tz);
+
+    pcl::PointXYZ intersection;
+    intersection.x = ray.origin.x + t * ray.direction.x;
+    intersection.y = ray.origin.y + t * ray.direction.y;
+    intersection.z = ray.origin.z + t * ray.direction.z;
+
+    std::cout << "*--> Intersection: " << intersection.x << ", " << intersection.y << ", " << intersection.z << std::endl;
+
+    return intersection;
+}
+
 /*
     * This function checks if a ray intersects a point cloud.
     * It returns true if the ray intersects the point cloud, and false otherwise.
 */
-bool Helper::rayIntersectPointCloud(const Ray3D& ray, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, double step) {
-    // get the bounding box of the point cloud 
-    pcl::PointXYZ minPt, maxPt;
-    pcl::getMinMax3D(*cloud, minPt, maxPt);
-
-    // create a KdTree for efficient nearest neighbor search
-    pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
-    kdtree.setInputCloud(cloud);
-
-    // define the search radius
-    const float radius = step / 5;
-
-    // initialize the current point to the origin of the ray
-    pcl::PointXYZ currentPoint = ray.origin;
-
-    while (currentPoint.x >= minPt.x && currentPoint.x <= maxPt.x &&
-           currentPoint.y >= minPt.y && currentPoint.y <= maxPt.y &&
-           currentPoint.z >= minPt.z && currentPoint.z <= maxPt.z) {
+bool Helper::rayIntersectPointCloud(const Ray3D& ray, 
+                                    double step, double radius, 
+                                    pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt,
+                                    pcl::KdTreeFLANN<pcl::PointXYZ>& kdtree) {
+    // get the first point along the ray, which is the intersection of the ray with the bounding box
+    pcl::PointXYZ currentPoint = Helper::rayBoxIntersection(ray, minPt, maxPt);
+    
+    while((currentPoint.x - ray.origin.x) > step || (currentPoint.y - ray.origin.y) > step || (currentPoint.z - ray.origin.z) > step) {
         std::vector<int> pointIdxRadiusSearch;
         std::vector<float> pointRadiusSquaredDistance;
-
+        
         if (kdtree.radiusSearch(currentPoint, radius, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
             return true;
         }
-
         // update the current point along the ray
-        currentPoint.x += step * ray.direction.x;
-        currentPoint.y += step * ray.direction.y;
-        currentPoint.z += step * ray.direction.z;
+        currentPoint.x -= step * ray.direction.x;
+        currentPoint.y -= step * ray.direction.y;
+        currentPoint.z -= step * ray.direction.z;
     }
-
     return false;
 }
 
@@ -332,21 +357,33 @@ bool Helper::rayIntersectPointCloud(const Ray3D& ray, pcl::PointCloud<pcl::Point
     * @return: the occlusion level of the point cloud
 */
 
-double Helper::rayBasedOcclusionLevel(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, size_t num_samples) {
+double Helper::rayBasedOcclusionLevel(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, size_t num_samples, double step, double radius) {
     std::vector<pcl::PointXYZ> centers = Helper::getSphereLightSourceCenters(cloud);
+    pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
+    kdtree.setInputCloud(cloud);
+
     double occlusionLevel = 0.0;
     int numRays = centers.size() * num_samples;
     int occlusionRays = 0;
+
+    pcl::PointXYZ minPt, maxPt;
+    pcl::getMinMax3D(*cloud, minPt, maxPt);
+
     for (size_t i = 0; i < centers.size(); ++i) {
-        std::cout << "-----------Center " << i << ": " << centers[i].x << ", " << centers[i].y << ", " << centers[i].z << "-----------" << std::endl;
+        std::cout << "*********Center " << i << ": " << centers[i].x << ", " << centers[i].y << ", " << centers[i].z << "*********" << std::endl;
         std::vector<pcl::PointXYZ> samples = Helper::UniformSamplingSphere(centers[i], 0.1, num_samples);
         for (size_t j = 0; j < samples.size(); ++j) {
-            std::cout << "Sample " << j << ": " << samples[j].x << ", " << samples[j].y << ", " << samples[j].z << std::endl;
+            auto start = std::chrono::high_resolution_clock::now();
+            std::cout << "-----------Sample " << j << ": " << samples[j].x << ", " << samples[j].y << ", " << samples[j].z << "-----------" <<std::endl;
             Ray3D ray = Helper::generateRay(centers[i], samples[j]);
-            if (!Helper::rayIntersectPointCloud(ray, cloud, 0.2)) {
-                std::cout << "Ray hit occlusion" << std::endl;
+            if (!Helper::rayIntersectPointCloud(ray, step, radius, minPt, maxPt, kdtree)) {
+                std::cout << "*--> Ray hit occlusion!!!" << std::endl;
                 occlusionRays++;
             }
+            auto stop = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+            std::cout << "*--> Time taken for handling sample: " << duration.count() << " milliseconds" << std::endl;
+            std::cout << std::endl;
         }
     }
     occlusionLevel = (double) occlusionRays / (double) numRays;
