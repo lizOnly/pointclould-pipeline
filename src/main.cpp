@@ -11,13 +11,14 @@
 #include "../headers/evaluation.h"
 #include "../headers/property.h"
 #include "../headers/helper.h"
+#include "../headers/visualizer.h"
 
 
 int main(int argc, char *argv[])
 {   
     auto start = std::chrono::high_resolution_clock::now();
 
-    std::string input_path = "../files/input/ICH_room.pcd";
+    std::string input_path = "../files/input/ich.pcd";
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
 
@@ -42,6 +43,7 @@ int main(int argc, char *argv[])
     Property prop;
     Reconstruction recon;
     Helper helper;
+    visualizer vis;
 
     // recon.poissonReconstruction(cloud);
     // recon.marchingCubesReconstruction(cloud);
@@ -54,16 +56,21 @@ int main(int argc, char *argv[])
 
     // helper.estimateOcclusion(cloud);
     // helper.voxelizePointCloud(cloud);
+    helper.regionGrowingSegmentation(cloud);
 
     // helper.removeOutliers(cloud);
     // int color[3] = {188, 189, 34};
     // helper.removePointsInSpecificColor(colored_cloud, color);
-    double occlusionLevel = 0.0;
-    occlusionLevel = helper.rayBasedOcclusionLevel(cloud, 2000, 0.05, 0.05);
 
-    auto stop = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
+    // double occlusionLevel = 0.0;
+    // occlusionLevel = helper.rayBasedOcclusionLevel(cloud, 2000, 0.05, 0.05);
 
-    std::cout << "Time taken by this run: " << duration.count() << " seconds" << std::endl;
+    // auto stop = std::chrono::high_resolution_clock::now();
+    // auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
+
+    // std::cout << "Time taken by this run: " << duration.count() << " seconds" << std::endl;
+
+    // vis.visualizePointCloud(cloud);
+
     return 0;
 }

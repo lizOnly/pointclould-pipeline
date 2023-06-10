@@ -200,9 +200,3 @@ void Property::boundaryEstimation(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, dou
               << std::endl;
 }
 
-
-double Property::volumeEstimation(pcl::PolygonMesh mesh){
-   
-
-
-}

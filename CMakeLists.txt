@@ -19,6 +19,7 @@ add_executable(
     src/property.cpp headers/property.h 
     src/evaluation.cpp headers/evaluation.h
     src/helper.cpp headers/helper.h
+    src/visualizer.cpp headers/visualizer.h
     )
 
 target_link_libraries(pcd_pipeline ${PCL_LIBRARIES})

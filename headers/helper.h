@@ -9,8 +9,6 @@ class Helper {
         Helper();
         ~Helper();
         
-        void identifyNormalHoles(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);
-        void identifyOcclusionHoles(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);
         void voxelizePointCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);
         void estimateOcclusion(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);
         void removeOutliers(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);

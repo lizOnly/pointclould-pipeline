@@ -12,8 +12,11 @@
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/filters/voxel_grid_occlusion_estimation.h>
 #include <pcl/filters/statistical_outlier_removal.h>
+#include <pcl/filters/extract_indices.h>
 #include <pcl/octree/octree.h>
+#include <pcl/ModelCoefficients.h>
 #include <pcl/segmentation/region_growing.h>
+#include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/features/normal_3d.h>
 #include <pcl/filters/passthrough.h>
 
@@ -29,13 +32,6 @@ Helper::~Helper() {
     // empty destructor
 }
 
-void Helper::identifyNormalHoles(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud) {
-
-}
-
-void Helper::identifyOcclusionHoles(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud) {
-
-}
 
 void Helper::voxelizePointCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud) {
     pcl::VoxelGrid<pcl::PointXYZ> vg;
@@ -138,26 +134,17 @@ void Helper::regionGrowingSegmentation(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud
     normal_estimation.setInputCloud(cloud);
     pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
     normal_estimation.setSearchMethod(tree);
-    normal_estimation.setRadiusSearch(0.02);
+    normal_estimation.setRadiusSearch(0.06);
     normal_estimation.compute(*normals);
 
-    pcl::IndicesPtr indices(new std::vector <int>);
-    pcl::PassThrough<pcl::PointXYZ> pass;
-    pass.setInputCloud(cloud);
-    pass.setFilterFieldName("z");
-    pass.setFilterLimits(0.0, 1.0);
-    pass.filter(*indices);
-
     pcl::RegionGrowing<pcl::PointXYZ, pcl::Normal> reg;
-    reg.setMinClusterSize(50);
-    reg.setMaxClusterSize(100000);
+    reg.setMinClusterSize(1000);
     reg.setSearchMethod(tree);
-    reg.setNumberOfNeighbours(40);
+    reg.setNumberOfNeighbours(30);
     reg.setInputCloud(cloud);
-    //reg.setIndices (indices);
     reg.setInputNormals(normals);
-    reg.setSmoothnessThreshold(1.0 / 180.0 * M_PI);
-    reg.setCurvatureThreshold(0.5);
+    reg.setSmoothnessThreshold(3.0 / 180.0 * M_PI);
+    reg.setCurvatureThreshold(1.0);
 
     std::vector <pcl::PointIndices> clusters;
     reg.extract(clusters);
@@ -255,6 +242,11 @@ Ray3D Helper::generateRay(const pcl::PointXYZ& center, const pcl::PointXYZ& surf
     ray.direction.z /= magnitude;
 
     return ray;
+}
+
+bool intersectOpenings() {
+    
+    return false;
 }
 
 
