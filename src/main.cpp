@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
 {   
     auto start = std::chrono::high_resolution_clock::now();
 
-    std::string inputPath = "../files/input/rg.pcd";
+    std::string inputPath = "../files/input/centered_cloud.pcd";
     std::string polygonDataPath = "../files/input/centered_cloud-polygon.txt";
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
@@ -44,7 +44,6 @@ int main(int argc, char *argv[])
     Property prop;
     Reconstruction recon;
     Helper helper;
-    visualizer vis;
 
     // prop.calculateDensity(cloud);
     // prop.boundaryEstimation(cloud, 110, input_path);
@@ -67,7 +66,7 @@ int main(int argc, char *argv[])
     // helper.removePointsInSpecificColor(colored_cloud, color);
 
     double occlusionLevel = 0.0;
-    occlusionLevel = helper.rayBasedOcclusionLevel(cloud, 2000, 0.05, 0.1, polygonClouds, allCoefficients);
+    occlusionLevel = helper.rayBasedOcclusionLevel(cloud, polygonClouds, allCoefficients);
 
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);

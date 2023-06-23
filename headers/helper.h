@@ -32,9 +32,6 @@ class Helper {
         Disk3D convertPointToDisk(const pcl::PointXYZ& point, const pcl::Normal& normal, const double& radius);
         double rayBasedOcclusionLevel(
             pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, 
-            size_t num_samples, 
-            double step, 
-            double radius, 
             std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds,
             std::vector<pcl::ModelCoefficients::Ptr> allCoefficients
         );

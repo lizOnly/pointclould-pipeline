@@ -343,17 +343,12 @@ pcl::ModelCoefficients::Ptr Helper::computePlaneCoefficients(std::vector<pcl::Po
         PCL_ERROR("Could not estimate a planar model for the given dataset.");
         return nullptr;
     }
-
-    std::cout << "Model coefficients: " << coefficients->values[0] << " " 
-                                        << coefficients->values[1] << " "
-                                        << coefficients->values[2] << " " 
-                                        << coefficients->values[3] << std::endl;
     return coefficients;
 }
 
 
-pcl::PointCloud<pcl::PointXYZ>::Ptr Helper::estimatePolygon(std::vector<pcl::PointXYZ> points, pcl::ModelCoefficients::Ptr coefficients)
-{
+pcl::PointCloud<pcl::PointXYZ>::Ptr Helper::estimatePolygon(std::vector<pcl::PointXYZ> points, 
+                                                            pcl::ModelCoefficients::Ptr coefficients) {
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
     for (auto& point : points){
         cloud->points.push_back(point);
@@ -368,12 +363,18 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr Helper::estimatePolygon(std::vector<pcl::Poi
 
     pcl::ConvexHull<pcl::PointXYZ> chull;
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_hull(new pcl::PointCloud<pcl::PointXYZ>);
-    chull.setDimension(3);
+    chull.setDimension(2);
     chull.setInputCloud(cloud_projected);
     chull.reconstruct(*cloud_hull);
 
     std::cout << "Convex hull has: " << cloud_hull->points.size() << " data points." << std::endl;
-    pcl::io::savePCDFileASCII("../files/output/polygon_hull.pcd", *cloud_hull);
+    std::cout << "Points are: " << std::endl;
+    for (size_t i = 0; i < cloud_hull->points.size(); ++i) {
+        std::cout << "    " << cloud_hull->points[i].x << " "
+                  << cloud_hull->points[i].y << " "
+                  << cloud_hull->points[i].z << std::endl;
+    }
+
     return cloud_hull;
 }
 
@@ -406,7 +407,9 @@ std::vector<std::vector<pcl::PointXYZ>> Helper::parsePolygonData(const std::stri
     return polygons;
 }
 
-bool Helper::rayIntersectPolygon(const Ray3D& ray, const pcl::PointCloud<pcl::PointXYZ>::Ptr& polygonCloud, const pcl::ModelCoefficients::Ptr coefficients) {
+bool Helper::rayIntersectPolygon(const Ray3D& ray, 
+                                 const pcl::PointCloud<pcl::PointXYZ>::Ptr& polygonCloud, 
+                                 const pcl::ModelCoefficients::Ptr coefficients) {
     float a = coefficients->values[0];
     float b = coefficients->values[1];
     float c = coefficients->values[2];
@@ -446,8 +449,8 @@ bool Helper::rayIntersectPolygon(const Ray3D& ray, const pcl::PointCloud<pcl::Po
     Eigen::Vector3f polygonVertex(polygonCloud->points[0].x, polygonCloud->points[0].y, polygonCloud->points[0].z);
     Eigen::Vector3f polygonVertex2(polygonCloud->points[1].x, polygonCloud->points[1].y, polygonCloud->points[1].z);
 
-    Eigen::Vector3f polygonVector = polygonVector - intersectionPoint;
-    Eigen::Vector3f polygonVector2 = polygonVector2 - intersectionPoint;
+    Eigen::Vector3f polygonVector = polygonVertex - intersectionPoint;
+    Eigen::Vector3f polygonVector2 = polygonVertex2 - intersectionPoint;
 
     Eigen::Vector3f cross = polygonVector.cross(polygonVector2);
     
@@ -465,6 +468,7 @@ bool Helper::rayIntersectPolygon(const Ray3D& ray, const pcl::PointCloud<pcl::Po
     }
     return true;
 }
+
 
 Ray3D Helper::generateRay(const pcl::PointXYZ& center, const pcl::PointXYZ& surfacePoint) {
     Ray3D ray;
@@ -484,11 +488,6 @@ Ray3D Helper::generateRay(const pcl::PointXYZ& center, const pcl::PointXYZ& surf
     ray.direction.z /= magnitude;
 
     return ray;
-}
-
-bool intersectOpenings() {
-    
-    return false;
 }
 
 
@@ -525,7 +524,9 @@ Disk3D Helper::convertPointToDisk(const pcl::PointXYZ& point, const pcl::Normal&
 }
 
 
-pcl::PointXYZ Helper::rayBoxIntersection(const Ray3D& ray, const pcl::PointXYZ& minPt, const pcl::PointXYZ& maxPt) {
+pcl::PointXYZ Helper::rayBoxIntersection(const Ray3D& ray, 
+                                         const pcl::PointXYZ& minPt, 
+                                         const pcl::PointXYZ& maxPt) {
     double tx, ty, tz, t;
 
     if (ray.direction.x >= 0) {
@@ -589,22 +590,21 @@ bool Helper::rayIntersectPointCloud(const Ray3D& ray,
     * @return: the occlusion level of the point cloud
 */
 
-double Helper::rayBasedOcclusionLevel(
-    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, 
-    size_t num_samples, 
-    double step, 
-    double radius, 
-    std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds,
-    std::vector<pcl::ModelCoefficients::Ptr> allCoefficients
-    )
-{
+double Helper::rayBasedOcclusionLevel(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, 
+                                      std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds,
+                                      std::vector<pcl::ModelCoefficients::Ptr> allCoefficients) {
     std::vector<pcl::PointXYZ> centers = Helper::getSphereLightSourceCenters(cloud);
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
     kdtree.setInputCloud(cloud);
 
+    size_t num_samples = 4000;
+    double step = 0.05; // step size for ray traversal
+    double radius = 0.1; // radius for radius search
     double occlusionLevel = 0.0;
     int numRays = centers.size() * num_samples;
     int occlusionRays = 0;
+    int polygonIntersecRays = 0;
+    int cloudIntersecRays = 0;
 
     pcl::PointXYZ minPt, maxPt;
     pcl::getMinMax3D(*cloud, minPt, maxPt);
@@ -620,12 +620,14 @@ double Helper::rayBasedOcclusionLevel(
             // check if the ray intersects any polygon or point cloud
             if (Helper::rayIntersectPointCloud(ray, step, radius, minPt, maxPt, kdtree)) {
                 std::cout << "*--> Ray hit cloud!!!" << std::endl;
+                cloudIntersecRays++;
             } else {
                 for (size_t k = 0; k < polygonClouds.size(); ++k) {
                     if (Helper::rayIntersectPolygon(ray, polygonClouds[k], allCoefficients[k])) {
-                        std::cout << "*--> Ray hit polygon!!!" << std::endl;
+                        std::cout << "*--> Ray didn't hit cloud but hit polygon of index " << k << std::endl;
+                        polygonIntersecRays++;
                         break;
-                    } else if (k == polygonClouds.size() - 1) {
+                    } else if (k == (polygonClouds.size() - 1)) {
                         std::cout << "*--> Ray did not hit anything, it's an occlusion" << std::endl;
                         occlusionRays++;
                     }
@@ -636,6 +638,8 @@ double Helper::rayBasedOcclusionLevel(
     }
     occlusionLevel = (double) occlusionRays / (double) numRays;
     std::cout << "Number of rays: " << numRays << std::endl;
+    std::cout << "Number of cloud intersection rays: " << cloudIntersecRays << std::endl;
+    std::cout << "Number of polygon intersection rays: " << polygonIntersecRays << std::endl;
     std::cout << "Number of occlusion rays: " << occlusionRays << std::endl;
     std::cout << "Occlusion level: " << occlusionLevel << std::endl;
     return occlusionLevel;

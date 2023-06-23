@@ -73,15 +73,16 @@ void Property::calculateDensity(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud)
         cloud_with_density->points[i].y = cloud->points[i].y;
         cloud_with_density->points[i].z = cloud->points[i].z;
         cloud_with_density->points[i].intensity = densities[i];
-        std::cout << " Density saved. "<< std::endl;
+        std::cout << " Density is "<< densities[i] << std::endl;
     }
 
     cloud_with_density->width = cloud->width;
     cloud_with_density->height = cloud->height;
     cloud_with_density->is_dense = cloud->is_dense;
     
-    pcl::io::savePCDFile<pcl::PointXYZI>("output_cloud/ICH_room_output.pcd", *cloud_with_density);
-    std::cout << " Point cloud with density saved. " << std::endl;
+
+    // pcl::io::savePCDFile<pcl::PointXYZI>("output_cloud/ICH_room_output.pcd", *cloud_with_density);
+    // std::cout << " Point cloud with density saved. " << std::endl;
 }
 
 
