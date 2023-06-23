@@ -18,21 +18,22 @@ int main(int argc, char *argv[])
 {   
     auto start = std::chrono::high_resolution_clock::now();
 
-    std::string input_path = "../files/input/ich.pcd";
+    std::string inputPath = "../files/input/rg.pcd";
+    std::string polygonDataPath = "../files/input/centered_cloud-polygon.txt";
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
 
-    if (pcl::io::loadPCDFile<pcl::PointXYZ>(input_path, *cloud) == -1) {
+    if (pcl::io::loadPCDFile<pcl::PointXYZ>(inputPath, *cloud) == -1) {
         PCL_ERROR("Couldn't read file\n");
         return (-1);
     }
 
-    std::cout << "Loaded "
+    std::cout << "Pure cloud loaded "
               << std::endl;
 
     // pcl::PointCloud<pcl::PointXYZRGB>::Ptr colored_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);          
 
-    // if (pcl::io::loadPCDFile<pcl::PointXYZRGB>(input_path, *colored_cloud) == -1) {
+    // if (pcl::io::loadPCDFile<pcl::PointXYZRGB>(inputPath, *colored_cloud) == -1) {
     //     PCL_ERROR("Couldn't read file\n");
     //     return (-1);
     // }
@@ -45,32 +46,34 @@ int main(int argc, char *argv[])
     Helper helper;
     visualizer vis;
 
-    // recon.poissonReconstruction(cloud);
-    // recon.marchingCubesReconstruction(cloud);
-    // std::string s3dTxtPath = "/mnt/c/Users/yufeng/Desktop/Stanford3dDataset_v1.2_Aligned_Version/Area_1/conferenceRoom_1/conferenceRoom_1.txt";
-    // recon.pointCloudReconstructionFromTxt(s3dTxtPath);
-
     // prop.calculateDensity(cloud);
-    // prop.calculateLocalPointNeighborhood(cloud);
-    // prop.boundaryEstimation(cloud, 90, input_path);
+    // prop.boundaryEstimation(cloud, 110, input_path);
 
-    // helper.estimateOcclusion(cloud);
+    // helper.extractWalls(cloud);
+    // helper.centerCloud(cloud, colored_cloud);
     // helper.voxelizePointCloud(cloud);
-    helper.regionGrowingSegmentation(cloud);
+    // helper.regionGrowingSegmentation(cloud);
+    std::vector<std::vector<pcl::PointXYZ>> polygons = helper.parsePolygonData(polygonDataPath);
+    std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds;
+    std::vector<pcl::ModelCoefficients::Ptr> allCoefficients;
+    for (int i = 0; i < polygons.size(); i++) {
+        pcl::ModelCoefficients::Ptr coefficients = helper.computePlaneCoefficients(polygons[i]);
+        allCoefficients.push_back(coefficients);
+        pcl::PointCloud<pcl::PointXYZ>::Ptr polygon = helper.estimatePolygon(polygons[i], coefficients);
+        polygonClouds.push_back(polygon);
+    }
 
-    // helper.removeOutliers(cloud);
     // int color[3] = {188, 189, 34};
     // helper.removePointsInSpecificColor(colored_cloud, color);
 
-    // double occlusionLevel = 0.0;
-    // occlusionLevel = helper.rayBasedOcclusionLevel(cloud, 2000, 0.05, 0.05);
+    double occlusionLevel = 0.0;
+    occlusionLevel = helper.rayBasedOcclusionLevel(cloud, 2000, 0.05, 0.1, polygonClouds, allCoefficients);
 
-    // auto stop = std::chrono::high_resolution_clock::now();
-    // auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
+    auto stop = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
 
-    // std::cout << "Time taken by this run: " << duration.count() << " seconds" << std::endl;
+    std::cout << " Time taken by this run: " << duration.count() << " seconds" << std::endl;
 
-    // vis.visualizePointCloud(cloud);
 
     return 0;
 }

@@ -37,8 +37,8 @@ void visualizer::visualizePointCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud)
     );
     
     while (!viewer.wasStopped()) {
-        viewer.spinOnce(500);
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        viewer.spinOnce(100);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 }
 
@@ -64,42 +64,5 @@ void visualizer::keyboardEventOccurred(const pcl::visualization::KeyboardEvent& 
 }
 
 // estimate plane based on a vector of points
-pcl::PointCloud<pcl::PointXYZ>::Ptr visualizer::estimatePolygon(std::vector<pcl::PointXYZ> points)
-{
-    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
-    for (auto& point : points)
-        cloud->points.push_back(point);
 
-    pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
-    pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
-    pcl::SACSegmentation<pcl::PointXYZ> seg;
-    seg.setOptimizeCoefficients(true);
-    seg.setModelType(pcl::SACMODEL_PLANE);
-    seg.setMethodType(pcl::SAC_RANSAC);
-    seg.setDistanceThreshold(0.01);
-    seg.setInputCloud(cloud);
-    seg.segment(*inliers, *coefficients);
-
-    if (inliers->indices.size() == 0) {
-        PCL_ERROR("Could not estimate a planar model for the given dataset.");
-        return nullptr;
-    }
-
-    pcl::ProjectInliers<pcl::PointXYZ> proj;
-    proj.setModelType(pcl::SACMODEL_PLANE);
-    proj.setInputCloud(cloud);
-    proj.setModelCoefficients(coefficients);
-
-    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_projected(new pcl::PointCloud<pcl::PointXYZ>);
-    proj.filter(*cloud_projected);
-
-    pcl::PointCloud<pcl::PointXYZ>::Ptr polygon(new pcl::PointCloud<pcl::PointXYZ>);
-    for (auto& point : cloud_projected->points)
-        polygon->points.push_back(point);
-
-    pcl::visualization::PCLVisualizer::Ptr viewer(new pcl::visualization::PCLVisualizer("3D Viewer"));
-    viewer->addPolygon<pcl::PointXYZ>(polygon, "polygon");
-
-    return polygon;
-}
 

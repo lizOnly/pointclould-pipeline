@@ -11,8 +11,6 @@ class visualizer
 
         void visualizePointCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);
         void pointPickingEventOccurred(const pcl::visualization::PointPickingEvent& event, void* viewer_void);
-        void keyboardEventOccurred(const pcl::visualization::KeyboardEvent& event, void* viewer_void);
-        pcl::PointCloud<pcl::PointXYZ>::Ptr estimatePolygon(std::vector<pcl::PointXYZ> points);
-        
+        void keyboardEventOccurred(const pcl::visualization::KeyboardEvent& event, void* viewer_void);        
 };
 
