@@ -50,7 +50,8 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Helper::voxelizePointCloud(pcl::PointClou
     return cloud_filtered;
 }
 
-void Helper::centerCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud) {
+void Helper::centerCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, 
+                         pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud) {
     pcl::PointXYZ minPt, maxPt;
     pcl::getMinMax3D(*cloud, minPt, maxPt);
     std::cout << "Max x: " << maxPt.x << ", Max y: " << maxPt.y << ", Max z: " << maxPt.z << std::endl;
@@ -76,7 +77,7 @@ void Helper::centerCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointCl
     coloredCloud->height = 1;
     coloredCloud->is_dense = true;
     
-    pcl::io::savePCDFileASCII("../files/output/centered_cloud.pcd", *coloredCloud);
+    pcl::io::savePCDFileASCII("../files/output/centered_cloud_2.pcd", *coloredCloud);
 }
 
 /*
@@ -267,11 +268,11 @@ pcl::PointCloud<pcl::Normal>::Ptr normalEstimation(pcl::PointCloud<pcl::PointXYZ
     return normals;
 }
 
-std::vector<pcl::PointXYZ> Helper::getSphereLightSourceCenters(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud){
+std::vector<pcl::PointXYZ> Helper::getSphereLightSourceCenters(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud,
+                                                               pcl::PointXYZ minPt,
+                                                               pcl::PointXYZ maxPt){
     std::vector<pcl::PointXYZ> centers;
     // calculate bounding box
-    pcl::PointXYZ minPt, maxPt;
-    pcl::getMinMax3D(*cloud, minPt, maxPt);
     std::cout << "Max x: " << maxPt.x << ", Max y: " << maxPt.y << ", Max z: " << maxPt.z << std::endl;
     std::cout << "Min x: " << minPt.x << ", Min y: " << minPt.y << ", Min z: " << minPt.z << std::endl;
 
@@ -560,6 +561,13 @@ pcl::PointXYZ Helper::rayBoxIntersection(const Ray3D& ray,
 /*
     * This function checks if a ray intersects a point cloud.
     * It returns true if the ray intersects the point cloud, and false otherwise.
+    * @param ray: the ray
+    * @param step: the step size for ray traversal
+    * @param radius: the radius for radius search
+    * @param minPt: the minimum point of the bounding box of the point cloud
+    * @param maxPt: the maximum point of the bounding box of the point cloud
+    * @param kdtree: the kd-tree for the point cloud
+    * @return: true if the ray intersects the point cloud, and false otherwise
 */
 bool Helper::rayIntersectPointCloud(const Ray3D& ray, 
                                     double step, double radius, 
@@ -590,25 +598,24 @@ bool Helper::rayIntersectPointCloud(const Ray3D& ray,
     * @return: the occlusion level of the point cloud
 */
 
-double Helper::rayBasedOcclusionLevel(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, 
+double Helper::rayBasedOcclusionLevel(pcl::PointXYZ minPt, pcl::PointXYZ maxPt,
+                                      pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, 
                                       std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds,
                                       std::vector<pcl::ModelCoefficients::Ptr> allCoefficients) {
-    std::vector<pcl::PointXYZ> centers = Helper::getSphereLightSourceCenters(cloud);
+    
+    std::vector<pcl::PointXYZ> centers = Helper::getSphereLightSourceCenters(cloud, minPt, maxPt);
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
     kdtree.setInputCloud(cloud);
 
     size_t num_samples = 4000;
     double step = 0.05; // step size for ray traversal
-    double radius = 0.1; // radius for radius search
+    double radius = 0.05; // radius for radius search
     double occlusionLevel = 0.0;
     int numRays = centers.size() * num_samples;
     int occlusionRays = 0;
     int polygonIntersecRays = 0;
     int cloudIntersecRays = 0;
 
-    pcl::PointXYZ minPt, maxPt;
-    pcl::getMinMax3D(*cloud, minPt, maxPt);
-    std::cout << "Max x: " << maxPt.x << ", Max y: " << maxPt.y << ", Max z: " << maxPt.z << std::endl;
 
     for (size_t i = 0; i < centers.size(); ++i) {
         std::cout << "*********Center " << i << ": " << centers[i].x << ", " << centers[i].y << ", " << centers[i].z << "*********" << std::endl;
