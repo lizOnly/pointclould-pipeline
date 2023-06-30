@@ -50,83 +50,78 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Helper::voxelizePointCloud(pcl::PointClou
     return cloud_filtered;
 }
 
-void Helper::centerCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, 
-                         pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud) {
-    pcl::PointXYZ minPt, maxPt;
-    pcl::getMinMax3D(*cloud, minPt, maxPt);
-    std::cout << "Max x: " << maxPt.x << ", Max y: " << maxPt.y << ", Max z: " << maxPt.z << std::endl;
-    std::cout << "Min x: " << minPt.x << ", Min y: " << minPt.y << ", Min z: " << minPt.z << std::endl;
+pcl::PointXYZ Helper::transformPoint(pcl::PointXYZ& point,
+                                     pcl::PointXYZ& center) {
+    point.x -= center.x;
+    point.y -= center.y;
+    point.z -= center.z;
 
+    Eigen::Affine3f transform = Eigen::Affine3f::Identity();
+    transform.rotate(Eigen::AngleAxisf(-M_PI/2, Eigen::Vector3f::UnitX()));
+
+    Eigen::Vector4f pointAsVector(point.x, point.y, point.z, 1.0);
+    Eigen::Vector4f transformedPointAsVector = transform * pointAsVector;
+    
+    return pcl::PointXYZ(transformedPointAsVector[0], transformedPointAsVector[1], transformedPointAsVector[2]);
+}
+
+pcl::PointCloud<pcl::PointXYZ>::Ptr Helper::centerCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud,
+                                                        pcl::PointXYZ& minPt, 
+                                                        pcl::PointXYZ& maxPt) {
     pcl::PointXYZ center;
     center.x = (maxPt.x + minPt.x) / 2;
     center.y = (maxPt.y + minPt.y) / 2;
     center.z = (maxPt.z + minPt.z) / 2;
 
     for (size_t i = 0; i < cloud->points.size(); ++i) {
+        cloud->points[i].x -= center.x;
+        cloud->points[i].y -= center.y;
+        cloud->points[i].z -= center.z;
+    }
+
+    Eigen::Affine3f transform = Eigen::Affine3f::Identity();
+    transform.rotate(Eigen::AngleAxisf(-M_PI/2, Eigen::Vector3f::UnitX()));
+    pcl::transformPointCloud(*cloud, *cloud, transform);
+    std::cout << "Transformed cloud" << std::endl;
+
+    cloud->width = cloud->points.size();
+    cloud->height = 1;
+    cloud->is_dense = true;
+    
+    return cloud;
+}
+
+
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr Helper::centerColoredCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud,
+                                                                  pcl::PointXYZ& minPt, 
+                                                                  pcl::PointXYZ& maxPt,
+                                                                  std::string file_name) {
+    pcl::PointXYZ center;
+    center.x = (maxPt.x + minPt.x) / 2;
+    center.y = (maxPt.y + minPt.y) / 2;
+    center.z = (maxPt.z + minPt.z) / 2;
+
+    for (size_t i = 0; i < coloredCloud->points.size(); ++i) {
         coloredCloud->points[i].x -= center.x;
         coloredCloud->points[i].y -= center.y;
         coloredCloud->points[i].z -= center.z;
     }
+
     Eigen::Affine3f transform = Eigen::Affine3f::Identity();
-    transform.rotate(Eigen::AngleAxisf(-M_PI/2, Eigen::Vector3f::UnitX()));
+    transform.rotate(Eigen::AngleAxisf(-M_PI / 2, Eigen::Vector3f::UnitX()));
     pcl::transformPointCloud(*coloredCloud, *coloredCloud, transform);
-    std::cout << "Transformed cloud" << std::endl;
+    std::cout << "Transformed colored cloud" << std::endl;
 
     coloredCloud = Helper::voxelizePointCloud(coloredCloud);
     coloredCloud->width = coloredCloud->points.size();
     coloredCloud->height = 1;
     coloredCloud->is_dense = true;
     
-    pcl::io::savePCDFileASCII("../files/output/centered_cloud_2.pcd", *coloredCloud);
+    pcl::io::savePCDFileASCII("../files/output/" + file_name.substr(0, file_name.length() - 4) + "_centered" + file_name.substr(file_name.length() - 4, file_name.length()), *coloredCloud);
+
+    return coloredCloud;
 }
 
-/*
-    Voxel grid occlusion estimation
-*/
-void Helper::estimateOcclusion(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud) {
-    pcl::VoxelGridOcclusionEstimation<pcl::PointXYZ> voxelFilter;
-    voxelFilter.setInputCloud(cloud);
-    voxelFilter.setLeafSize(0.05f, 0.05f, 0.05f);
-
-    voxelFilter.initializeVoxelGrid();
-
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr colored_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
-
-    for (size_t i = 0; i < cloud->points.size(); ++i)
-    {
-        int state;
-        pcl::PointXYZ& point = cloud->points[i];
-        Eigen::Vector3i grid_coordinates = voxelFilter.getGridCoordinates(point.x, point.y, point.z);
-        
-        voxelFilter.occlusionEstimation(state, grid_coordinates);
-
-        pcl::PointXYZRGB colored_point;
-        colored_point.x = cloud->points[i].x;
-        colored_point.y = cloud->points[i].y;
-        colored_point.z = cloud->points[i].z;
-
-        if (state == 0) {
-            colored_point.r = 255;
-            colored_point.g = 255;
-            colored_point.b = 0;
-        } else {
-            colored_point.r = 0;
-            colored_point.g = 0;
-            colored_point.b = 255;
-        }
-        colored_cloud->points.push_back(colored_point);
-
-        // state will be 0 if point is occluded, 1 if it is visible
-        std::cout << "Point " << i << " is " << (state == 1 ? "visible" : "occluded") << std::endl;
-    }
-
-    colored_cloud->width = colored_cloud->points.size();
-    colored_cloud->height = 1;
-    colored_cloud->is_dense = true;
-
-    pcl::io::savePCDFileASCII("../files/output/oe_colored.pcd", *colored_cloud);
-
-}
 
 void Helper::extractWalls(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud) {
     pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
@@ -186,19 +181,7 @@ void Helper::extractWalls(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud) {
     pcl::io::savePCDFileASCII("../files/output/walls_south.pcd", *cloud_walls_south);
     pcl::io::savePCDFileASCII("../files/output/walls_east.pcd", *cloud_walls_east);
     pcl::io::savePCDFileASCII("../files/output/walls_west.pcd", *cloud_walls_west);
-
     pcl::io::savePCDFileASCII("../files/output/walls.pcd", *cloud_walls);
-}
-
-// bad results for now
-void Helper::removeOutliers(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud) {
-    pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor;
-    sor.setInputCloud(cloud);
-    sor.setMeanK(50);
-    sor.setStddevMulThresh(1.0);
-    sor.filter(*cloud);
-
-    pcl::io::savePCDFileASCII("../files/output/outlier_filtered_cloud.pcd", *cloud);
 }
 
 
@@ -256,26 +239,9 @@ void Helper::regionGrowingSegmentation(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud
 }
 
 
-pcl::PointCloud<pcl::Normal>::Ptr normalEstimation(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud) {
-    pcl::PointCloud<pcl::Normal>::Ptr normals(new pcl::PointCloud<pcl::Normal>);
-    pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> normal_estimation;
-    normal_estimation.setInputCloud(cloud);
-    pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
-    normal_estimation.setSearchMethod(tree);
-    normal_estimation.setRadiusSearch(0.02);
-    normal_estimation.compute(*normals);
+std::vector<pcl::PointXYZ> Helper::getSphereLightSourceCenters(pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt) {
 
-    return normals;
-}
-
-std::vector<pcl::PointXYZ> Helper::getSphereLightSourceCenters(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud,
-                                                               pcl::PointXYZ minPt,
-                                                               pcl::PointXYZ maxPt){
     std::vector<pcl::PointXYZ> centers;
-    // calculate bounding box
-    std::cout << "Max x: " << maxPt.x << ", Max y: " << maxPt.y << ", Max z: " << maxPt.z << std::endl;
-    std::cout << "Min x: " << minPt.x << ", Min y: " << minPt.y << ", Min z: " << minPt.z << std::endl;
-
     pcl::PointXYZ center;
     center.x = (maxPt.x + minPt.x) / 2;
     center.y = (maxPt.y + minPt.y) / 2;
@@ -381,6 +347,10 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr Helper::estimatePolygon(std::vector<pcl::Poi
 
 std::vector<std::vector<pcl::PointXYZ>> Helper::parsePolygonData(const std::string& filename) {
     std::ifstream infile(filename);
+    if (!infile.is_open()) {
+        throw std::runtime_error("Failed to open file: " + filename);
+    }
+
     std::string line;
     std::vector<std::vector<pcl::PointXYZ>> polygons;
     std::vector<pcl::PointXYZ> polygon;
@@ -515,15 +485,6 @@ bool Helper::rayIntersectDisk(const Ray3D& ray, const Disk3D& disk) {
     return false;
 }
 
-Disk3D Helper::convertPointToDisk(const pcl::PointXYZ& point, const pcl::Normal& normal, const double& radius) {
-    Disk3D disk;
-    disk.center = point;
-    disk.normal = normal;
-    disk.radius = radius;
-
-    return disk;
-}
-
 
 pcl::PointXYZ Helper::rayBoxIntersection(const Ray3D& ray, 
                                          const pcl::PointXYZ& minPt, 
@@ -554,7 +515,7 @@ pcl::PointXYZ Helper::rayBoxIntersection(const Ray3D& ray,
     intersection.x = ray.origin.x + t * ray.direction.x;
     intersection.y = ray.origin.y + t * ray.direction.y;
     intersection.z = ray.origin.z + t * ray.direction.z;
-
+    
     return intersection;
 }
 
@@ -570,8 +531,10 @@ pcl::PointXYZ Helper::rayBoxIntersection(const Ray3D& ray,
     * @return: true if the ray intersects the point cloud, and false otherwise
 */
 bool Helper::rayIntersectPointCloud(const Ray3D& ray, 
-                                    double step, double radius, 
-                                    pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt,
+                                    double step, 
+                                    double radius, 
+                                    pcl::PointXYZ& minPt, 
+                                    pcl::PointXYZ& maxPt,
                                     pcl::KdTreeFLANN<pcl::PointXYZ>& kdtree) {
     // get the first point along the ray, which is the intersection of the ray with the bounding box
     pcl::PointXYZ currentPoint = Helper::rayBoxIntersection(ray, minPt, maxPt);
@@ -598,12 +561,13 @@ bool Helper::rayIntersectPointCloud(const Ray3D& ray,
     * @return: the occlusion level of the point cloud
 */
 
-double Helper::rayBasedOcclusionLevel(pcl::PointXYZ minPt, pcl::PointXYZ maxPt,
+double Helper::rayBasedOcclusionLevel(pcl::PointXYZ& minPt, 
+                                      pcl::PointXYZ& maxPt,
                                       pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, 
                                       std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds,
                                       std::vector<pcl::ModelCoefficients::Ptr> allCoefficients) {
     
-    std::vector<pcl::PointXYZ> centers = Helper::getSphereLightSourceCenters(cloud, minPt, maxPt);
+    std::vector<pcl::PointXYZ> centers = Helper::getSphereLightSourceCenters(minPt, maxPt);
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
     kdtree.setInputCloud(cloud);
 
@@ -611,6 +575,7 @@ double Helper::rayBasedOcclusionLevel(pcl::PointXYZ minPt, pcl::PointXYZ maxPt,
     double step = 0.05; // step size for ray traversal
     double radius = 0.05; // radius for radius search
     double occlusionLevel = 0.0;
+
     int numRays = centers.size() * num_samples;
     int occlusionRays = 0;
     int polygonIntersecRays = 0;
@@ -618,36 +583,51 @@ double Helper::rayBasedOcclusionLevel(pcl::PointXYZ minPt, pcl::PointXYZ maxPt,
 
 
     for (size_t i = 0; i < centers.size(); ++i) {
+
         std::cout << "*********Center " << i << ": " << centers[i].x << ", " << centers[i].y << ", " << centers[i].z << "*********" << std::endl;
         std::vector<pcl::PointXYZ> samples = Helper::UniformSamplingSphere(centers[i], 0.1, num_samples);
+
         // iterate over the samples
         for (size_t j = 0; j < samples.size(); ++j) {
+
             Ray3D ray = Helper::generateRay(centers[i], samples[j]);
             std::cout << "samples " << j << ": " << samples[j].x << ", " << samples[j].y << ", " << samples[j].z << std::endl;
+            
             // check if the ray intersects any polygon or point cloud
             if (Helper::rayIntersectPointCloud(ray, step, radius, minPt, maxPt, kdtree)) {
+
                 std::cout << "*--> Ray hit cloud!!!" << std::endl;
                 cloudIntersecRays++;
+
             } else {
+
                 for (size_t k = 0; k < polygonClouds.size(); ++k) {
+
                     if (Helper::rayIntersectPolygon(ray, polygonClouds[k], allCoefficients[k])) {
+
                         std::cout << "*--> Ray didn't hit cloud but hit polygon of index " << k << std::endl;
                         polygonIntersecRays++;
                         break;
+
                     } else if (k == (polygonClouds.size() - 1)) {
+
                         std::cout << "*--> Ray did not hit anything, it's an occlusion" << std::endl;
                         occlusionRays++;
+
                     }
                 }
                 // occlusionRays++;
             }
         }
     }
+
     occlusionLevel = (double) occlusionRays / (double) numRays;
+    
     std::cout << "Number of rays: " << numRays << std::endl;
     std::cout << "Number of cloud intersection rays: " << cloudIntersecRays << std::endl;
     std::cout << "Number of polygon intersection rays: " << polygonIntersecRays << std::endl;
     std::cout << "Number of occlusion rays: " << occlusionRays << std::endl;
     std::cout << "Occlusion level: " << occlusionLevel << std::endl;
+    
     return occlusionLevel;
 }
