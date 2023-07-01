@@ -38,17 +38,19 @@ Helper::~Helper() {
     // empty destructor
 }
 
+template <typename PointT>
 
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr Helper::voxelizePointCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud) {
-    pcl::VoxelGrid<pcl::PointXYZRGB> vg;
+typename pcl::PointCloud<PointT>::Ptr Helper::voxelizePointCloud(typename pcl::PointCloud<PointT>::Ptr cloud) {
+    pcl::VoxelGrid<PointT> vg;
     vg.setInputCloud(cloud);
-    vg.setLeafSize(0.05f, 0.05f, 0.05f);
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZRGB>);
+    vg.setLeafSize(0.03f, 0.03f, 0.03f);
+    typename pcl::PointCloud<PointT>::Ptr cloud_filtered(new pcl::PointCloud<PointT>);
     vg.filter(*cloud_filtered);
-    std::cout << "PointCloud after filtering has: " << cloud_filtered->points.size() << " data points." << std::endl;
-    // pcl::io::savePCDFileASCII("../files/output/voxelized_pcd.pcd", *cloud_filtered);
+    std::cout << "Point cloud after filtering has: " << cloud_filtered->points.size() << " data points." << std::endl;
+
     return cloud_filtered;
 }
+
 
 pcl::PointXYZ Helper::transformPoint(pcl::PointXYZ& point,
                                      pcl::PointXYZ& center) {
@@ -84,6 +86,8 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr Helper::centerCloud(pcl::PointCloud<pcl::Poi
     pcl::transformPointCloud(*cloud, *cloud, transform);
     std::cout << "Transformed cloud" << std::endl;
 
+    cloud = Helper::voxelizePointCloud<pcl::PointXYZ>(cloud);
+
     cloud->width = cloud->points.size();
     cloud->height = 1;
     cloud->is_dense = true;
@@ -112,12 +116,13 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Helper::centerColoredCloud(pcl::PointClou
     pcl::transformPointCloud(*coloredCloud, *coloredCloud, transform);
     std::cout << "Transformed colored cloud" << std::endl;
 
-    coloredCloud = Helper::voxelizePointCloud(coloredCloud);
+    coloredCloud = Helper::voxelizePointCloud<pcl::PointXYZRGB>(coloredCloud);
+
     coloredCloud->width = coloredCloud->points.size();
     coloredCloud->height = 1;
     coloredCloud->is_dense = true;
     
-    pcl::io::savePCDFileASCII("../files/output/" + file_name.substr(0, file_name.length() - 4) + "_centered" + file_name.substr(file_name.length() - 4, file_name.length()), *coloredCloud);
+    pcl::io::savePCDFileASCII("../files/" + file_name, *coloredCloud);
 
     return coloredCloud;
 }
@@ -177,11 +182,11 @@ void Helper::extractWalls(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud) {
     cloud_walls_west->width = cloud_walls_west->points.size();
     cloud_walls_west->height = 1;
 
-    pcl::io::savePCDFileASCII("../files/output/walls_north.pcd", *cloud_walls_north);
-    pcl::io::savePCDFileASCII("../files/output/walls_south.pcd", *cloud_walls_south);
-    pcl::io::savePCDFileASCII("../files/output/walls_east.pcd", *cloud_walls_east);
-    pcl::io::savePCDFileASCII("../files/output/walls_west.pcd", *cloud_walls_west);
-    pcl::io::savePCDFileASCII("../files/output/walls.pcd", *cloud_walls);
+    pcl::io::savePCDFileASCII("../files/walls_north.pcd", *cloud_walls_north);
+    pcl::io::savePCDFileASCII("../files/walls_south.pcd", *cloud_walls_south);
+    pcl::io::savePCDFileASCII("../files/walls_east.pcd", *cloud_walls_east);
+    pcl::io::savePCDFileASCII("../files/walls_west.pcd", *cloud_walls_west);
+    pcl::io::savePCDFileASCII("../files/walls.pcd", *cloud_walls);
 }
 
 
@@ -203,7 +208,7 @@ void Helper::removePointsInSpecificColor(pcl::PointCloud<pcl::PointXYZRGB>::Ptr 
     filtered_cloud->height = 1;
     filtered_cloud->is_dense = true;
 
-    pcl::io::savePCDFileASCII("../files/output/specific_color_filtered_cloud.pcd", *filtered_cloud);
+    pcl::io::savePCDFileASCII("../files/specific_color_filtered_cloud.pcd", *filtered_cloud);
 
 }
 
@@ -381,6 +386,7 @@ std::vector<std::vector<pcl::PointXYZ>> Helper::parsePolygonData(const std::stri
 bool Helper::rayIntersectPolygon(const Ray3D& ray, 
                                  const pcl::PointCloud<pcl::PointXYZ>::Ptr& polygonCloud, 
                                  const pcl::ModelCoefficients::Ptr coefficients) {
+                                    
     float a = coefficients->values[0];
     float b = coefficients->values[1];
     float c = coefficients->values[2];
@@ -402,8 +408,10 @@ bool Helper::rayIntersectPolygon(const Ray3D& ray,
     // Calculate the denominator of the t parameter
     float denom = a * dx + b * dy + c * dz;
     if (fabs(denom) > std::numeric_limits<float>::epsilon()) {
+
         float t = -(a * ox + b * oy + c * oz + d) / denom;
         // If t is negative, the intersection point is "behind" the origin of the ray (we usually discard this case)
+        
         if (t >= 0) {
             intersection.x = ox + t * dx;
             intersection.y = oy + t * dy;
@@ -442,6 +450,7 @@ bool Helper::rayIntersectPolygon(const Ray3D& ray,
 
 
 Ray3D Helper::generateRay(const pcl::PointXYZ& center, const pcl::PointXYZ& surfacePoint) {
+
     Ray3D ray;
     ray.origin = center;
 
@@ -454,6 +463,7 @@ Ray3D Helper::generateRay(const pcl::PointXYZ& center, const pcl::PointXYZ& surf
     double magnitude = sqrt(ray.direction.x * ray.direction.x +
                             ray.direction.y * ray.direction.y +
                             ray.direction.z * ray.direction.z);
+                            
     ray.direction.x /= magnitude;
     ray.direction.y /= magnitude;
     ray.direction.z /= magnitude;
@@ -463,6 +473,7 @@ Ray3D Helper::generateRay(const pcl::PointXYZ& center, const pcl::PointXYZ& surf
 
 
 bool Helper::rayIntersectDisk(const Ray3D& ray, const Disk3D& disk) {
+
     // Compute the vector from the ray origin to the disk center
     pcl::PointXYZ oc;
     oc.x = disk.center.x - ray.origin.x;
@@ -536,21 +547,26 @@ bool Helper::rayIntersectPointCloud(const Ray3D& ray,
                                     pcl::PointXYZ& minPt, 
                                     pcl::PointXYZ& maxPt,
                                     pcl::KdTreeFLANN<pcl::PointXYZ>& kdtree) {
+
     // get the first point along the ray, which is the intersection of the ray with the bounding box
     pcl::PointXYZ currentPoint = Helper::rayBoxIntersection(ray, minPt, maxPt);
     
     while((currentPoint.x - ray.origin.x) > step || (currentPoint.y - ray.origin.y) > step || (currentPoint.z - ray.origin.z) > step) {
+        
         std::vector<int> pointIdxRadiusSearch;
         std::vector<float> pointRadiusSquaredDistance;
         
         if (kdtree.radiusSearch(currentPoint, radius, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
             return true;
         }
+
         // update the current point along the ray
         currentPoint.x -= step * ray.direction.x;
         currentPoint.y -= step * ray.direction.y;
         currentPoint.z -= step * ray.direction.z;
+
     }
+
     return false;
 }
 

@@ -13,7 +13,9 @@ class Helper {
         Helper();
         ~Helper();
         
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr voxelizePointCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud);
+        template <typename PointT>
+
+        typename pcl::PointCloud<PointT>::Ptr voxelizePointCloud(typename pcl::PointCloud<PointT>::Ptr cloud);
 
         pcl::PointXYZ transformPoint(pcl::PointXYZ& point, pcl::PointXYZ& center);
 

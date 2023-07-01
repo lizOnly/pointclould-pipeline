@@ -2,7 +2,6 @@
 **/.build
 **/build
 
-**/files/input/*
-**/files/output/*
+**/files/*
 
 .vscode
