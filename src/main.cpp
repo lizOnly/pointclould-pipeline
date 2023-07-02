@@ -29,7 +29,6 @@ int main(int argc, char *argv[])
     args_map["-rs="] = "--raysample==";
     args_map["-o"] = "--occlusion";
     args_map["-h"] = "--help";
-    args_map["-c"] = "--center";
     args_map["-rc"] = "--removecolor";
 
 
@@ -127,14 +126,18 @@ int main(int argc, char *argv[])
         } else if (argi == "-o" || argi == "--occlusion") {
             
             std::vector<std::vector<pcl::PointXYZ>> polygons = helper.parsePolygonData(polygon_path);
+
             std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds;
             std::vector<pcl::ModelCoefficients::Ptr> allCoefficients;
 
             for (int i = 0; i < polygons.size(); i++) {
+
                 pcl::ModelCoefficients::Ptr coefficients = helper.computePlaneCoefficients(polygons[i]);
                 allCoefficients.push_back(coefficients);
+
                 pcl::PointCloud<pcl::PointXYZ>::Ptr polygon = helper.estimatePolygon(polygons[i], coefficients);
                 polygonClouds.push_back(polygon);
+            
             }
 
             double occlusionLevel = helper.rayBasedOcclusionLevel(minPt, maxPt, centered_cloud, polygonClouds, allCoefficients);
@@ -142,9 +145,6 @@ int main(int argc, char *argv[])
         } 
     }
 
-    // int color[3] = {188, 189, 34};
-    // helper.removePointsInSpecificColor(colored_cloud, color);
- 
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
     std::cout << " Time taken by this run: " << duration.count() << " seconds" << std::endl;
