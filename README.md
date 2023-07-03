@@ -12,17 +12,24 @@ cd pcd_pipeline
 mkdir build
 cd build
 cmake ..
-make
+make -j4 # denpending on how many cores your cpu has
 
-# the second arguments should always be file name
-# if no other arguments were specified, this will recenter cloud to (0, 0, 0)
-./pcd_pipeline -i=cloud.pcd 
+# below are examples about how to actually use this programm
+
+# if only input path specified, the cloud will be recentered to origin of coordinate system
+./pcd_pipeline ( -i=cloud.pcd | --input_path==cloud.pcd )
 
 # 200 rays downsample clouds
-./pcd_pipeline -i=cloud.pcd -rs=200
+./pcd_pipeline -i=cloud.pcd ( -rs=200 | --raysample==200 )
 
 # compute occlusion level
-./pcd_pipeline -i=cloud.pcd -o
+./pcd_pipeline -i=cloud.pcd ( -o | --occlusion )
+
+# reconstruct point cloud from .txt file
+./pcd_pipeline ( -rc=text.txt | --reconstruct==text.txt )
+
+# rotate cloud along x-axis 90 degress clockwise
+./pcd_pipeline ( -rt | --rotate )
 
 ```
 

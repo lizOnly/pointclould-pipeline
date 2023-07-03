@@ -125,5 +125,12 @@ void Reconstruction::pointCloudReconstructionFromTxt(std::string path)
     std::cout << "Loaded " << cloud->width << " points" << std::endl;
     cloud->height = 1;
 
-    pcl::io::savePCDFile("../files/output/reconstructed_point_cloud.pcd", *cloud);
+    pcl::io::savePCDFile("../files/recon_cloud.pcd", *cloud);
 }
+
+
+// void Reconstruction::batchReconstructionFromTxt() {
+
+// }
+
+

@@ -71,7 +71,7 @@ void Validation::raySampledCloud(double step,
         }
     }
 
-    std::cout << "total points: " << addedPoints.size() << std::endl;
+    std::cout << "total points after downsampling: " << addedPoints.size() << std::endl;
 
     for (const auto& ptIdx : addedPoints) {
 

@@ -29,13 +29,21 @@ int main(int argc, char *argv[])
     args_map["-rs="] = "--raysample==";
     args_map["-o"] = "--occlusion";
     args_map["-h"] = "--help";
-    args_map["-rc"] = "--removecolor";
+    args_map["-rc="] = "--reconstruct";
+    args_map["-c"] = "--center";
+    args_map["-f"] = "--filter";
+    args_map["-rt"] = "--rotate";  // rotate the cloud around the x-axis by 90 degrees clockwise
+
 
 
     int num_ray_sample = 1000; // default value, ray downsampling cloud
+    bool filter_cloud = false;
+    double epsilon = 0.01;
+
     std::string file_name = "";
     std::string input_path = "";
     std::string polygon_path = "../files/polygon.txt";
+    std::string recon_path = "";
 
     Property prop;
     Reconstruction recon;
@@ -49,13 +57,33 @@ int main(int argc, char *argv[])
 
     // first argument is always the input file name
     std::string arg1 = argv[1];
+
     if (arg1.substr(0, 3) == "-i=") {
+
         file_name = arg1.substr(3, arg1.length());
+
     } else if (arg1.substr(0, 9) == "--input==") {
+
         file_name = arg1.substr(9, arg1.length());
-    } else {
-        std::cout << "You have to provide an input file name" << std::endl;
+
+    } else if (arg1.substr(0, 4) == "-rc=" || arg1.substr(0, 15) == "--reconstruct==") {
+
+        if (arg1.substr(0, 4) == "-rc=") {
+
+            recon_path = "../files/" + arg1.substr(4, arg1.length());
+
+        } else {
+
+            recon_path = "../files/" + arg1.substr(14, arg1.length());
+
+        }
+
+        recon.pointCloudReconstructionFromTxt(recon_path);
+
+        std::cout << "recon_path: " << recon_path << std::endl;
+
         return 0;
+
     }
 
     input_path = "../files/" + file_name;
@@ -68,6 +96,8 @@ int main(int argc, char *argv[])
         return (-1);
     }
 
+    std::cout << "Loaded " << cloud->width * cloud->height << " data points from " << file_name << std::endl;
+
     pcl::PointXYZ minPt, maxPt;
     pcl::getMinMax3D(*cloud, minPt, maxPt);
 
@@ -75,6 +105,8 @@ int main(int argc, char *argv[])
     center.x = (minPt.x + maxPt.x) / 2;
     center.y = (minPt.y + maxPt.y) / 2;
     center.z = (minPt.z + maxPt.z) / 2;
+
+    std::cout << "center: " << center.x << " " << center.y << " " << center.z << std::endl;
 
 
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr colored_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);          
@@ -86,7 +118,7 @@ int main(int argc, char *argv[])
     pcl::PointCloud<pcl::PointXYZ>::Ptr centered_cloud(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr centered_colored_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
 
-    if (center.x == 0 && center.y == 0 && center.z == 0) {
+    if (center.x < epsilon && center.y < epsilon && center.z < epsilon) {
         
         std::cout << "center is [0, 0, 0,] there's no need to recenter it " << std::endl;
         
@@ -128,6 +160,7 @@ int main(int argc, char *argv[])
             std::vector<std::vector<pcl::PointXYZ>> polygons = helper.parsePolygonData(polygon_path);
 
             std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds;
+
             std::vector<pcl::ModelCoefficients::Ptr> allCoefficients;
 
             for (int i = 0; i < polygons.size(); i++) {
@@ -142,7 +175,13 @@ int main(int argc, char *argv[])
 
             double occlusionLevel = helper.rayBasedOcclusionLevel(minPt, maxPt, centered_cloud, polygonClouds, allCoefficients);
         
+        } else if (argi == "-rt" || argi == "--rotate") {
+            
+            centered_cloud = helper.centerCloud(centered_cloud, minPt, maxPt);
+            centered_colored_cloud = helper.centerColoredCloud(centered_colored_cloud, minPt, maxPt, file_name);
+
         } 
+
     }
 
     auto stop = std::chrono::high_resolution_clock::now();

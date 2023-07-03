@@ -48,6 +48,12 @@ typename pcl::PointCloud<PointT>::Ptr Helper::voxelizePointCloud(typename pcl::P
     vg.filter(*cloud_filtered);
     std::cout << "Point cloud after filtering has: " << cloud_filtered->points.size() << " data points." << std::endl;
 
+    cloud_filtered->width = cloud_filtered->points.size();
+    cloud_filtered->height = 1;
+    cloud_filtered->is_dense = true;
+
+    pcl::io::savePCDFileASCII("../files/voxel_filtered_cloud.pcd" , *cloud_filtered);
+
     return cloud_filtered;
 }
 
@@ -76,9 +82,11 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr Helper::centerCloud(pcl::PointCloud<pcl::Poi
     center.z = (maxPt.z + minPt.z) / 2;
 
     for (size_t i = 0; i < cloud->points.size(); ++i) {
+
         cloud->points[i].x -= center.x;
         cloud->points[i].y -= center.y;
         cloud->points[i].z -= center.z;
+
     }
 
     Eigen::Affine3f transform = Eigen::Affine3f::Identity();
@@ -86,14 +94,19 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr Helper::centerCloud(pcl::PointCloud<pcl::Poi
     pcl::transformPointCloud(*cloud, *cloud, transform);
     std::cout << "Transformed cloud" << std::endl;
 
-    cloud = Helper::voxelizePointCloud<pcl::PointXYZ>(cloud);
-
     cloud->width = cloud->points.size();
     cloud->height = 1;
     cloud->is_dense = true;
     
     return cloud;
 }
+
+
+// void Helper::reversePos(pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt) {
+//     pcl::PointXYZ temp = minPt;
+//     minPt = maxPt;
+//     maxPt = temp;
+// }
 
 
 pcl::PointCloud<pcl::PointXYZRGB>::Ptr Helper::centerColoredCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud,
@@ -106,17 +119,17 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Helper::centerColoredCloud(pcl::PointClou
     center.z = (maxPt.z + minPt.z) / 2;
 
     for (size_t i = 0; i < coloredCloud->points.size(); ++i) {
+
         coloredCloud->points[i].x -= center.x;
         coloredCloud->points[i].y -= center.y;
         coloredCloud->points[i].z -= center.z;
+    
     }
 
     Eigen::Affine3f transform = Eigen::Affine3f::Identity();
     transform.rotate(Eigen::AngleAxisf(-M_PI / 2, Eigen::Vector3f::UnitX()));
     pcl::transformPointCloud(*coloredCloud, *coloredCloud, transform);
     std::cout << "Transformed colored cloud" << std::endl;
-
-    coloredCloud = Helper::voxelizePointCloud<pcl::PointXYZRGB>(coloredCloud);
 
     coloredCloud->width = coloredCloud->points.size();
     coloredCloud->height = 1;
@@ -127,8 +140,14 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Helper::centerColoredCloud(pcl::PointClou
     return coloredCloud;
 }
 
-
+/*
+    This function is used exstract the walls from the point cloud
+    and save them in a separate file
+    @param cloud: the point cloud
+    @return void
+*/
 void Helper::extractWalls(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud) {
+
     pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
     ne.setInputCloud(cloud);
 
@@ -148,22 +167,36 @@ void Helper::extractWalls(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud) {
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_walls_west(new pcl::PointCloud<pcl::PointXYZ>);
 
     for (size_t i = 0; i < cloud->points.size(); ++i) {
+
         if (fabs(cloud_normals->points[i].normal_z) < 0.05) {
+
             if (fabs(cloud_normals->points[i].normal_x) > fabs(cloud_normals->points[i].normal_y)) {
+
                 if (cloud_normals->points[i].normal_x > 0) {
+
                     cloud_walls_north->points.push_back(cloud->points[i]);
+
                 } else {
+
                     cloud_walls_south->points.push_back(cloud->points[i]);
+
                 }
             } else {
+
                 if (cloud_normals->points[i].normal_y > 0) {
+
                     cloud_walls_east->points.push_back(cloud->points[i]);
+
                 } else {
+
                     cloud_walls_west->points.push_back(cloud->points[i]);
+
                 }
             }
+
             cloud_walls->points.push_back(cloud->points[i]);
         }
+
     }
 
     cloud_walls->width = cloud_walls->points.size();
@@ -257,14 +290,38 @@ std::vector<pcl::PointXYZ> Helper::getSphereLightSourceCenters(pcl::PointXYZ& mi
     // Points at the midpoints of the body diagonals (diagonal was divided by center point )
     pcl::PointXYZ midpoint1, midpoint2, midpoint3, midpoint4,
                   midpoint5, midpoint6, midpoint7, midpoint8;
-    midpoint1.x = (center.x + minPt.x) / 2; midpoint1.y = (center.y + minPt.y) / 2; midpoint1.z = (center.z + minPt.z) / 2; 
-    midpoint2.x = (center.x + minPt.x) / 2; midpoint2.y = (center.y + minPt.y) / 2; midpoint2.z = (center.z + maxPt.z) / 2;
-    midpoint3.x = (center.x + minPt.x) / 2; midpoint3.y = (center.y + maxPt.y) / 2; midpoint3.z = (center.z + minPt.z) / 2;
-    midpoint4.x = (center.x + minPt.x) / 2; midpoint4.y = (center.y + maxPt.y) / 2; midpoint4.z = (center.z + maxPt.z) / 2;
-    midpoint5.x = (center.x + maxPt.x) / 2; midpoint5.y = (center.y + minPt.y) / 2; midpoint5.z = (center.z + minPt.z) / 2;
-    midpoint6.x = (center.x + maxPt.x) / 2; midpoint6.y = (center.y + minPt.y) / 2; midpoint6.z = (center.z + maxPt.z) / 2;
-    midpoint7.x = (center.x + maxPt.x) / 2; midpoint7.y = (center.y + maxPt.y) / 2; midpoint7.z = (center.z + minPt.z) / 2;
-    midpoint8.x = (center.x + maxPt.x) / 2; midpoint8.y = (center.y + maxPt.y) / 2; midpoint8.z = (center.z + maxPt.z) / 2;
+
+    midpoint1.x = (center.x + minPt.x) / 2; 
+    midpoint1.y = (center.y + minPt.y) / 2; 
+    midpoint1.z = (center.z + minPt.z) / 2;
+
+    midpoint2.x = (center.x + minPt.x) / 2; 
+    midpoint2.y = (center.y + minPt.y) / 2; 
+    midpoint2.z = (center.z + maxPt.z) / 2;
+    
+    midpoint3.x = (center.x + minPt.x) / 2; 
+    midpoint3.y = (center.y + maxPt.y) / 2; 
+    midpoint3.z = (center.z + minPt.z) / 2;
+    
+    midpoint4.x = (center.x + minPt.x) / 2; 
+    midpoint4.y = (center.y + maxPt.y) / 2; 
+    midpoint4.z = (center.z + maxPt.z) / 2;
+    
+    midpoint5.x = (center.x + maxPt.x) / 2; 
+    midpoint5.y = (center.y + minPt.y) / 2; 
+    midpoint5.z = (center.z + minPt.z) / 2;
+    
+    midpoint6.x = (center.x + maxPt.x) / 2; 
+    midpoint6.y = (center.y + minPt.y) / 2; 
+    midpoint6.z = (center.z + maxPt.z) / 2;
+    
+    midpoint7.x = (center.x + maxPt.x) / 2; 
+    midpoint7.y = (center.y + maxPt.y) / 2; 
+    midpoint7.z = (center.z + minPt.z) / 2;
+    
+    midpoint8.x = (center.x + maxPt.x) / 2; 
+    midpoint8.y = (center.y + maxPt.y) / 2; 
+    midpoint8.z = (center.z + maxPt.z) / 2;
 
     centers.push_back(midpoint1); centers.push_back(midpoint2); centers.push_back(midpoint3); centers.push_back(midpoint4);
     centers.push_back(midpoint5); centers.push_back(midpoint6); centers.push_back(midpoint7); centers.push_back(midpoint8);
@@ -321,10 +378,13 @@ pcl::ModelCoefficients::Ptr Helper::computePlaneCoefficients(std::vector<pcl::Po
 
 pcl::PointCloud<pcl::PointXYZ>::Ptr Helper::estimatePolygon(std::vector<pcl::PointXYZ> points, 
                                                             pcl::ModelCoefficients::Ptr coefficients) {
+
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+    
     for (auto& point : points){
         cloud->points.push_back(point);
     }
+    
     pcl::ProjectInliers<pcl::PointXYZ> proj;
     proj.setModelType(pcl::SACMODEL_PLANE);
     proj.setInputCloud(cloud);
@@ -341,14 +401,18 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr Helper::estimatePolygon(std::vector<pcl::Poi
 
     std::cout << "Convex hull has: " << cloud_hull->points.size() << " data points." << std::endl;
     std::cout << "Points are: " << std::endl;
+    
     for (size_t i = 0; i < cloud_hull->points.size(); ++i) {
+
         std::cout << "    " << cloud_hull->points[i].x << " "
                   << cloud_hull->points[i].y << " "
                   << cloud_hull->points[i].z << std::endl;
+
     }
 
     return cloud_hull;
 }
+
 
 std::vector<std::vector<pcl::PointXYZ>> Helper::parsePolygonData(const std::string& filename) {
     std::ifstream infile(filename);
@@ -382,6 +446,7 @@ std::vector<std::vector<pcl::PointXYZ>> Helper::parsePolygonData(const std::stri
     std::cout << polygons.size() << std::endl;
     return polygons;
 }
+
 
 bool Helper::rayIntersectPolygon(const Ray3D& ray, 
                                  const pcl::PointCloud<pcl::PointXYZ>::Ptr& polygonCloud, 
@@ -530,6 +595,7 @@ pcl::PointXYZ Helper::rayBoxIntersection(const Ray3D& ray,
     return intersection;
 }
 
+
 /*
     * This function checks if a ray intersects a point cloud.
     * It returns true if the ray intersects the point cloud, and false otherwise.
@@ -570,13 +636,13 @@ bool Helper::rayIntersectPointCloud(const Ray3D& ray,
     return false;
 }
 
+
 /*
     * Compute the occlusion level of a point cloud using ray-based occlusion
     * @param cloud: the point cloud
     * @param num_samples: the number of samples to use for each light source
     * @return: the occlusion level of the point cloud
 */
-
 double Helper::rayBasedOcclusionLevel(pcl::PointXYZ& minPt, 
                                       pcl::PointXYZ& maxPt,
                                       pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, 
