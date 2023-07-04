@@ -1,7 +1,7 @@
 # Point Cloud Processing Pipeline
 
 ### Dev Environment
-- WSL-Ubuntu_18.04
+- WSL-Ubuntu_20.04
 - gcc=7.5.0
 ### Install Dependency
 - `sudo apt install libpcl-dev`
@@ -19,8 +19,8 @@ make -j4 # denpending on how many cores your cpu has
 # if only input path specified, the cloud will be recentered to origin of coordinate system
 ./pcd_pipeline ( -i=cloud.pcd | --input_path==cloud.pcd )
 
-# 200 rays downsample clouds
-./pcd_pipeline -i=cloud.pcd ( -rs=200 | --raysample==200 )
+# 200 rays downsample clouds, in case of -rsf, you get less points since we only consider the first point hit by the ray
+./pcd_pipeline -i=cloud.pcd ( -rs=200 | --raysample==200 | -rsf=200 )
 
 # compute occlusion level
 ./pcd_pipeline -i=cloud.pcd ( -o | --occlusion )

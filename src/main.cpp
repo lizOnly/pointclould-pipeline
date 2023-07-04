@@ -27,6 +27,7 @@ int main(int argc, char *argv[])
     std::map<std::string, std::string> args_map;
     args_map["-i="] = "--input==";
     args_map["-rs="] = "--raysample==";
+    args_map["-rsf="] = "--raysamplef==";
     args_map["-o"] = "--occlusion";
     args_map["-h"] = "--help";
     args_map["-rc="] = "--reconstruct";
@@ -38,6 +39,7 @@ int main(int argc, char *argv[])
 
     int num_ray_sample = 1000; // default value, ray downsampling cloud
     bool filter_cloud = false;
+    bool hit_first_pt = false;
     double epsilon = 0.01;
 
     std::string file_name = "";
@@ -143,16 +145,30 @@ int main(int argc, char *argv[])
         std::string argi = argv[i];
 
         //  use ray to downsample the cloud
-        if (argi.substr(0, 4) == "-rs=" || argi.substr(0, 13) == "--raysample==") {
+        if (argi.substr(0, 4) == "-rs=" || argi.substr(0, 13) == "--raysample==" || argi.substr(0, 5) == "-rsf=" || argi.substr(0, 14) == "--raysamplef==") {
 
             if (argi.substr(0, 4) == "-rs=") {
+
                 num_ray_sample = std::stoi(argi.substr(4, argi.length()));
-            } else {
+
+            } else if (argi.substr(0, 13) == "--raysample==") {
+
                 num_ray_sample = std::stoi(argi.substr(13, argi.length()));
+
+            } else if (argi.substr(0, 5) == "-rsf=") {
+
+                num_ray_sample = std::stoi(argi.substr(5, argi.length()));
+                hit_first_pt = true;
+
+            } else if (argi.substr(0, 14) == "--raysamplef==") {
+
+                num_ray_sample = std::stoi(argi.substr(14, argi.length()));
+                hit_first_pt = true;
+                
             }
 
             std::cout << "num_ray_sample: " << num_ray_sample << std::endl;
-            validation.raySampledCloud(0.1, 0.1, 0.1, num_ray_sample, minPt, maxPt, centered_cloud, centered_colored_cloud);
+            validation.raySampleCloud(0.05, 0.05, 0.1, num_ray_sample, minPt, maxPt, centered_cloud, centered_colored_cloud, hit_first_pt);
 
         // compute occlusionlevel
         } else if (argi == "-o" || argi == "--occlusion") {

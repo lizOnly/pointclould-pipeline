@@ -10,14 +10,15 @@ class Validation {
     public:
         Validation();
         ~Validation();
-        void raySampledCloud(double step, 
-                             double searchRadius, // search radius
-                             double sphereRadius, // radius of sphere
-                             size_t num_samples, // number of samples
-                             pcl::PointXYZ& minPt, 
-                             pcl::PointXYZ& maxPt,
-                             pcl::PointCloud<pcl::PointXYZ>::Ptr cloud,
-                             pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud);
+        void raySampleCloud(double step, 
+                            double searchRadius,
+                            double sphereRadius, 
+                            size_t num_samples,
+                            pcl::PointXYZ& minPt, 
+                            pcl::PointXYZ& maxPt,
+                            pcl::PointCloud<pcl::PointXYZ>::Ptr cloud,
+                            pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud,
+                            bool hit_first_pt);
 
 };
 
