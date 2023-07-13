@@ -27,24 +27,28 @@ int main(int argc, char *argv[])
     std::map<std::string, std::string> args_map;
     args_map["-i="] = "--input==";
     args_map["-rs="] = "--raysample==";
-    args_map["-rsf="] = "--raysamplef==";
     args_map["-o"] = "--occlusion";
+    args_map["-sr="] = "--searchradius==";
     args_map["-h"] = "--help";
     args_map["-rc="] = "--reconstruct";
     args_map["-c"] = "--center";
     args_map["-f"] = "--filter";
     args_map["-rt"] = "--rotate";  // rotate the cloud around the x-axis by 90 degrees clockwise
+    args_map["-d"] = "--density"; // compute density of the cloud
+    args_map["-t2ply"] = "--transfer2ply"; // transfer pcd file to ply file
+    args_map["-t2pcd"] = "--transfer2pcd"; // transfer ply file to pcd file
 
 
 
     int num_ray_sample = 1000; // default value, ray downsampling cloud
     bool filter_cloud = false;
-    bool hit_first_pt = false;
-    double epsilon = 0.01;
+    double epsilon = 0.1;
+    size_t num_points = 0;
+    size_t num_sampled_points = 0;
 
     std::string file_name = "";
     std::string input_path = "";
-    std::string polygon_path = "../files/polygon.txt";
+    std::string polygon_path = "";
     std::string recon_path = "";
 
     Property prop;
@@ -57,7 +61,7 @@ int main(int argc, char *argv[])
         return 0;
     }
 
-    // first argument is always the input file name
+    // parse arguments related to imput file, or --help
     std::string arg1 = argv[1];
 
     if (arg1.substr(0, 3) == "-i=") {
@@ -81,11 +85,22 @@ int main(int argc, char *argv[])
         }
 
         recon.pointCloudReconstructionFromTxt(recon_path);
-
         std::cout << "recon_path: " << recon_path << std::endl;
 
         return 0;
 
+    } else if (arg1 == "-h" || arg1 == "--help") {
+
+        for (auto it = args_map.begin(); it != args_map.end(); it++) {
+            std::cout << it->first << " " << it->second << std::endl;
+        }
+
+        return 0;
+
+    } else {
+
+        std::cout << "You have to provide at least two arguments" << std::endl;
+        return 0;
     }
 
     input_path = "../files/" + file_name;
@@ -98,7 +113,11 @@ int main(int argc, char *argv[])
         return (-1);
     }
 
-    std::cout << "Loaded " << cloud->width * cloud->height << " data points from " << file_name << std::endl;
+    double density = 1.0; 
+    density = prop.computeDensityGaussian(cloud);
+
+    num_points = cloud->width * cloud->height;
+    std::cout << "Loaded " << num_points << " data points from " << file_name << std::endl;
 
     pcl::PointXYZ minPt, maxPt;
     pcl::getMinMax3D(*cloud, minPt, maxPt);
@@ -109,7 +128,6 @@ int main(int argc, char *argv[])
     center.z = (minPt.z + maxPt.z) / 2;
 
     std::cout << "center: " << center.x << " " << center.y << " " << center.z << std::endl;
-
 
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr colored_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);          
     if (pcl::io::loadPCDFile<pcl::PointXYZRGB>(input_path, *colored_cloud) == -1) {
@@ -122,7 +140,7 @@ int main(int argc, char *argv[])
 
     if (center.x < epsilon && center.y < epsilon && center.z < epsilon) {
         
-        std::cout << "center is [0, 0, 0,] there's no need to recenter it " << std::endl;
+        std::cout << "center is close enough to [0, 0, 0,] there's no need to recenter it " << std::endl;
         
         centered_cloud = cloud;
         centered_colored_cloud = colored_cloud;
@@ -145,7 +163,7 @@ int main(int argc, char *argv[])
         std::string argi = argv[i];
 
         //  use ray to downsample the cloud
-        if (argi.substr(0, 4) == "-rs=" || argi.substr(0, 13) == "--raysample==" || argi.substr(0, 5) == "-rsf=" || argi.substr(0, 14) == "--raysamplef==") {
+        if (argi.substr(0, 4) == "-rs=" || argi.substr(0, 13) == "--raysample==") {
 
             if (argi.substr(0, 4) == "-rs=") {
 
@@ -155,20 +173,18 @@ int main(int argc, char *argv[])
 
                 num_ray_sample = std::stoi(argi.substr(13, argi.length()));
 
-            } else if (argi.substr(0, 5) == "-rsf=") {
-
-                num_ray_sample = std::stoi(argi.substr(5, argi.length()));
-                hit_first_pt = true;
-
-            } else if (argi.substr(0, 14) == "--raysamplef==") {
-
-                num_ray_sample = std::stoi(argi.substr(14, argi.length()));
-                hit_first_pt = true;
-                
             }
+            pcl::PointCloud<pcl::PointXYZRGB>::Ptr sampled_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
 
             std::cout << "num_ray_sample: " << num_ray_sample << std::endl;
-            validation.raySampleCloud(0.05, 0.05, 0.1, num_ray_sample, minPt, maxPt, centered_cloud, centered_colored_cloud, hit_first_pt);
+            sampled_cloud = validation.raySampleCloud(0.05, 0.05, 0.1, num_ray_sample, minPt, maxPt, centered_cloud, centered_colored_cloud, density, file_name);
+
+            num_sampled_points = sampled_cloud->width * sampled_cloud->height;
+            
+            std::cout << "num_sampled_points: " << num_sampled_points << std::endl;
+
+            double sample_rate = (double) num_sampled_points / (double) num_points;
+            std::cout << "sample_rate: " << sample_rate << std::endl;
 
         // compute occlusionlevel
         } else if (argi == "-o" || argi == "--occlusion") {
@@ -189,15 +205,31 @@ int main(int argc, char *argv[])
             
             }
 
-            double occlusionLevel = helper.rayBasedOcclusionLevel(minPt, maxPt, centered_cloud, polygonClouds, allCoefficients);
-        
+            double rayOcclusionLevel = helper.rayBasedOcclusionLevel(minPt, maxPt, density, 0.05, centered_cloud, polygonClouds, allCoefficients);
+            
         } else if (argi == "-rt" || argi == "--rotate") {
             
             centered_cloud = helper.centerCloud(centered_cloud, minPt, maxPt);
             centered_colored_cloud = helper.centerColoredCloud(centered_colored_cloud, minPt, maxPt, file_name);
 
-        } 
+        } else if (argi == "-d" || argi == "--density") {
 
+            prop.computeDensityGaussian(centered_cloud);
+
+        } else if (argi == "-t2ply") {
+
+            recon.pcd2ply(centered_colored_cloud, file_name);
+            
+        } else if (argi == "-f" || argi == "--filter") {
+
+            helper.voxelizePointCloud<pcl::PointXYZRGB>(centered_colored_cloud, file_name);
+
+        } else if (argi.substr(0, 3) == "-p=") {
+
+            polygon_path = "../files/" + argi.substr(3, argi.length());
+            std::cout << "polygon_path: " << polygon_path << std::endl;
+
+        } 
     }
 
     auto stop = std::chrono::high_resolution_clock::now();

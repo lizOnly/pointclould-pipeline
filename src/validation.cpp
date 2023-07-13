@@ -11,6 +11,7 @@
 #include "../headers/BaseStruct.h"
 #include "../headers/helper.h"
 #include "../headers/validation.h"
+#include "../headers/property.h"
 
 Validation::Validation()
 {
@@ -27,30 +28,45 @@ Validation::~Validation()
     Then we sample points along the ray with given step, for each point we search for its nearest neighbor within a given search radius.
     The neighbor points are added to the sampled cloud.
 */
-void Validation::raySampleCloud(double step, 
-                                double searchRadius, // search radius
-                                double sphereRadius, // radius of sphere
-                                size_t numSamples, // number of samples
-                                pcl::PointXYZ& minPt, 
-                                pcl::PointXYZ& maxPt,
-                                pcl::PointCloud<pcl::PointXYZ>::Ptr cloud,
-                                pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud,
-                                bool hit_first_pt) {
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr Validation::raySampleCloud(double step, 
+                                                                  double searchRadius, // search radius
+                                                                  double sphereRadius, // radius of sphere
+                                                                  size_t numSamples, // number of samples
+                                                                  pcl::PointXYZ& minPt, 
+                                                                  pcl::PointXYZ& maxPt,
+                                                                  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud,
+                                                                  pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud,
+                                                                  double density,
+                                                                  std::string file_name) {
 
     Helper helper;
+    Property prop;
+
+    if (density <= 10) {
+        
+        density = density / 10.0 + 1.0;
+    
+    } else if (density > 10){
+
+        density = 2.0;
+
+    }
+    
+    size_t newNumSamples = (double) numSamples / density;
+    std::cout << "number of samples adjusted by density: " << newNumSamples << std::endl;
 
     std::vector<pcl::PointXYZ> centers = helper.getSphereLightSourceCenters(minPt, maxPt);
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
 
     kdtree.setInputCloud(cloud);
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr sampledCloud(new pcl::PointCloud<pcl::PointXYZRGB>);
-    std::cout << "total rays: " << numSamples * centers.size() << std::endl;
+    std::cout << "total rays: " << newNumSamples * centers.size() << std::endl;
 
     std::unordered_set<int> addedPoints;
 
     for (int k = 0; k < centers.size(); k++) {
 
-        std::vector<pcl::PointXYZ> sampledPoints = helper.UniformSamplingSphere(centers[k], sphereRadius, numSamples);
+        std::vector<pcl::PointXYZ> sampledPoints = helper.UniformSamplingSphere(centers[k], sphereRadius, newNumSamples);
         std::cout << "center " << k << std::endl;
 
         // store all index of points that should be added to the sampled cloud
@@ -65,28 +81,10 @@ void Validation::raySampleCloud(double step,
                 std::vector<float> pointRadiusSquaredDistance;
                 
                 if ( kdtree.radiusSearch(sampledPoint, searchRadius, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0 ) {
+              
+                    addedPoints.insert(pointIdxRadiusSearch[0]);
+                    break;
                     
-                    if (hit_first_pt) {
-                        
-                        addedPoints.insert(pointIdxRadiusSearch[0]);
-
-                        // for (size_t i = 0; i < pointIdxRadiusSearch.size(); ++i) {
-
-                        //     addedPoints.insert(pointIdxRadiusSearch[i]);
-
-                        // }
-
-                        break;
-                        
-                    } else {
-
-                        for (size_t i = 0; i < pointIdxRadiusSearch.size(); ++i) {
-
-                            addedPoints.insert(pointIdxRadiusSearch[i]);
-
-                        }
-
-                    }
                 }
                 
                 sampledPoint.x += step * ray.direction.x;
@@ -119,9 +117,12 @@ void Validation::raySampleCloud(double step,
     sampledCloud->height = 1;
     sampledCloud->is_dense = true;
 
-    std::string outputPath = "../files/rs_";
+    std::string outputPath = "../files/rs_" + file_name.substr(0, file_name.length() - 4) + "-";
+    // std::string outputPath = "../files/rs-";
     outputPath += std::to_string(numSamples) + ".pcd";
     pcl::io::savePCDFileASCII (outputPath, *sampledCloud);
+
+    return sampledCloud;
 
 }
 

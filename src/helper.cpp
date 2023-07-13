@@ -31,33 +31,15 @@
 
 
 Helper::Helper() {
-    // empty constructor
+    
 }
 
 Helper::~Helper() {
-    // empty destructor
-}
 
-template <typename PointT>
-
-typename pcl::PointCloud<PointT>::Ptr Helper::voxelizePointCloud(typename pcl::PointCloud<PointT>::Ptr cloud) {
-    pcl::VoxelGrid<PointT> vg;
-    vg.setInputCloud(cloud);
-    vg.setLeafSize(0.03f, 0.03f, 0.03f);
-    typename pcl::PointCloud<PointT>::Ptr cloud_filtered(new pcl::PointCloud<PointT>);
-    vg.filter(*cloud_filtered);
-    std::cout << "Point cloud after filtering has: " << cloud_filtered->points.size() << " data points." << std::endl;
-
-    cloud_filtered->width = cloud_filtered->points.size();
-    cloud_filtered->height = 1;
-    cloud_filtered->is_dense = true;
-
-    pcl::io::savePCDFileASCII("../files/voxel_filtered_cloud.pcd" , *cloud_filtered);
-
-    return cloud_filtered;
 }
 
 
+// transform the point to the origin
 pcl::PointXYZ Helper::transformPoint(pcl::PointXYZ& point,
                                      pcl::PointXYZ& center) {
     point.x -= center.x;
@@ -135,7 +117,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Helper::centerColoredCloud(pcl::PointClou
     coloredCloud->height = 1;
     coloredCloud->is_dense = true;
     
-    pcl::io::savePCDFileASCII("../files/" + file_name, *coloredCloud);
+    pcl::io::savePCDFileASCII("../files/c_" + file_name, *coloredCloud);
 
     return coloredCloud;
 }
@@ -645,18 +627,33 @@ bool Helper::rayIntersectPointCloud(const Ray3D& ray,
 */
 double Helper::rayBasedOcclusionLevel(pcl::PointXYZ& minPt, 
                                       pcl::PointXYZ& maxPt,
+                                      double density,
+                                      double radius,
                                       pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, 
                                       std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds,
                                       std::vector<pcl::ModelCoefficients::Ptr> allCoefficients) {
     
+    // if (density <= 10.0) {
+        
+    //     density = density / 10.0 + 1.0;
+    
+    // } else if (density > 10){
+
+    //     density = 2.0;
+
+    // }
+
     std::vector<pcl::PointXYZ> centers = Helper::getSphereLightSourceCenters(minPt, maxPt);
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
     kdtree.setInputCloud(cloud);
 
     size_t num_samples = 4000;
     double step = 0.05; // step size for ray traversal
-    double radius = 0.05; // radius for radius search
     double occlusionLevel = 0.0;
+
+    radius = radius / density;
+
+    std::cout << "Radius: " << radius << std::endl;
 
     int numRays = centers.size() * num_samples;
     int occlusionRays = 0;
@@ -672,13 +669,11 @@ double Helper::rayBasedOcclusionLevel(pcl::PointXYZ& minPt,
         // iterate over the samples
         for (size_t j = 0; j < samples.size(); ++j) {
 
-            Ray3D ray = Helper::generateRay(centers[i], samples[j]);
-            std::cout << "samples " << j << ": " << samples[j].x << ", " << samples[j].y << ", " << samples[j].z << std::endl;
-            
+            Ray3D ray = Helper::generateRay(centers[i], samples[j]);            
             // check if the ray intersects any polygon or point cloud
             if (Helper::rayIntersectPointCloud(ray, step, radius, minPt, maxPt, kdtree)) {
 
-                std::cout << "*--> Ray hit cloud!!!" << std::endl;
+                // std::cout << "*--> Ray hit cloud!!!" << std::endl;
                 cloudIntersecRays++;
 
             } else {
@@ -687,18 +682,17 @@ double Helper::rayBasedOcclusionLevel(pcl::PointXYZ& minPt,
 
                     if (Helper::rayIntersectPolygon(ray, polygonClouds[k], allCoefficients[k])) {
 
-                        std::cout << "*--> Ray didn't hit cloud but hit polygon of index " << k << std::endl;
+                        // std::cout << "*--> Ray didn't hit cloud but hit polygon of index " << k << std::endl;
                         polygonIntersecRays++;
                         break;
 
                     } else if (k == (polygonClouds.size() - 1)) {
 
-                        std::cout << "*--> Ray did not hit anything, it's an occlusion" << std::endl;
+                        // std::cout << "*--> Ray did not hit anything, it's an occlusion" << std::endl;
                         occlusionRays++;
 
                     }
                 }
-                // occlusionRays++;
             }
         }
     }

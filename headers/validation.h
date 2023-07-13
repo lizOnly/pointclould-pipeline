@@ -9,8 +9,10 @@ class Validation {
         /* data */
     public:
         Validation();
+
         ~Validation();
-        void raySampleCloud(double step, 
+
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr raySampleCloud(double step, 
                             double searchRadius,
                             double sphereRadius, 
                             size_t num_samples,
@@ -18,7 +20,8 @@ class Validation {
                             pcl::PointXYZ& maxPt,
                             pcl::PointCloud<pcl::PointXYZ>::Ptr cloud,
                             pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud,
-                            bool hit_first_pt);
+                            double density,
+                            std::string file_name);
 
 };
 

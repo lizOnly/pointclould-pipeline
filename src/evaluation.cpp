@@ -11,6 +11,23 @@ Evaluation::~Evaluation() {
     // empty destructor
 }
 
+
+/*
+    * Find the index of the first underscore in the string
+    * @param str: the string to be searched
+    * @return: the index of the first underscore in the string
+    *          if no underscore is found, return -1
+*/
+int Evaluation::findUnderScore(std::string& str) {
+    for (int i = 0; i < str.size(); ++i) {
+        if (str[i] == '_') {
+            return i;
+        }
+    }
+    return -1;
+}
+
+
 void Evaluation::updateProperties(size_t& tp, size_t& fp, size_t& fn, size_t& tn) {
     tp = fp = fn = tn = 0;
 

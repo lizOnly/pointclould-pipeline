@@ -32,24 +32,65 @@ Property::~Property()
     // empty destructor
 }
 
+double Property::computeDensity(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud) {
 
-void Property::calculateDensity(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud)
-{
+    std::cout << "Computing density... " << std::endl;
+
+    pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
+    kdtree.setInputCloud(cloud);
+
+    double radius = 0.01; // search radius
+    double volume = 4.0 / 3.0 * M_PI * radius * radius * radius;
+
+    std::vector<double> densities(cloud->size(), 0.0);
+
+    for (int i = 0; i < cloud->size(); ++i)
+    {
+        std::vector<int> indices;
+        std::vector<float> distances;
+        kdtree.radiusSearch(i, radius, indices, distances);
+
+        double density = indices.size() / volume;
+        densities[i] = density;
+    }
+
+    double average_density = 0.0;
+
+    for (int i = 0; i < densities.size(); ++i)
+    {
+        average_density += densities[i];
+    }
+
+    average_density /= densities.size();
+
+    std::cout << " Average density is " << average_density << std::endl;
+
+    return average_density;
+
+}
+
+/*
+    calculate average density of a point cloud using Gaussian kernel density estimation
+    input: point cloud
+    output: point cloud with density as a new channel
+*/
+double Property::computeDensityGaussian(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud)
+{   
+    std::cout << "Computing gaussian density... " << std::endl;
     // Create kd-tree object
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
     kdtree.setInputCloud(cloud);
 
     // Parameters for density estimation
-    const double radius = 0.1; // search radius
-    const int k = 10; // number of nearest neighbors
+    const double radius = 0.01; // search radius
     const double sigma2 = 0.01; // bandwidth parameter for Gaussian kernel 
 
     // Estimate density for each point
     std::vector<double> densities(cloud->size(), 0.0);
     for (int i = 0; i < cloud->size(); ++i)
     {
-        std::vector<int> indices(k);
-        std::vector<float> distances(k);
+        std::vector<int> indices;
+        std::vector<float> distances;
         kdtree.radiusSearch(i, radius, indices, distances); // citation needed
 
         double density = 0.0;
@@ -61,35 +102,23 @@ void Property::calculateDensity(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud)
             
         }
         densities[i] = density;
-        std::cout << " Density calculated. " << std::endl;
     }
 
-    // Save density as a new channel in point cloud
-    pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_density(new pcl::PointCloud<pcl::PointXYZI>);
-    cloud_with_density->points.resize(cloud->size());
-    for (int i = 0; i < cloud->size(); ++i)
-    {
-        cloud_with_density->points[i].x = cloud->points[i].x;
-        cloud_with_density->points[i].y = cloud->points[i].y;
-        cloud_with_density->points[i].z = cloud->points[i].z;
-        cloud_with_density->points[i].intensity = densities[i];
-        std::cout << " Density is "<< densities[i] << std::endl;
-    }
-
-    cloud_with_density->width = cloud->width;
-    cloud_with_density->height = cloud->height;
-    cloud_with_density->is_dense = cloud->is_dense;
+    double average_density = 0.0;
     
+    for (int i = 0; i < densities.size(); ++i)
+    {
+        average_density += densities[i];
+    }
 
-    // pcl::io::savePCDFile<pcl::PointXYZI>("output_cloud/ICH_room_output.pcd", *cloud_with_density);
-    // std::cout << " Point cloud with density saved. " << std::endl;
+    average_density /= densities.size();
+
+    std::cout << " Average gaussian density is " << average_density << std::endl;
+    
+    return average_density;
+
 }
 
-
-void Property::calculateDistribution(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud)
-{
-
-}
 
 
 void Property::calculateLocalPointNeighborhood(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud)

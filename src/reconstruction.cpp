@@ -2,6 +2,7 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <filesystem>
 
 #include <pcl/io/pcd_io.h>
 #include <pcl/io/ply_io.h>
@@ -129,8 +130,48 @@ void Reconstruction::pointCloudReconstructionFromTxt(std::string path)
 }
 
 
-// void Reconstruction::batchReconstructionFromTxt() {
+void Reconstruction::batchReconstructionFromTxt(std::string folder) {
 
-// }
+    // Load the point cloud data from the text file
+    std::cout << "Loading point cloud data from " << folder << std::endl;
 
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
+
+    // for (const auto & entry : std::filesystem::directory_iterator(folder)) {
+        
+    //     std::cout << entry.path() << std::endl;
+    //     std::ifstream file(path);
+
+    //     float x, y, z;
+    //     int r, g, b;
+    //     while (file >> x >> y >> z >> r >> g >> b)
+    //     {   
+    //         std::cout << "x: " << x << " y: " << y << " z: " << z << " r: " << r << " g: " << g << " b: " << b << std::endl;
+    //         pcl::PointXYZRGB point;
+    //         point.x = x;
+    //         point.y = y;
+    //         point.z = z;
+    //         point.r = r;
+    //         point.g = g;
+    //         point.b = b;
+    //         cloud->points.push_back(point);
+    //     }
+    // }
+
+    cloud->width = cloud->points.size();
+    std::cout << "Loaded " << cloud->width << " points" << std::endl;
+    cloud->height = 1;
+
+}
+
+
+void Reconstruction::pcd2ply(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, std::string file_name) {
+
+    std::string path = "../files/" + file_name.substr(0, file_name.length() - 4) + ".ply";
+    pcl::io::savePLYFileASCII(path, *cloud);
+
+}
+
+
+// void Reconstruction::ply2pcd()
 
