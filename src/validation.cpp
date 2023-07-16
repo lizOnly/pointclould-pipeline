@@ -41,18 +41,8 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Validation::raySampleCloud(double step,
 
     Helper helper;
     Property prop;
-
-    if (density <= 10) {
-        
-        density = density / 10.0 + 1.0;
     
-    } else if (density > 10){
-
-        density = 2.0;
-
-    }
-    
-    size_t newNumSamples = (double) numSamples / density;
+    size_t newNumSamples = (double) numSamples / 1.0;
     std::cout << "number of samples adjusted by density: " << newNumSamples << std::endl;
 
     std::vector<pcl::PointXYZ> centers = helper.getSphereLightSourceCenters(minPt, maxPt);

@@ -10,10 +10,13 @@
 
 
 class Helper {
+
     public:
+
         Helper();
         ~Helper();
         
+
         template <typename PointT>
 
         typename pcl::PointCloud<PointT>::Ptr voxelizePointCloud(typename pcl::PointCloud<PointT>::Ptr cloud,
@@ -84,14 +87,30 @@ class Helper {
         std::vector<pcl::PointXYZ> UniformSamplingSphere(pcl::PointXYZ center, 
                                                          double radius, 
                                                          size_t num_samples);
+        
+        pcl::PointCloud<pcl::PointXYZI>::Ptr computeMedianDistance(double radius, 
+                                                                    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud,
+                                                                    pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_density);
 
-        double rayBasedOcclusionLevel(
-            pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt, 
-            double density, double radius,
-            pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, 
-            std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds,
-            std::vector<pcl::ModelCoefficients::Ptr> allCoefficients
-        );
+        bool rayIntersectPcdMedianDistance( const Ray3D& ray, 
+                                            double step, 
+                                            double radius, 
+                                            pcl::PointXYZ& minPt, 
+                                            pcl::PointXYZ& maxPt,
+                                            pcl::KdTreeFLANN<pcl::PointXYZ>& kdtree,
+                                            pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_median_distance);     
+
+        pcl::PointCloud<pcl::PointXYZI>::Ptr computeDistanceVariance(double radius, 
+                                                                    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);                                    
+
+        double rayBasedOcclusionLevel(  pcl::PointXYZ& minPt, 
+                                        pcl::PointXYZ& maxPt, 
+                                        double density, 
+                                        double radius,
+                                        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, 
+                                        pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_median_distance,
+                                        std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds,
+                                        std::vector<pcl::ModelCoefficients::Ptr> allCoefficients);
 
 };
 

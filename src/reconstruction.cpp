@@ -18,6 +18,7 @@
 #include <pcl/io/vtk_io.h>
 
 #include "../headers/reconstruction.h"
+#include "../headers/evaluation.h"
 
 Reconstruction::Reconstruction() {
     // empty constructor
@@ -55,10 +56,6 @@ void Reconstruction::poissonReconstruction(pcl::PointCloud<pcl::PointXYZ>::Ptr c
     // saveMeshAsOBJWithMTL(mesh, "mesh.obj", "mesh.mtl");
 }
 
-void Reconstruction::saveMeshAsOBJWithMTL(const pcl::PolygonMesh& mesh, const std::string& obj_filename, const std::string& mtl_filename)
-{   
-    
-}
 
 
 void Reconstruction::marchingCubesReconstruction(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud)
@@ -129,34 +126,74 @@ void Reconstruction::pointCloudReconstructionFromTxt(std::string path)
     pcl::io::savePCDFile("../files/recon_cloud.pcd", *cloud);
 }
 
+/*
+    * Find the index of the first underscore in the string
+    * @param str: the string to be searched
+    * @return: the index of the first underscore in the string
+    *          if no underscore is found, return -1
+*/
+int Reconstruction::findUnderScore(std::string& str) {
+    for (int i = 0; i < str.size(); ++i) {
+        if (str[i] == '_') {
+            return i;
+        }
+    }
+    return -1;
+}
 
-void Reconstruction::batchReconstructionFromTxt(std::string folder) {
+
+// build ground truth point cloud from txt files
+void Reconstruction::batchReconstructionFromTxt(std::string folder_path) {
+
+    std::map<std::string, std::vector<int>> ground_truth_map;
+    ground_truth_map["beam"] = {20};
+    ground_truth_map["board"] = {21};
+    ground_truth_map["bookcase"] = {9};
+    ground_truth_map["ceiling"] = {1}; // same as floor
+    ground_truth_map["chair"] = {4};
+    ground_truth_map["clutter"] = {25};
+    ground_truth_map["door"] = {7};
+    ground_truth_map["floor"] = {1};
+    ground_truth_map["sofa"] = {5};
+    ground_truth_map["table"] = {6};
+    ground_truth_map["wall"] = {0};
+
+
 
     // Load the point cloud data from the text file
-    std::cout << "Loading point cloud data from " << folder << std::endl;
+    std::cout << "Loading point cloud data from " << folder_path << std::endl;
 
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
+    // intensity is used to store the label
+    pcl::PointCloud<pcl::PointXYZI>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZI>);
 
-    // for (const auto & entry : std::filesystem::directory_iterator(folder)) {
+    for (const auto & entry : std::filesystem::directory_iterator(folder_path)) {
         
-    //     std::cout << entry.path() << std::endl;
-    //     std::ifstream file(path);
+        std::cout << entry.path() << std::endl;
+        std::ifstream file(entry.path());
 
-    //     float x, y, z;
-    //     int r, g, b;
-    //     while (file >> x >> y >> z >> r >> g >> b)
-    //     {   
-    //         std::cout << "x: " << x << " y: " << y << " z: " << z << " r: " << r << " g: " << g << " b: " << b << std::endl;
-    //         pcl::PointXYZRGB point;
-    //         point.x = x;
-    //         point.y = y;
-    //         point.z = z;
-    //         point.r = r;
-    //         point.g = g;
-    //         point.b = b;
-    //         cloud->points.push_back(point);
-    //     }
-    // }
+        std::string file_name = entry.path().filename().string();
+        std::string file_name_no_ext = file_name.substr(0, file_name.length() - 4);
+        std::string file_name_no_ext_no_num = file_name_no_ext.substr(0, findUnderScore(file_name_no_ext));
+
+        std::cout << "file_name: " << file_name_no_ext_no_num << std::endl;
+
+        float x, y, z;
+        int r, g, b;
+        while (file >> x >> y >> z >> r >> g >> b)
+        {   
+            pcl::PointXYZI point;
+            point.x = x;
+            point.y = y;
+            point.z = z;
+            auto item = ground_truth_map.find(file_name_no_ext_no_num);
+            if (item != ground_truth_map.end()) {
+                point.intensity = item->second[0];
+            } else {
+                point.intensity = 20;
+            }
+            cloud->points.push_back(point);
+        }
+    }
 
     cloud->width = cloud->points.size();
     std::cout << "Loaded " << cloud->width << " points" << std::endl;
@@ -173,5 +210,10 @@ void Reconstruction::pcd2ply(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, std::
 }
 
 
-// void Reconstruction::ply2pcd()
+void Reconstruction::ply2pcd(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, std::string file_name) {
+
+    std::string path = "../files/" + file_name.substr(0, file_name.length() - 4) + ".pcd";
+    pcl::io::savePCDFileASCII(path, *cloud);
+
+}
 

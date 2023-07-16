@@ -4,6 +4,9 @@
 #include <string>
 #include <random>
 #include <chrono>
+#include <thread>
+#include <future>
+#include <mutex>
 
 #include <pcl/point_types.h>
 #include <pcl/kdtree/kdtree_flann.h>
@@ -619,6 +622,186 @@ bool Helper::rayIntersectPointCloud(const Ray3D& ray,
 }
 
 
+pcl::PointCloud<pcl::PointXYZI>::Ptr Helper::computeMedianDistance( double radius, 
+                                                                    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud,
+                                                                    pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_density) {
+
+    std::cout << "Computing median distance..." << std::endl;
+    pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
+    kdtree.setInputCloud(cloud);
+
+    pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_median_distance(new pcl::PointCloud<pcl::PointXYZI>);
+    
+    std::vector<std::future<void>> futures;
+    std::mutex mtx;
+
+    for (size_t i = 0; i < cloud->points.size(); ++i) {
+
+        // futures.push_back(std::async(std::launch::async, [=, &mtx, &cloud_with_median_distance, &kdtree]() {
+  
+            std::vector<int> pointIdxRadiusSearch;
+            std::vector<float> pointRadiusSquaredDistance;
+            
+            pcl::PointXYZI point;
+            point.x = cloud->points[i].x;
+            point.y = cloud->points[i].y;
+            point.z = cloud->points[i].z;
+            point.intensity = 0.0;
+
+            pcl::PointXYZI point_with_density = cloud_with_density->points[i];
+
+            double density = point_with_density.intensity;
+            
+            if (density <= 5.0) {
+                density = density / 5.0 + 1.0;
+            } else if (density > 5 && density <= 10) {
+                density = density / 10.0 + 1.0;
+            } else {
+                    density = 2.0;
+            }
+
+            double search_radius = radius / density;
+            
+            if (kdtree.radiusSearch(cloud->points[i], search_radius, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
+                if(pointIdxRadiusSearch.size() < 2) {
+                    continue;
+                }
+                // calculate pairwise distances
+                std::vector<double> distances;
+                // if (pointIdxRadiusSearch.size() > 50) {
+                //     pointIdxRadiusSearch.resize(50);
+                // }
+
+                for (size_t j = 0; j < pointIdxRadiusSearch.size(); ++j) {
+
+                    for (size_t k = j + 1; k < pointIdxRadiusSearch.size(); ++k) {
+
+                        double distance = sqrt(pow(cloud->points[pointIdxRadiusSearch[j]].x - cloud->points[pointIdxRadiusSearch[k]].x, 2) +
+                                            pow(cloud->points[pointIdxRadiusSearch[j]].y - cloud->points[pointIdxRadiusSearch[k]].y, 2) +
+                                            pow(cloud->points[pointIdxRadiusSearch[j]].z - cloud->points[pointIdxRadiusSearch[k]].z, 2));
+                        
+                        distances.push_back(distance);
+                    }
+                }
+
+                std::sort(distances.begin(), distances.end());
+                point.intensity = distances[distances.size() / 2];
+            }
+            
+            // mtx.lock();
+            cloud_with_median_distance->points.push_back(point);
+            // mtx.unlock();
+
+        // }));
+    }
+
+    // for (auto& f : futures) {
+    //     f.get();
+    // }
+
+    return cloud_with_median_distance;
+}
+
+
+bool Helper::rayIntersectPcdMedianDistance( const Ray3D& ray, 
+                                            double step, 
+                                            double radius, 
+                                            pcl::PointXYZ& minPt, 
+                                            pcl::PointXYZ& maxPt,
+                                            pcl::KdTreeFLANN<pcl::PointXYZ>& kdtree,
+                                            pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_median_distance) {
+    
+    pcl::PointXYZ currentPoint = Helper::rayBoxIntersection(ray, minPt, maxPt);
+
+    while((currentPoint.x - ray.origin.x) > step || (currentPoint.y - ray.origin.y) > step || (currentPoint.z - ray.origin.z) > step) {
+        
+        std::vector<int> pointIdxRadiusSearch;
+        std::vector<float> pointRadiusSquaredDistance;
+        
+        if (kdtree.radiusSearch(currentPoint, radius, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
+            
+            for (size_t i = 0; i < pointIdxRadiusSearch.size(); ++i) {
+
+                pcl::PointXYZI point = cloud_with_median_distance->points[pointIdxRadiusSearch[i]];
+                double per_point_distance = sqrt(pow(point.x - currentPoint.x, 2) +
+                                                 pow(point.y - currentPoint.y, 2) +
+                                                 pow(point.z - currentPoint.z, 2));
+                
+                if (point.intensity > per_point_distance ) {
+                    return true;
+                }
+            }
+            
+        }
+
+        currentPoint.x -= step * ray.direction.x;
+        currentPoint.y -= step * ray.direction.y;
+        currentPoint.z -= step * ray.direction.z;
+
+    }
+
+    return false;
+}
+
+
+pcl::PointCloud<pcl::PointXYZI>::Ptr Helper::computeDistanceVariance(double radius, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud) {
+    
+        std::cout << "Computing distance variance..." << std::endl;
+        pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
+        kdtree.setInputCloud(cloud);
+    
+        pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_distance_variance(new pcl::PointCloud<pcl::PointXYZI>);
+        
+        std::vector<std::future<void>> futures;
+        std::mutex mtx;
+    
+        for (size_t i = 0; i < cloud->points.size(); ++i) {
+        
+                std::vector<int> pointIdxRadiusSearch;
+                std::vector<float> pointRadiusSquaredDistance;
+                
+                pcl::PointXYZI point;
+                point.x = cloud->points[i].x;
+                point.y = cloud->points[i].y;
+                point.z = cloud->points[i].z;
+                point.intensity = 0.0;
+                
+
+                if (kdtree.radiusSearch(cloud->points[i], radius, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
+                    
+                    if(pointIdxRadiusSearch.size() < 2) {
+                        continue;
+                    }
+                    
+                    std::vector<double> distances;
+
+                    for (size_t j = 0; j < pointIdxRadiusSearch.size(); ++j) {
+    
+                        for (size_t k = j + 1; k < pointIdxRadiusSearch.size(); ++k) {
+    
+                            double distance = sqrt(pow(cloud->points[pointIdxRadiusSearch[j]].x - cloud->points[pointIdxRadiusSearch[k]].x, 2) +
+                                                pow(cloud->points[pointIdxRadiusSearch[j]].y - cloud->points[pointIdxRadiusSearch[k]].y, 2) +
+                                                pow(cloud->points[pointIdxRadiusSearch[j]].z - cloud->points[pointIdxRadiusSearch[k]].z, 2));
+                            
+                            distances.push_back(distance);
+                        }
+                    }
+    
+                    double mean = std::accumulate(distances.begin(), distances.end(), 0.0) / distances.size();
+                    double variance = 0.0;
+                    for (size_t j = 0; j < distances.size(); ++j) {
+                        variance += pow(distances[j] - mean, 2);
+                    }
+
+                    variance /= distances.size();
+                    point.intensity = variance;
+                }
+        }
+
+    return cloud_with_distance_variance;
+}
+
+
 /*
     * Compute the occlusion level of a point cloud using ray-based occlusion
     * @param cloud: the point cloud
@@ -630,6 +813,7 @@ double Helper::rayBasedOcclusionLevel(pcl::PointXYZ& minPt,
                                       double density,
                                       double radius,
                                       pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, 
+                                      pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_median_distance,
                                       std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds,
                                       std::vector<pcl::ModelCoefficients::Ptr> allCoefficients) {
     
@@ -651,7 +835,7 @@ double Helper::rayBasedOcclusionLevel(pcl::PointXYZ& minPt,
     double step = 0.05; // step size for ray traversal
     double occlusionLevel = 0.0;
 
-    radius = radius / density;
+    // radius = radius / density;
 
     std::cout << "Radius: " << radius << std::endl;
 
@@ -659,20 +843,21 @@ double Helper::rayBasedOcclusionLevel(pcl::PointXYZ& minPt,
     int occlusionRays = 0;
     int polygonIntersecRays = 0;
     int cloudIntersecRays = 0;
+    double sphereRadius = 0.1;
 
 
     for (size_t i = 0; i < centers.size(); ++i) {
 
-        std::cout << "*********Center " << i << ": " << centers[i].x << ", " << centers[i].y << ", " << centers[i].z << "*********" << std::endl;
-        std::vector<pcl::PointXYZ> samples = Helper::UniformSamplingSphere(centers[i], 0.1, num_samples);
+        // std::cout << "*********Center " << i << ": " << centers[i].x << ", " << centers[i].y << ", " << centers[i].z << "*********" << std::endl;
+        std::vector<pcl::PointXYZ> samples = Helper::UniformSamplingSphere(centers[i], sphereRadius, num_samples);
 
         // iterate over the samples
         for (size_t j = 0; j < samples.size(); ++j) {
 
             Ray3D ray = Helper::generateRay(centers[i], samples[j]);            
             // check if the ray intersects any polygon or point cloud
-            if (Helper::rayIntersectPointCloud(ray, step, radius, minPt, maxPt, kdtree)) {
-
+            // if (Helper::rayIntersectPointCloud(ray, step, radius, minPt, maxPt, kdtree)) {
+            if (Helper::rayIntersectPcdMedianDistance(ray, step, radius, minPt, maxPt, kdtree, cloud_with_median_distance)) {
                 // std::cout << "*--> Ray hit cloud!!!" << std::endl;
                 cloudIntersecRays++;
 

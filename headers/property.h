@@ -5,7 +5,7 @@ class Property
         ~Property();
         double computeDensity(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);
 
-        double computeDensityGaussian(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);
+        pcl::PointCloud<pcl::PointXYZI>::Ptr computeDensityGaussian(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);
         
         void calculateLocalPointNeighborhood(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);
         

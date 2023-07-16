@@ -2,7 +2,7 @@
 #include <chrono>
 #include <string>
 #include <vector>
-#include <unordered_map>
+// #include <unordered_map>
 
 #include <pcl/point_types.h>
 #include <pcl/io/pcd_io.h>
@@ -31,6 +31,8 @@ int main(int argc, char *argv[])
     args_map["-sr="] = "--searchradius==";
     args_map["-h"] = "--help";
     args_map["-rc="] = "--reconstruct";
+    args_map["-s="] = "--semantic==";
+    args_map["-e"] = "--evaluate"; // calculate the evaluation metrics, IoU, F1, etc.
     args_map["-c"] = "--center";
     args_map["-f"] = "--filter";
     args_map["-rt"] = "--rotate";  // rotate the cloud around the x-axis by 90 degrees clockwise
@@ -56,6 +58,9 @@ int main(int argc, char *argv[])
     Helper helper;
     Validation validation;
 
+    std::string folder_path = "/mnt/c/Users/51932/Desktop/s3d/Area_1/conferenceRoom_1/Annotations/"; // default value, batch reconstruction
+    // recon.batchReconstructionFromTxt(folder_path);
+
     if (argc < 2) {
         std::cout << "You have to provide at least two arguments" << std::endl;
         return 0;
@@ -75,13 +80,9 @@ int main(int argc, char *argv[])
     } else if (arg1.substr(0, 4) == "-rc=" || arg1.substr(0, 15) == "--reconstruct==") {
 
         if (arg1.substr(0, 4) == "-rc=") {
-
             recon_path = "../files/" + arg1.substr(4, arg1.length());
-
         } else {
-
             recon_path = "../files/" + arg1.substr(14, arg1.length());
-
         }
 
         recon.pointCloudReconstructionFromTxt(recon_path);
@@ -114,7 +115,6 @@ int main(int argc, char *argv[])
     }
 
     double density = 1.0; 
-    density = prop.computeDensityGaussian(cloud);
 
     num_points = cloud->width * cloud->height;
     std::cout << "Loaded " << num_points << " data points from " << file_name << std::endl;
@@ -135,26 +135,8 @@ int main(int argc, char *argv[])
         return (-1);
     }
 
-    pcl::PointCloud<pcl::PointXYZ>::Ptr centered_cloud(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr centered_colored_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
-
-    if (center.x < epsilon && center.y < epsilon && center.z < epsilon) {
-        
-        std::cout << "center is close enough to [0, 0, 0,] there's no need to recenter it " << std::endl;
-        
-        centered_cloud = cloud;
-        centered_colored_cloud = colored_cloud;
-
-    } else {
-        
-        centered_cloud = helper.centerCloud(cloud, minPt, maxPt);
-        centered_colored_cloud = helper.centerColoredCloud(colored_cloud, minPt, maxPt, file_name);
-
-        // calculate min and max point of the centered cloud 
-        pcl::getMinMax3D(*centered_cloud, minPt, maxPt);
-    
-    }
-    
+    centered_colored_cloud = helper.centerColoredCloud(colored_cloud, minPt, maxPt, file_name);
 
     // parse arguments related to functionality
     for (int i = 2; i < argc; i++) {
@@ -177,10 +159,9 @@ int main(int argc, char *argv[])
             pcl::PointCloud<pcl::PointXYZRGB>::Ptr sampled_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
 
             std::cout << "num_ray_sample: " << num_ray_sample << std::endl;
-            sampled_cloud = validation.raySampleCloud(0.05, 0.05, 0.1, num_ray_sample, minPt, maxPt, centered_cloud, centered_colored_cloud, density, file_name);
-
-            num_sampled_points = sampled_cloud->width * sampled_cloud->height;
+            sampled_cloud = validation.raySampleCloud(0.05, 0.05, 0.1, num_ray_sample, minPt, maxPt, cloud, colored_cloud, density, file_name);
             
+            num_sampled_points = sampled_cloud->width * sampled_cloud->height;
             std::cout << "num_sampled_points: " << num_sampled_points << std::endl;
 
             double sample_rate = (double) num_sampled_points / (double) num_points;
@@ -190,9 +171,7 @@ int main(int argc, char *argv[])
         } else if (argi == "-o" || argi == "--occlusion") {
             
             std::vector<std::vector<pcl::PointXYZ>> polygons = helper.parsePolygonData(polygon_path);
-
             std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds;
-
             std::vector<pcl::ModelCoefficients::Ptr> allCoefficients;
 
             for (int i = 0; i < polygons.size(); i++) {
@@ -205,16 +184,29 @@ int main(int argc, char *argv[])
             
             }
 
-            double rayOcclusionLevel = helper.rayBasedOcclusionLevel(minPt, maxPt, density, 0.05, centered_cloud, polygonClouds, allCoefficients);
-            
-        } else if (argi == "-rt" || argi == "--rotate") {
-            
-            centered_cloud = helper.centerCloud(centered_cloud, minPt, maxPt);
-            centered_colored_cloud = helper.centerColoredCloud(centered_colored_cloud, minPt, maxPt, file_name);
+            double search_radius = 0.1;
+
+            // if (density <= 5.0) {
+            //     density = density / 5.0 + 1.0;
+            // } else if (density > 5 && density <= 10) {
+            //     density = density / 10.0 + 1.0;
+            // } else {
+            //         density = 2.0;
+            // }
+
+            pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_density(new pcl::PointCloud<pcl::PointXYZI>);
+            cloud_with_density = prop.computeDensityGaussian(cloud);
+
+            pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_median_distance(new pcl::PointCloud<pcl::PointXYZI>);
+            cloud_with_median_distance = helper.computeMedianDistance(search_radius, cloud, cloud_with_density);
+
+            double rayOcclusionLevel = helper.rayBasedOcclusionLevel(minPt, maxPt, density, search_radius, 
+                                                                     cloud, cloud_with_median_distance,
+                                                                     polygonClouds, allCoefficients);
 
         } else if (argi == "-d" || argi == "--density") {
 
-            prop.computeDensityGaussian(centered_cloud);
+            prop.computeDensityGaussian(cloud);
 
         } else if (argi == "-t2ply") {
 
@@ -229,7 +221,8 @@ int main(int argc, char *argv[])
             polygon_path = "../files/" + argi.substr(3, argi.length());
             std::cout << "polygon_path: " << polygon_path << std::endl;
 
-        } 
+        }  
+
     }
 
     auto stop = std::chrono::high_resolution_clock::now();
