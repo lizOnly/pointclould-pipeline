@@ -158,8 +158,6 @@ void Reconstruction::batchReconstructionFromTxt(std::string folder_path) {
     ground_truth_map["table"] = {6};
     ground_truth_map["wall"] = {0};
 
-
-
     // Load the point cloud data from the text file
     std::cout << "Loading point cloud data from " << folder_path << std::endl;
 

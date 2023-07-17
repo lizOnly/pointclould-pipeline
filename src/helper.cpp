@@ -314,6 +314,7 @@ std::vector<pcl::PointXYZ> Helper::getSphereLightSourceCenters(pcl::PointXYZ& mi
     return centers;
 }
 
+
 std::vector<pcl::PointXYZ> Helper::UniformSamplingSphere(pcl::PointXYZ center, double radius, size_t num_samples) {
     
     static std::default_random_engine generator;
@@ -334,6 +335,7 @@ std::vector<pcl::PointXYZ> Helper::UniformSamplingSphere(pcl::PointXYZ center, d
 
     return samples;
 } 
+
 
 pcl::ModelCoefficients::Ptr Helper::computePlaneCoefficients(std::vector<pcl::PointXYZ> points) {
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
@@ -635,13 +637,15 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr Helper::computeMedianDistance( double radiu
     std::vector<std::future<void>> futures;
     std::mutex mtx;
 
+    double density_threshold = 10.0;
+
     for (size_t i = 0; i < cloud->points.size(); ++i) {
 
         // futures.push_back(std::async(std::launch::async, [=, &mtx, &cloud_with_median_distance, &kdtree]() {
   
             std::vector<int> pointIdxRadiusSearch;
             std::vector<float> pointRadiusSquaredDistance;
-            
+        
             pcl::PointXYZI point;
             point.x = cloud->points[i].x;
             point.y = cloud->points[i].y;
@@ -651,16 +655,13 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr Helper::computeMedianDistance( double radiu
             pcl::PointXYZI point_with_density = cloud_with_density->points[i];
 
             double density = point_with_density.intensity;
-            
-            if (density <= 5.0) {
-                density = density / 5.0 + 1.0;
-            } else if (density > 5 && density <= 10) {
-                density = density / 10.0 + 1.0;
-            } else {
-                    density = 2.0;
+
+            if (density < density_threshold) {
+                cloud_with_median_distance->points.push_back(point);
+                continue;
             }
 
-            double search_radius = radius / density;
+            double search_radius = radius;
             
             if (kdtree.radiusSearch(cloud->points[i], search_radius, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
                 if(pointIdxRadiusSearch.size() < 2) {
@@ -853,7 +854,6 @@ double Helper::rayBasedOcclusionLevel(pcl::PointXYZ& minPt,
 
         // iterate over the samples
         for (size_t j = 0; j < samples.size(); ++j) {
-
             Ray3D ray = Helper::generateRay(centers[i], samples[j]);            
             // check if the ray intersects any polygon or point cloud
             // if (Helper::rayIntersectPointCloud(ray, step, radius, minPt, maxPt, kdtree)) {

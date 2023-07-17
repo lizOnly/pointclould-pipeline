@@ -20,7 +20,7 @@ add_executable(
     src/evaluation.cpp headers/evaluation.h
     src/helper.cpp headers/helper.h
     src/visualizer.cpp headers/visualizer.h
-    src/validation.cpp headers/validation.h
+    src/scanner.cpp headers/scanner.h
     )
 
 target_link_libraries(pcd_pipeline ${PCL_LIBRARIES})

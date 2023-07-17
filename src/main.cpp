@@ -15,7 +15,7 @@
 #include "../headers/property.h"
 #include "../headers/helper.h"
 #include "../headers/visualizer.h"
-#include "../headers/validation.h"
+#include "../headers/scanner.h"
 
 
 int main(int argc, char *argv[])
@@ -56,7 +56,7 @@ int main(int argc, char *argv[])
     Property prop;
     Reconstruction recon;
     Helper helper;
-    Validation validation;
+    Scanner scanner;
 
     std::string folder_path = "/mnt/c/Users/51932/Desktop/s3d/Area_1/conferenceRoom_1/Annotations/"; // default value, batch reconstruction
     // recon.batchReconstructionFromTxt(folder_path);
@@ -135,8 +135,8 @@ int main(int argc, char *argv[])
         return (-1);
     }
 
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr centered_colored_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
-    centered_colored_cloud = helper.centerColoredCloud(colored_cloud, minPt, maxPt, file_name);
+    // pcl::PointCloud<pcl::PointXYZRGB>::Ptr centered_colored_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+    // centered_colored_cloud = helper.centerColoredCloud(colored_cloud, minPt, maxPt, file_name);
 
     // parse arguments related to functionality
     for (int i = 2; i < argc; i++) {
@@ -159,7 +159,7 @@ int main(int argc, char *argv[])
             pcl::PointCloud<pcl::PointXYZRGB>::Ptr sampled_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
 
             std::cout << "num_ray_sample: " << num_ray_sample << std::endl;
-            sampled_cloud = validation.raySampleCloud(0.05, 0.05, 0.1, num_ray_sample, minPt, maxPt, cloud, colored_cloud, density, file_name);
+            sampled_cloud = scanner.multi_sphere_scanner(0.05, 0.05, 0.1, num_ray_sample, minPt, maxPt, cloud, colored_cloud, density, file_name);
             
             num_sampled_points = sampled_cloud->width * sampled_cloud->height;
             std::cout << "num_sampled_points: " << num_sampled_points << std::endl;
@@ -168,6 +168,10 @@ int main(int argc, char *argv[])
             std::cout << "sample_rate: " << sample_rate << std::endl;
 
         // compute occlusionlevel
+        } else if (argi == "-sc") {
+                
+            scanner.scan_cloud(0.05, 0.1, minPt, maxPt, cloud, colored_cloud, file_name);
+
         } else if (argi == "-o" || argi == "--occlusion") {
             
             std::vector<std::vector<pcl::PointXYZ>> polygons = helper.parsePolygonData(polygon_path);
@@ -185,7 +189,6 @@ int main(int argc, char *argv[])
             }
 
             double search_radius = 0.1;
-
             // if (density <= 5.0) {
             //     density = density / 5.0 + 1.0;
             // } else if (density > 5 && density <= 10) {
@@ -210,11 +213,11 @@ int main(int argc, char *argv[])
 
         } else if (argi == "-t2ply") {
 
-            recon.pcd2ply(centered_colored_cloud, file_name);
+            recon.pcd2ply(colored_cloud, file_name);
             
         } else if (argi == "-f" || argi == "--filter") {
 
-            helper.voxelizePointCloud<pcl::PointXYZRGB>(centered_colored_cloud, file_name);
+            helper.voxelizePointCloud<pcl::PointXYZRGB>(colored_cloud, file_name);
 
         } else if (argi.substr(0, 3) == "-p=") {
 
