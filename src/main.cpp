@@ -168,9 +168,10 @@ int main(int argc, char *argv[])
             std::cout << "sample_rate: " << sample_rate << std::endl;
 
         // compute occlusionlevel
-        } else if (argi == "-sc") {
-                
-            scanner.scan_cloud(0.05, 0.1, minPt, maxPt, cloud, colored_cloud, file_name);
+        } else if (argi.substr(0, 4) == "-sc=") {
+            
+            size_t num_random_positions = std::stoi(argi.substr(4, argi.length()));
+            scanner.random_scanner(0.05, 0.1, num_random_positions, minPt, maxPt, cloud, colored_cloud, file_name);
 
         } else if (argi == "-o" || argi == "--occlusion") {
             

@@ -123,10 +123,10 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::multi_sphere_scanner(double step
 
 
 
-std::vector<pcl::PointXYZ> Scanner::scanning_positions(  size_t num_positions, 
-                                                         pcl::PointXYZ& minPt, 
-                                                         pcl::PointXYZ& maxPt,
-                                                         int pattern) {
+std::vector<pcl::PointXYZ> Scanner::scanning_positions( size_t num_random_positions, 
+                                                        pcl::PointXYZ& minPt, 
+                                                        pcl::PointXYZ& maxPt,
+                                                        int pattern) {
 
     std::vector<pcl::PointXYZ> positions;
     
@@ -167,7 +167,7 @@ std::vector<pcl::PointXYZ> Scanner::scanning_positions(  size_t num_positions,
     } else if (pattern == 1) { // random positions
 
         pcl::PointXYZ position;
-        for (int i = 0; i < num_positions; i++) {
+        for (int i = 0; i < num_random_positions; i++) {
 
             position.x = minPt.x + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(maxPt.x-minPt.x)));
             position.y = minPt.y + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(maxPt.y-minPt.y)));
@@ -183,7 +183,7 @@ std::vector<pcl::PointXYZ> Scanner::scanning_positions(  size_t num_positions,
 }
 
 
-std::vector<pcl::PointXYZ> Scanner::sample_square_points(const pcl::PointXYZ& scanner_position , double distance, double angle) {
+std::vector<pcl::PointXYZ> Scanner::sample_square_points(const pcl::PointXYZ& scanner_position, int sample_step, double distance, double angle) {
 
     double half_distance = distance / 2;
     std::vector<pcl::PointXYZ> points;
@@ -193,14 +193,14 @@ std::vector<pcl::PointXYZ> Scanner::sample_square_points(const pcl::PointXYZ& sc
     square_center.y = scanner_position.y + distance * sin(angle * DEG_TO_RAD);
     square_center.z = scanner_position.z;
 
-    double step = half_distance / 4; // 5 points
+    double step = half_distance / (double)sample_step; // 5 points
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < sample_step + 1; i++) {
         
         if (i == 0) {
             points.push_back(square_center);
 
-            for (int j = 1; j < 5; j++) {
+            for (int j = 1; j < sample_step + 1; j++) {
 
                 pcl::PointXYZ center_up;
                 center_up.x = square_center.x;
@@ -235,7 +235,7 @@ std::vector<pcl::PointXYZ> Scanner::sample_square_points(const pcl::PointXYZ& sc
 
         points.push_back(point_hor_right);
 
-        for (int j = 1; j < 5; j++) {
+        for (int j = 1; j < sample_step + 1; j++) {
 
             pcl::PointXYZ point_left_vert_up;
             point_left_vert_up.x = point_hor_left.x;
@@ -271,13 +271,13 @@ std::vector<pcl::PointXYZ> Scanner::sample_square_points(const pcl::PointXYZ& sc
 }
 
 
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::scan_cloud( double step, 
-                                                double searchRadius, // search radius
-                                                pcl::PointXYZ& minPt, 
-                                                pcl::PointXYZ& maxPt,
-                                                pcl::PointCloud<pcl::PointXYZ>::Ptr cloud,
-                                                pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud,
-                                                std::string file_name)
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::multi_square_scanner(double step, 
+                                                                    double searchRadius, // search radius
+                                                                    pcl::PointXYZ& minPt, 
+                                                                    pcl::PointXYZ& maxPt,
+                                                                    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud,
+                                                                    pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud,
+                                                                    std::string file_name)
 {
     Helper helper;
 
@@ -295,7 +295,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::scan_cloud( double step,
 
         pcl::PointXYZ scanner_position = scanner_positions[i];
         for (double angle = 0.0; angle <= 360.0; angle += 10.0) {
-            std::vector<pcl::PointXYZ> points = sample_square_points(scanner_position, 0.1, angle);
+            std::vector<pcl::PointXYZ> points = sample_square_points(scanner_position, 10, 0.1, angle);
 
             for (int j = 0; j < points.size(); j++) {
 
@@ -350,3 +350,101 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::scan_cloud( double step,
 
     return scanned_cloud;   
 }
+
+std::vector<pcl::PointXYZ> random_look_at_direction(int num_directions, pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt) {
+
+    std::vector<pcl::PointXYZ> points;
+
+    for (int i = 0; i < num_directions; i++) {
+
+        pcl::PointXYZ point;
+        point.x = minPt.x + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(maxPt.x-minPt.x)));
+        point.y = minPt.y + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(maxPt.y-minPt.y)));
+        point.z = minPt.z + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(maxPt.z-minPt.z)));
+
+        points.push_back(point);
+
+    }
+
+    return points;
+}
+
+
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::random_scanner(double step,
+                                                                double searchRadius, // search radius
+                                                                size_t num_random_positions,
+                                                                pcl::PointXYZ& minPt, 
+                                                                pcl::PointXYZ& maxPt,
+                                                                pcl::PointCloud<pcl::PointXYZ>::Ptr cloud,
+                                                                pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud,
+                                                                std::string file_name)
+{
+
+    pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
+    kdtree.setInputCloud(cloud);
+
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr scanned_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+    Helper helper;
+
+    std::vector<pcl::PointXYZ> scanner_positions = scanning_positions(num_random_positions, minPt, maxPt, 1); // generate random scanners
+
+    std::unordered_set<int> addedPoints;
+
+    for (size_t i = 0; i < scanner_positions.size(); i++) {
+        
+        pcl::PointXYZ scanner_position = scanner_positions[i];
+        std::vector<pcl::PointXYZ> look_at_directions = random_look_at_direction(10, minPt, maxPt);
+
+        for (size_t j = 0; j < look_at_directions.size(); j++) {
+
+            pcl::PointXYZ look_at_direction = look_at_directions[j];
+            Ray3D ray = helper.generateRay(scanner_position, look_at_direction);
+
+            pcl::PointXYZ point = scanner_position;
+            while ( point.x < maxPt.x && point.y < maxPt.y && point.z < maxPt.z && point.x > minPt.x && point.y > minPt.y && point.z > minPt.z) {
+                
+                std::vector<int> pointIdxRadiusSearch;
+                std::vector<float> pointRadiusSquaredDistance;
+                
+                if ( kdtree.radiusSearch(point, searchRadius, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0 ) {
+            
+                    addedPoints.insert(pointIdxRadiusSearch[0]);
+                    break;
+                }
+                
+                point.x += step * ray.direction.x;
+                point.y += step * ray.direction.y;
+                point.z += step * ray.direction.z;
+                
+            }
+        }
+    }
+
+    std::cout << "total points after scanning: " << addedPoints.size() << std::endl;
+
+    for (const auto& ptIdx : addedPoints) {
+
+        pcl::PointXYZRGB point;
+
+        point.x = coloredCloud->points[ptIdx].x;
+        point.y = coloredCloud->points[ptIdx].y;
+        point.z = coloredCloud->points[ptIdx].z;
+
+        point.r = coloredCloud->points[ptIdx].r;
+        point.g = coloredCloud->points[ptIdx].g;
+        point.b = coloredCloud->points[ptIdx].b;
+
+        scanned_cloud->push_back(point);
+
+    }
+
+    scanned_cloud->width = scanned_cloud->size();
+    scanned_cloud->height = 1;
+    scanned_cloud->is_dense = true;
+
+    std::string outputPath = "../files/random_scanned_" + file_name.substr(0, file_name.length() - 4) + "-" + std::to_string(num_random_positions) + ".pcd";
+    pcl::io::savePCDFileASCII (outputPath, *scanned_cloud);
+
+    return scanned_cloud;
+}
+
