@@ -46,6 +46,7 @@ std::vector<int> Evaluation::compareClouds(pcl::PointCloud<pcl::PointXYZRGB>::Pt
     kdtree.setInputCloud(ground_truth_cloud);
 
     std::vector<int> ground_truth_labels;
+    std::vector<int> predicted_labels;
 
     for (size_t i = 0; i < segmented_cloud->size(); ++i) {
 
@@ -73,9 +74,11 @@ std::vector<int> Evaluation::compareClouds(pcl::PointCloud<pcl::PointXYZRGB>::Pt
             pcl::PointXYZI ground_truth_point = ground_truth_cloud->points[indices[0]];
 
             if (ground_truth_point.intensity == segmented_point_label) {
-                ground_truth_labels.push_back(1);
+                ground_truth_labels.push_back(true);
+                predicted_labels.push_back(true);
             } else {
-                ground_truth_labels.push_back(0);
+                ground_truth_labels.push_back(false);
+                predicted_labels.push_back(false);
             }
         }
     }

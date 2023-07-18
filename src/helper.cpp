@@ -650,7 +650,7 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr Helper::computeMedianDistance( double radiu
             point.x = cloud->points[i].x;
             point.y = cloud->points[i].y;
             point.z = cloud->points[i].z;
-            point.intensity = 0.0;
+            point.intensity = 0.025;
 
             pcl::PointXYZI point_with_density = cloud_with_density->points[i];
 
