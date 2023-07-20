@@ -60,6 +60,8 @@ class Helper {
         pcl::PointCloud<pcl::PointXYZ>::Ptr estimatePolygon(std::vector<pcl::PointXYZ> points, 
                                                             pcl::ModelCoefficients::Ptr coefficients);
 
+        std::vector<std::vector<pcl::PointXYZ>> parsePointString(const std::string& input);
+
         std::vector<std::vector<pcl::PointXYZ>> parsePolygonData(const std::string& filename);
 
         // occlusion level
@@ -103,12 +105,19 @@ class Helper {
         pcl::PointCloud<pcl::PointXYZI>::Ptr computeDistanceVariance(double radius, 
                                                                     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);                                    
 
-        double rayBasedOcclusionLevel(  pcl::PointXYZ& minPt, 
-                                        pcl::PointXYZ& maxPt, 
-                                        double density, 
+        double rayBasedOcclusionLevelMedian(pcl::PointXYZ& minPt, 
+                                            pcl::PointXYZ& maxPt, 
+                                            double density, 
+                                            double radius,
+                                            pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, 
+                                            pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_median_distance,
+                                            std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds,
+                                            std::vector<pcl::ModelCoefficients::Ptr> allCoefficients);
+
+        double rayBasedOcclusionLevel(pcl::PointXYZ& minPt, 
+                                        pcl::PointXYZ& maxPt,
                                         double radius,
                                         pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, 
-                                        pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_median_distance,
                                         std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds,
                                         std::vector<pcl::ModelCoefficients::Ptr> allCoefficients);
 

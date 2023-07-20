@@ -28,6 +28,7 @@ Scanner::~Scanner()
     // empty destructor
 }
 
+
 /*
     This method is used to generate a sampled cloud using ray sampling method. We cast a ray from a light source to a point on the sphere. 
     Then we sample points along the ray with given step, for each point we search for its nearest neighbor within a given search radius.
@@ -36,39 +37,35 @@ Scanner::~Scanner()
 pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::multi_sphere_scanner(double step, 
                                                                      double searchRadius, // search radius
                                                                      double sphereRadius, // radius of sphere
-                                                                     size_t numSamples, // number of samples
-                                                                     pcl::PointXYZ& minPt, 
+                                                                     size_t num_samples, // number of samples
+                                                                     pcl::PointXYZ& minPt,
                                                                      pcl::PointXYZ& maxPt,
+                                                                     std::vector<pcl::PointXYZ> scanning_positions,
                                                                      pcl::PointCloud<pcl::PointXYZ>::Ptr cloud,
                                                                      pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud,
-                                                                     double density,
                                                                      std::string file_name) {
 
-    Helper helper;
     Property prop;
+    Helper helper;
     
-    size_t newNumSamples = (double) numSamples / 1.0;
-    std::cout << "number of samples adjusted by density: " << newNumSamples << std::endl;
-
-    std::vector<pcl::PointXYZ> centers = helper.getSphereLightSourceCenters(minPt, maxPt);
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
-
     kdtree.setInputCloud(cloud);
+
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr sampledCloud(new pcl::PointCloud<pcl::PointXYZRGB>);
-    std::cout << "total rays: " << newNumSamples * centers.size() << std::endl;
+    std::cout << "total rays: " << num_samples * scanning_positions.size() << std::endl;
 
     std::unordered_set<int> addedPoints;
 
-    for (int k = 0; k < centers.size(); k++) {
+    for (int k = 0; k < scanning_positions.size(); k++) {
 
-        std::vector<pcl::PointXYZ> sampledPoints = helper.UniformSamplingSphere(centers[k], sphereRadius, newNumSamples);
-        std::cout << "center " << k << std::endl;
+        std::vector<pcl::PointXYZ> sampledPoints = helper.UniformSamplingSphere(scanning_positions[k], sphereRadius, num_samples);
+        std::cout << "scanning position " << k << std::endl;
 
         // store all index of points that should be added to the sampled cloud
         for (int i = 0; i < sampledPoints.size(); i++) {
 
             pcl::PointXYZ sampledPoint = sampledPoints[i];
-            Ray3D ray = helper.generateRay(centers[k], sampledPoint);
+            Ray3D ray = helper.generateRay(scanning_positions[k], sampledPoint);
             
             while ( sampledPoint.x < maxPt.x && sampledPoint.y < maxPt.y && sampledPoint.z < maxPt.z && sampledPoint.x > minPt.x && sampledPoint.y > minPt.y && sampledPoint.z > minPt.z) {
                 
@@ -90,7 +87,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::multi_sphere_scanner(double step
         }
     }
 
-    std::cout << "total points after downsampling: " << addedPoints.size() << std::endl;
+    std::cout << "total points after scanning: " << addedPoints.size() << std::endl;
 
     for (const auto& ptIdx : addedPoints) {
 
@@ -113,8 +110,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::multi_sphere_scanner(double step
     sampledCloud->is_dense = true;
 
     std::string outputPath = "../files/rs_" + file_name.substr(0, file_name.length() - 4) + "-";
-    // std::string outputPath = "../files/rs-";
-    outputPath += std::to_string(numSamples) + ".pcd";
+    outputPath += std::to_string(num_samples) + ".pcd";
     pcl::io::savePCDFileASCII (outputPath, *sampledCloud);
 
     return sampledCloud;
@@ -123,20 +119,22 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::multi_sphere_scanner(double step
 
 
 
-std::vector<pcl::PointXYZ> Scanner::scanning_positions( size_t num_random_positions, 
+std::vector<pcl::PointXYZ> Scanner::scanning_positions( size_t num_positions, 
                                                         pcl::PointXYZ& minPt, 
                                                         pcl::PointXYZ& maxPt,
                                                         int pattern) {
 
+    Helper helper;
+
     std::vector<pcl::PointXYZ> positions;
     
-    // pattern 0: fixed positions                                            
-    if (pattern == 0) {
+    pcl::PointXYZ center;
+    center.x = (minPt.x + maxPt.x) / 2;
+    center.y = (minPt.y + maxPt.y) / 2;
+    center.z = (minPt.z + maxPt.z) / 2;
 
-        pcl::PointXYZ center;
-        center.x = (minPt.x + maxPt.x) / 2;
-        center.y = (minPt.y + maxPt.y) / 2;
-        center.z = (minPt.z + maxPt.z) / 2;
+    // pattern 0: fixed 5 positions for square scanner                                            
+    if (pattern == 0) {
 
         pcl::PointXYZ position1;
         position1.x = (center.x + minPt.x) / 2;
@@ -167,7 +165,7 @@ std::vector<pcl::PointXYZ> Scanner::scanning_positions( size_t num_random_positi
     } else if (pattern == 1) { // random positions
 
         pcl::PointXYZ position;
-        for (int i = 0; i < num_random_positions; i++) {
+        for (int i = 0; i < num_positions; i++) {
 
             position.x = minPt.x + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(maxPt.x-minPt.x)));
             position.y = minPt.y + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(maxPt.y-minPt.y)));
@@ -176,7 +174,13 @@ std::vector<pcl::PointXYZ> Scanner::scanning_positions( size_t num_random_positi
             positions.push_back(position);
 
         }
-    } 
+    } else if (pattern == 2) { // one center position
+
+        positions.push_back(center);
+        
+    } else if (pattern == 3) {
+        positions = helper.getSphereLightSourceCenters(minPt, maxPt);
+    }
 
     return positions;
 
@@ -448,3 +452,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::random_scanner(double step,
     return scanned_cloud;
 }
 
+
+// pcl::PointCloud<pcl::PointXYZ>::Ptr Scanner::scan_visible_area() {
+//     pcl::PointXYZ scan_position = Scanner::scanning_positions(1, minPt, maxPt, 2)[0];
+// }

@@ -16,14 +16,14 @@ class Scanner {
                                                                     double searchRadius,
                                                                     double sphereRadius, 
                                                                     size_t num_samples,
-                                                                    pcl::PointXYZ& minPt, 
+                                                                    pcl::PointXYZ& minPt,
                                                                     pcl::PointXYZ& maxPt,
+                                                                    std::vector<pcl::PointXYZ> scanning_positions,
                                                                     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud,
                                                                     pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud,
-                                                                    double density,
                                                                     std::string file_name);
 
-        std::vector<pcl::PointXYZ> scanning_positions(size_t num_random_positions, 
+        std::vector<pcl::PointXYZ> scanning_positions(size_t num_positions, 
                                                         pcl::PointXYZ& minPt, 
                                                         pcl::PointXYZ& maxPt,
                                                         int pattern);
@@ -32,12 +32,12 @@ class Scanner {
 
 
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr multi_square_scanner(double step, 
-                                                        double searchRadius, // search radius
-                                                        pcl::PointXYZ& minPt, 
-                                                        pcl::PointXYZ& maxPt,
-                                                        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud,
-                                                        pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud,
-                                                        std::string file_name);
+                                                                    double searchRadius, // search radius
+                                                                    pcl::PointXYZ& minPt, 
+                                                                    pcl::PointXYZ& maxPt,
+                                                                    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud,
+                                                                    pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud,
+                                                                    std::string file_name);
 
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr random_scanner(double step, 
                                                             double searchRadius, // search radius

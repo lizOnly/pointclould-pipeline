@@ -400,6 +400,30 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr Helper::estimatePolygon(std::vector<pcl::Poi
     return cloud_hull;
 }
 
+std::vector<std::vector<pcl::PointXYZ>> Helper::parsePointString(const std::string& input) {
+    std::vector<std::vector<pcl::PointXYZ>> result;
+    
+    std::istringstream ss(input);
+    std::string line;
+    while (std::getline(ss, line, ';')) { 
+        std::vector<pcl::PointXYZ> group;
+        std::istringstream group_ss(line);
+        std::string point_str;
+
+        while (std::getline(group_ss, point_str, ',')) { 
+            std::istringstream point_ss(point_str);
+            double x, y, z;
+            if (point_ss >> x >> y >> z) {
+                // std::cout << "Point: " << x << " " << y << " " << z << std::endl;
+                group.push_back(pcl::PointXYZ(x, y, z));
+            }
+        }
+        result.push_back(group);
+    }
+
+    return result;
+}
+
 
 std::vector<std::vector<pcl::PointXYZ>> Helper::parsePolygonData(const std::string& filename) {
     std::ifstream infile(filename);
@@ -809,7 +833,7 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr Helper::computeDistanceVariance(double radi
     * @param num_samples: the number of samples to use for each light source
     * @return: the occlusion level of the point cloud
 */
-double Helper::rayBasedOcclusionLevel(pcl::PointXYZ& minPt, 
+double Helper::rayBasedOcclusionLevelMedian(pcl::PointXYZ& minPt, 
                                       pcl::PointXYZ& maxPt,
                                       double density,
                                       double radius,
@@ -818,15 +842,6 @@ double Helper::rayBasedOcclusionLevel(pcl::PointXYZ& minPt,
                                       std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds,
                                       std::vector<pcl::ModelCoefficients::Ptr> allCoefficients) {
     
-    // if (density <= 10.0) {
-        
-    //     density = density / 10.0 + 1.0;
-    
-    // } else if (density > 10){
-
-    //     density = 2.0;
-
-    // }
 
     std::vector<pcl::PointXYZ> centers = Helper::getSphereLightSourceCenters(minPt, maxPt);
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
@@ -858,6 +873,79 @@ double Helper::rayBasedOcclusionLevel(pcl::PointXYZ& minPt,
             // check if the ray intersects any polygon or point cloud
             // if (Helper::rayIntersectPointCloud(ray, step, radius, minPt, maxPt, kdtree)) {
             if (Helper::rayIntersectPcdMedianDistance(ray, step, radius, minPt, maxPt, kdtree, cloud_with_median_distance)) {
+                // std::cout << "*--> Ray hit cloud!!!" << std::endl;
+                cloudIntersecRays++;
+
+            } else {
+
+                for (size_t k = 0; k < polygonClouds.size(); ++k) {
+
+                    if (Helper::rayIntersectPolygon(ray, polygonClouds[k], allCoefficients[k])) {
+
+                        // std::cout << "*--> Ray didn't hit cloud but hit polygon of index " << k << std::endl;
+                        polygonIntersecRays++;
+                        break;
+
+                    } else if (k == (polygonClouds.size() - 1)) {
+
+                        // std::cout << "*--> Ray did not hit anything, it's an occlusion" << std::endl;
+                        occlusionRays++;
+
+                    }
+                }
+            }
+        }
+    }
+
+    occlusionLevel = (double) occlusionRays / (double) numRays;
+    
+    std::cout << "Number of rays: " << numRays << std::endl;
+    std::cout << "Number of cloud intersection rays: " << cloudIntersecRays << std::endl;
+    std::cout << "Number of polygon intersection rays: " << polygonIntersecRays << std::endl;
+    std::cout << "Number of occlusion rays: " << occlusionRays << std::endl;
+    std::cout << "Occlusion level: " << occlusionLevel << std::endl;
+    
+    return occlusionLevel;
+}
+
+
+double Helper::rayBasedOcclusionLevel(pcl::PointXYZ& minPt, 
+                                      pcl::PointXYZ& maxPt,
+                                      double radius,
+                                      pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, 
+                                      std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds,
+                                      std::vector<pcl::ModelCoefficients::Ptr> allCoefficients) {
+    
+
+    std::vector<pcl::PointXYZ> centers = Helper::getSphereLightSourceCenters(minPt, maxPt);
+    pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
+    kdtree.setInputCloud(cloud);
+
+    size_t num_samples = 10000;
+    double step = 0.05; // step size for ray traversal
+    double occlusionLevel = 0.0;
+
+    // radius = radius / density;
+
+    std::cout << "Radius: " << radius << std::endl;
+
+    int numRays = centers.size() * num_samples;
+    int occlusionRays = 0;
+    int polygonIntersecRays = 0;
+    int cloudIntersecRays = 0;
+    double sphereRadius = 0.1;
+
+    // we don't  want to check the first center
+    for (size_t i = 1; i < centers.size(); ++i) {
+
+        // std::cout << "*********Center " << i << ": " << centers[i].x << ", " << centers[i].y << ", " << centers[i].z << "*********" << std::endl;
+        std::vector<pcl::PointXYZ> samples = Helper::UniformSamplingSphere(centers[i], sphereRadius, num_samples);
+
+        // iterate over the samples
+        for (size_t j = 0; j < samples.size(); ++j) {
+            Ray3D ray = Helper::generateRay(centers[i], samples[j]);            
+            // check if the ray intersects any polygon or point cloud
+            if (Helper::rayIntersectPointCloud(ray, step, radius, minPt, maxPt, kdtree)) {
                 // std::cout << "*--> Ray hit cloud!!!" << std::endl;
                 cloudIntersecRays++;
 

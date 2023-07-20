@@ -2,7 +2,13 @@
 #include <chrono>
 #include <string>
 #include <vector>
-// #include <unordered_map>
+#include <unordered_map>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <fstream>
+#include <sstream>
 
 #include <pcl/point_types.h>
 #include <pcl/io/pcd_io.h>
@@ -17,9 +23,113 @@
 #include "../headers/visualizer.h"
 #include "../headers/scanner.h"
 
+#include <boost/asio.hpp>
+#include <websocketpp/config/asio_no_tls.hpp>
+#include <websocketpp/server.hpp>
+
+class DataHolder {
+
+    private:
+        std::string file_name;
+        std::string input_path;
+        std::string polygon_data;
+        std::vector<std::vector<pcl::PointXYZ>> polygons;
+
+    public:
+        DataHolder() {};
+        ~DataHolder() {};
+
+        void setFileName(std::string file_name) {
+            this->file_name = file_name;
+        }
+
+        void setInputPath(std::string input_path) {
+            this->input_path = input_path;
+        }
+
+        void setPolygonData(std::string polygon_data) {
+            this->polygon_data = polygon_data;
+        }
+
+        void setPolygons(std::vector<std::vector<pcl::PointXYZ>> polygons) {
+            this->polygons = polygons;
+        }
+
+        std::string getFileName() {
+            return this->file_name;
+        }
+
+        std::string getInputPath() {
+            return this->input_path;
+        }
+
+        std::string getPolygonData() {
+            return this->polygon_data;
+        }
+
+        std::vector<std::vector<pcl::PointXYZ>> getPolygons() {
+            return this->polygons;
+        }
+
+};
+
+typedef websocketpp::server<websocketpp::config::asio> server;
+
+void on_message(server& s, websocketpp::connection_hdl hdl, server::message_ptr msg, DataHolder& data_holder) {
+    std::cout << "on_message called with hdl: " << hdl.lock().get()
+              << " and message: " << msg->get_payload()
+              << std::endl;
+    Helper helper;
+    // Echo the message back
+    try {
+        s.send(hdl, msg->get_payload(), msg->get_opcode());
+
+        std::string payload = msg->get_payload();
+
+        if (payload.substr(0, 3) == "-i=") {
+            data_holder.setFileName(payload.substr(3, payload.length()));
+            data_holder.setInputPath("../files/" + payload.substr(3, payload.length()));
+        }
+        if (payload.substr(0, 3) == "-p=") {
+            data_holder.setPolygonData(payload.substr(3, payload.length()));
+            std::string polygon_data = data_holder.getPolygonData();
+            std::vector<std::vector<pcl::PointXYZ>> polygons = helper.parsePointString(polygon_data);
+            data_holder.setPolygons(polygons);
+        }
+
+    } catch (const websocketpp::lib::error_code& e) {
+        std::cout << "Echo failed because: " << e
+                  << "(" << e.message() << ")" << std::endl;
+    }
+}
+
 
 int main(int argc, char *argv[])
 {   
+    if (argc < 2) {
+        std::cout << "You have to provide at least two arguments" << std::endl;
+        return 0;
+    }
+
+    // parse arguments related to input file, or --help or backend server
+    std::string arg1 = argv[1];
+
+    if (arg1 == "-b") {
+        std::cout << "Program now running as a backend server on port 8080 ..." << std::endl;
+        DataHolder data_holder;
+        server print_server;
+
+        print_server.set_message_handler([&print_server, &data_holder](websocketpp::connection_hdl hdl, server::message_ptr msg) {
+            on_message(print_server, hdl, msg, data_holder);
+        });
+
+        print_server.init_asio();
+        print_server.listen(8080);
+        print_server.start_accept();
+
+        print_server.run();        
+
+    }
 
     auto start = std::chrono::high_resolution_clock::now();
     std::cout << "Parsing arguments ... " << std::endl;
@@ -32,6 +142,8 @@ int main(int argc, char *argv[])
     args_map["-h"] = "--help";
     args_map["-rc="] = "--reconstruct";
     args_map["-s="] = "--semantic==";
+    args_map["-p="] = "--polygon==";
+    args_map["-sc="] = "--scan==";
     args_map["-e"] = "--evaluate"; // calculate the evaluation metrics, IoU, F1, etc.
     args_map["-c"] = "--center";
     args_map["-f"] = "--filter";
@@ -39,6 +151,7 @@ int main(int argc, char *argv[])
     args_map["-d"] = "--density"; // compute density of the cloud
     args_map["-t2ply"] = "--transfer2ply"; // transfer pcd file to ply file
     args_map["-t2pcd"] = "--transfer2pcd"; // transfer ply file to pcd file
+    args_map["-t"] = "--test"; // test the executable
 
 
 
@@ -61,13 +174,8 @@ int main(int argc, char *argv[])
     std::string folder_path = "/mnt/c/Users/51932/Desktop/s3d/Area_1/conferenceRoom_1/Annotations/"; // default value, batch reconstruction
     // recon.batchReconstructionFromTxt(folder_path);
 
-    if (argc < 2) {
-        std::cout << "You have to provide at least two arguments" << std::endl;
-        return 0;
-    }
 
-    // parse arguments related to imput file, or --help
-    std::string arg1 = argv[1];
+    
 
     if (arg1.substr(0, 3) == "-i=") {
 
@@ -96,6 +204,10 @@ int main(int argc, char *argv[])
             std::cout << it->first << " " << it->second << std::endl;
         }
 
+        return 0;
+    } else if (arg1 == "-t") {
+
+        std::cout << "Executable running successfully in test" << std::endl;
         return 0;
 
     } else {
@@ -157,9 +269,9 @@ int main(int argc, char *argv[])
 
             }
             pcl::PointCloud<pcl::PointXYZRGB>::Ptr sampled_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
-
-            std::cout << "num_ray_sample: " << num_ray_sample << std::endl;
-            sampled_cloud = scanner.multi_sphere_scanner(0.05, 0.05, 0.1, num_ray_sample, minPt, maxPt, cloud, colored_cloud, density, file_name);
+            // std::vector<pcl::PointXYZ> scanning_positions = scanner.scanning_positions(0, minPt, maxPt, 3);
+            std::vector<pcl::PointXYZ> center_scanning = scanner.scanning_positions(0, minPt, maxPt, 2);
+            sampled_cloud = scanner.multi_sphere_scanner(0.05, 0.05, 0.1, num_ray_sample, minPt, maxPt, center_scanning, cloud, colored_cloud, file_name);
             
             num_sampled_points = sampled_cloud->width * sampled_cloud->height;
             std::cout << "num_sampled_points: " << num_sampled_points << std::endl;
@@ -173,40 +285,39 @@ int main(int argc, char *argv[])
             size_t num_random_positions = std::stoi(argi.substr(4, argi.length()));
             scanner.random_scanner(0.05, 0.1, num_random_positions, minPt, maxPt, cloud, colored_cloud, file_name);
 
-        } else if (argi == "-o" || argi == "--occlusion") {
+        } else if (argi == "-o" || argi == "-om") {
             
             std::vector<std::vector<pcl::PointXYZ>> polygons = helper.parsePolygonData(polygon_path);
             std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds;
             std::vector<pcl::ModelCoefficients::Ptr> allCoefficients;
 
             for (int i = 0; i < polygons.size(); i++) {
-
                 pcl::ModelCoefficients::Ptr coefficients = helper.computePlaneCoefficients(polygons[i]);
                 allCoefficients.push_back(coefficients);
 
                 pcl::PointCloud<pcl::PointXYZ>::Ptr polygon = helper.estimatePolygon(polygons[i], coefficients);
                 polygonClouds.push_back(polygon);
-            
             }
 
             double search_radius = 0.1;
-            // if (density <= 5.0) {
-            //     density = density / 5.0 + 1.0;
-            // } else if (density > 5 && density <= 10) {
-            //     density = density / 10.0 + 1.0;
-            // } else {
-            //         density = 2.0;
-            // }
 
-            pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_density(new pcl::PointCloud<pcl::PointXYZI>);
-            cloud_with_density = prop.computeDensityGaussian(cloud);
+            if (argi == "-o") {
 
-            pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_median_distance(new pcl::PointCloud<pcl::PointXYZI>);
-            cloud_with_median_distance = helper.computeMedianDistance(search_radius, cloud, cloud_with_density);
+                double rayOcclusionLevel = helper.rayBasedOcclusionLevel(minPt, maxPt, search_radius, 
+                                                                        cloud, polygonClouds, allCoefficients);
+    
+            } else if (argi == "-om") {
 
-            double rayOcclusionLevel = helper.rayBasedOcclusionLevel(minPt, maxPt, density, search_radius, 
-                                                                     cloud, cloud_with_median_distance,
-                                                                     polygonClouds, allCoefficients);
+                pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_density(new pcl::PointCloud<pcl::PointXYZI>);
+                cloud_with_density = prop.computeDensityGaussian(cloud);
+
+                pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_median_distance(new pcl::PointCloud<pcl::PointXYZI>);
+                cloud_with_median_distance = helper.computeMedianDistance(search_radius, cloud, cloud_with_density);
+
+                double rayOcclusionLevel = helper.rayBasedOcclusionLevelMedian(minPt, maxPt, density, search_radius, 
+                                                                            cloud, cloud_with_median_distance,
+                                                                            polygonClouds, allCoefficients);
+            }
 
         } else if (argi == "-d" || argi == "--density") {
 
