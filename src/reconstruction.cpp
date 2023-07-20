@@ -149,14 +149,16 @@ void Reconstruction::batchReconstructionFromTxt(std::string folder_path) {
     ground_truth_map["beam"] = {20};
     ground_truth_map["board"] = {21};
     ground_truth_map["bookcase"] = {9};
-    ground_truth_map["ceiling"] = {1}; // same as floor
+    ground_truth_map["ceiling"] = {1}; // we define its class same as floor
     ground_truth_map["chair"] = {4};
+    ground_truth_map["column"] = {26};
     ground_truth_map["clutter"] = {25};
     ground_truth_map["door"] = {7};
     ground_truth_map["floor"] = {1};
     ground_truth_map["sofa"] = {5};
     ground_truth_map["table"] = {6};
     ground_truth_map["wall"] = {0};
+    ground_truth_map["window"] = {8};
 
     // Load the point cloud data from the text file
     std::cout << "Loading point cloud data from " << folder_path << std::endl;
@@ -197,6 +199,7 @@ void Reconstruction::batchReconstructionFromTxt(std::string folder_path) {
     std::cout << "Loaded " << cloud->width << " points" << std::endl;
     cloud->height = 1;
 
+    pcl::io::savePCDFile("../files/recon_cloud.pcd", *cloud);
 }
 
 

@@ -34,6 +34,8 @@ class DataHolder {
         std::string input_path;
         std::string polygon_data;
         std::vector<std::vector<pcl::PointXYZ>> polygons;
+        std::string segmentation_path;
+        std::string gt_path;
 
     public:
         DataHolder() {};
@@ -55,6 +57,14 @@ class DataHolder {
             this->polygons = polygons;
         }
 
+        void setSegmentationPath(std::string segmentation_path) {
+            this->segmentation_path = segmentation_path;
+        }
+
+        void setGtPath(std::string gt_path) {
+            this->gt_path = gt_path;
+        }
+
         std::string getFileName() {
             return this->file_name;
         }
@@ -69,6 +79,14 @@ class DataHolder {
 
         std::vector<std::vector<pcl::PointXYZ>> getPolygons() {
             return this->polygons;
+        }
+
+        std::string getSegmentationPath() {
+            return this->segmentation_path;
+        }
+
+        std::string getGtPath() {
+            return this->gt_path;
         }
 
 };
@@ -95,6 +113,117 @@ void on_message(server& s, websocketpp::connection_hdl hdl, server::message_ptr 
             std::string polygon_data = data_holder.getPolygonData();
             std::vector<std::vector<pcl::PointXYZ>> polygons = helper.parsePointString(polygon_data);
             data_holder.setPolygons(polygons);
+        }
+        if (payload.substr(0, 2) == "-o") {
+            std::string file_name = data_holder.getFileName();
+            std::string input_path = data_holder.getInputPath();
+            std::vector<std::vector<pcl::PointXYZ>> polygons = data_holder.getPolygons();
+
+            pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+            if (pcl::io::loadPCDFile<pcl::PointXYZ>(input_path, *cloud) == -1) {
+                PCL_ERROR("Couldn't read file\n");
+            }
+
+            pcl::PointXYZ minPt, maxPt;
+            pcl::getMinMax3D(*cloud, minPt, maxPt);
+
+            pcl::PointCloud<pcl::PointXYZRGB>::Ptr colored_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);          
+            if (pcl::io::loadPCDFile<pcl::PointXYZRGB>(input_path, *colored_cloud) == -1) {
+                PCL_ERROR("Couldn't read file\n");
+            }
+
+            std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds;
+            std::vector<pcl::ModelCoefficients::Ptr> allCoefficients;
+
+            pcl::PointXYZ default_point;
+            default_point.x = 0;
+            default_point.y = 0;
+            default_point.z = 0;
+            pcl::PointXYZ default_point2;
+            default_point2.x = 1;
+            default_point2.y = 1;
+            default_point2.z = 1;
+            pcl::PointXYZ default_point3;
+            default_point3.x = 1;
+            default_point3.y = 0;
+            default_point3.z = 1;
+
+            if (polygons.size() == 0) {
+                std::vector<pcl::PointXYZ> default_polygon;
+                default_polygon.push_back(default_point);
+                default_polygon.push_back(default_point2);
+                default_polygon.push_back(default_point3);
+
+                pcl::ModelCoefficients::Ptr coefficients = helper.computePlaneCoefficients(default_polygon);
+                allCoefficients.push_back(coefficients);
+
+                pcl::PointCloud<pcl::PointXYZ>::Ptr polygon = helper.estimatePolygon(default_polygon, coefficients);
+                polygonClouds.push_back(polygon);
+
+            } else {
+                for (int i = 0; i < polygons.size(); i++) {
+                    pcl::ModelCoefficients::Ptr coefficients = helper.computePlaneCoefficients(polygons[i]);
+                    allCoefficients.push_back(coefficients);
+
+                    pcl::PointCloud<pcl::PointXYZ>::Ptr polygon = helper.estimatePolygon(polygons[i], coefficients);
+                    polygonClouds.push_back(polygon);
+                }
+            }
+            
+
+            double search_radius = 0.1;
+
+            double rayOcclusionLevel = helper.rayBasedOcclusionLevel(minPt, maxPt, search_radius, 
+                                                                    cloud, polygonClouds, allCoefficients);
+
+            std::cout << "rayOcclusionLevel: " << rayOcclusionLevel << std::endl;
+
+            std::string ray_occlusion_level = "-o=" + std::to_string(rayOcclusionLevel);
+
+            s.send(hdl, ray_occlusion_level, msg->get_opcode());
+
+        }
+        if (payload.substr(0, 3) == "-s=") {
+            data_holder.setSegmentationPath("../files/" + payload.substr(3, payload.length()));
+        }
+        if (payload.substr(0, 4) == "-gt=") {
+            data_holder.setGtPath("../files/" + payload.substr(4, payload.length()));
+        }
+        if (payload.substr(0, 2) == "-e") {
+            std::cout << "Calculating evaluation metrics ... " << std::endl;
+            std::string gt_path = data_holder.getGtPath();
+            pcl::PointCloud<pcl::PointXYZI>::Ptr ground_truth_cloud(new pcl::PointCloud<pcl::PointXYZI>);
+            pcl::io::loadPCDFile<pcl::PointXYZI>(gt_path, *ground_truth_cloud);
+            std::cout << "ground_truth_cloud loaded " << ground_truth_cloud->size() << std::endl;
+
+            std::string segmentation_path = data_holder.getSegmentationPath();
+            pcl::PointCloud<pcl::PointXYZRGB>::Ptr segmented_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+            pcl::io::loadPCDFile<pcl::PointXYZRGB>(segmentation_path, *segmented_cloud);
+            std::cout << "segmented_cloud loaded " << segmented_cloud->size() << std::endl;
+
+            Evaluation eval;
+            eval.compareClouds(segmented_cloud, ground_truth_cloud);
+            
+            float iou = eval.calculateIoU();
+            std::string iou_str = "-iou=" + std::to_string(iou);
+            s.send(hdl, iou_str, msg->get_opcode());
+            
+            float accuracy = eval.calculateAccuracy();
+            std::string accuracy_str = "-accuracy=" + std::to_string(accuracy);
+            s.send(hdl, accuracy_str, msg->get_opcode());
+            
+            float precision = eval.calculatePrecision();
+            std::string precision_str = "-precision=" + std::to_string(precision);
+            s.send(hdl, precision_str, msg->get_opcode());
+
+            float recall = eval.calculateRecall();
+            std::string recall_str = "-recall=" + std::to_string(recall);
+            s.send(hdl, recall_str, msg->get_opcode());
+            
+            float f1_score = eval.calculateF1Score();
+            std::string f1_score_str = "-f1_score=" + std::to_string(f1_score);
+            s.send(hdl, f1_score_str, msg->get_opcode());
+
         }
 
     } catch (const websocketpp::lib::error_code& e) {
@@ -141,7 +270,7 @@ int main(int argc, char *argv[])
     args_map["-sr="] = "--searchradius==";
     args_map["-h"] = "--help";
     args_map["-rc="] = "--reconstruct";
-    args_map["-s="] = "--semantic==";
+    args_map["-s="] = "--segmentation==";
     args_map["-p="] = "--polygon==";
     args_map["-sc="] = "--scan==";
     args_map["-e"] = "--evaluate"; // calculate the evaluation metrics, IoU, F1, etc.
@@ -163,8 +292,11 @@ int main(int argc, char *argv[])
 
     std::string file_name = "";
     std::string input_path = "";
+    std::string segmentation_path = "";
     std::string polygon_path = "";
     std::string recon_path = "";
+    std::string recon_gt_path = "";
+    std::string gt_path = "";
 
     Property prop;
     Reconstruction recon;
@@ -174,9 +306,7 @@ int main(int argc, char *argv[])
     std::string folder_path = "/mnt/c/Users/51932/Desktop/s3d/Area_1/conferenceRoom_1/Annotations/"; // default value, batch reconstruction
     // recon.batchReconstructionFromTxt(folder_path);
 
-
-    
-
+    Evaluation eval;
     if (arg1.substr(0, 3) == "-i=") {
 
         file_name = arg1.substr(3, arg1.length());
@@ -198,6 +328,11 @@ int main(int argc, char *argv[])
 
         return 0;
 
+    } else if (arg1.substr(0, 5) == "-rcg=") {
+            recon_gt_path = "../files/" + arg1.substr(5, arg1.length());
+            std::cout << "recon_gt_path: " << recon_gt_path << std::endl;
+            recon.batchReconstructionFromTxt(recon_gt_path);
+            return 0;
     } else if (arg1 == "-h" || arg1 == "--help") {
 
         for (auto it = args_map.begin(); it != args_map.end(); it++) {
@@ -336,7 +471,26 @@ int main(int argc, char *argv[])
             polygon_path = "../files/" + argi.substr(3, argi.length());
             std::cout << "polygon_path: " << polygon_path << std::endl;
 
-        }  
+        } else if (argi.substr(0, 3) == "-s=") {
+            segmentation_path = "../files/" + argi.substr(3, argi.length());
+            std::cout << "segmentation_path: " << segmentation_path << std::endl;
+        } else if (argi.substr(0, 4) == "-gt=") {
+            gt_path = "../files/" + argi.substr(4, argi.length());
+            std::cout << "gt_path: " << gt_path << std::endl;
+        } else if (argi == "-e") {
+            pcl::PointCloud<pcl::PointXYZRGB>::Ptr segmented_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+            pcl::io::loadPCDFile<pcl::PointXYZRGB>(segmentation_path, *segmented_cloud);
+
+            pcl::PointCloud<pcl::PointXYZI>::Ptr ground_truth_cloud(new pcl::PointCloud<pcl::PointXYZI>);
+            pcl::io::loadPCDFile<pcl::PointXYZI>(gt_path, *ground_truth_cloud);
+
+            eval.compareClouds(segmented_cloud, ground_truth_cloud);
+            eval.calculateIoU();
+            eval.calculateAccuracy();
+            eval.calculatePrecision();
+            eval.calculateRecall();
+            eval.calculateF1Score();
+        }
 
     }
 
