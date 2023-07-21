@@ -40,8 +40,10 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::multi_sphere_scanner(double step
                                                                      size_t num_samples, // number of samples
                                                                      pcl::PointXYZ& minPt,
                                                                      pcl::PointXYZ& maxPt,
+                                                                     int pattern,
                                                                      std::vector<pcl::PointXYZ> scanning_positions,
                                                                      pcl::PointCloud<pcl::PointXYZ>::Ptr cloud,
+                                                                     pcl::PointCloud<pcl::PointXYZI>::Ptr gt_cloud,
                                                                      pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud,
                                                                      std::string file_name) {
 
@@ -52,6 +54,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::multi_sphere_scanner(double step
     kdtree.setInputCloud(cloud);
 
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr sampledCloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+    pcl::PointCloud<pcl::PointXYZI>::Ptr sampledCloudGT(new pcl::PointCloud<pcl::PointXYZI>);
     std::cout << "total rays: " << num_samples * scanning_positions.size() << std::endl;
 
     std::unordered_set<int> addedPoints;
@@ -88,8 +91,23 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::multi_sphere_scanner(double step
     }
 
     std::cout << "total points after scanning: " << addedPoints.size() << std::endl;
+    pcl::KdTreeFLANN<pcl::PointXYZI> kdtree_gt;
+    kdtree_gt.setInputCloud(gt_cloud);
 
     for (const auto& ptIdx : addedPoints) {
+
+        pcl::PointXYZI search_point;
+        search_point.x = cloud->points[ptIdx].x;
+        search_point.y = cloud->points[ptIdx].y;
+        search_point.z = cloud->points[ptIdx].z;
+        search_point.intensity = 0.0;
+
+        std::vector<int> indices;
+        std::vector<float> distances;
+
+        kdtree_gt.nearestKSearch(search_point, 1, indices, distances);
+        pcl::PointXYZI gt_point = gt_cloud->points[indices[0]];
+        sampledCloudGT->push_back(gt_point);
 
         pcl::PointXYZRGB point;
 
@@ -108,10 +126,24 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::multi_sphere_scanner(double step
     sampledCloud->width = sampledCloud->size();
     sampledCloud->height = 1;
     sampledCloud->is_dense = true;
+    std::cout << "scanned cloud size: " << sampledCloud->size() << std::endl;
 
-    std::string outputPath = "../files/rs_" + file_name.substr(0, file_name.length() - 4) + "-";
-    outputPath += std::to_string(num_samples) + ".pcd";
+    sampledCloudGT->width = sampledCloudGT->size();
+    sampledCloudGT->height = 1;
+    sampledCloudGT->is_dense = true;
+    std::cout << "scanned cloud ground truth size: " << sampledCloudGT->size() << std::endl;
+
+    std::string outputPath = "../files/" + file_name.substr(0, file_name.length() - 4) + "_" + std::to_string(num_samples) + ".pcd";
+    std::string gt_output_path = "../files/" + file_name.substr(0, file_name.length() - 4) + "_" + std::to_string(num_samples) + "_gt.pcd";
+    if(pattern == 4) {
+        outputPath = "../files/" + file_name.substr(0, file_name.length() - 4) + "_" + std::to_string(num_samples) + "_v1.pcd";
+        gt_output_path = "../files/" + file_name.substr(0, file_name.length() - 4) + "_" + std::to_string(num_samples) + "_v1_gt.pcd";
+    } else if (pattern == 5) {
+        outputPath = "../files/" + file_name.substr(0, file_name.length() - 4) + "_" + std::to_string(num_samples) + "_v2.pcd";
+        gt_output_path = "../files/" + file_name.substr(0, file_name.length() - 4) + "_" + std::to_string(num_samples) + "_v2_gt.pcd";
+    }
     pcl::io::savePCDFileASCII (outputPath, *sampledCloud);
+    pcl::io::savePCDFileASCII (gt_output_path, *sampledCloudGT);
 
     return sampledCloud;
 
@@ -180,6 +212,21 @@ std::vector<pcl::PointXYZ> Scanner::scanning_positions( size_t num_positions,
         
     } else if (pattern == 3) {
         positions = helper.getSphereLightSourceCenters(minPt, maxPt);
+    } else if (pattern == 4) {
+        pcl::PointXYZ max_position;
+        max_position.x = (center.x + maxPt.x) / 2;
+        max_position.y = (center.y + maxPt.y) / 2;
+        max_position.z = (center.z + maxPt.z) / 2;
+
+        positions.push_back(max_position); 
+
+    } else if (pattern == 5) {
+        pcl::PointXYZ min_position;
+        min_position.x = (center.x + minPt.x) / 2;
+        min_position.y = (center.y + minPt.y) / 2;
+        min_position.z = (center.z + minPt.z) / 2;
+
+        positions.push_back(min_position);
     }
 
     return positions;
@@ -452,7 +499,3 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::random_scanner(double step,
     return scanned_cloud;
 }
 
-
-// pcl::PointCloud<pcl::PointXYZ>::Ptr Scanner::scan_visible_area() {
-//     pcl::PointXYZ scan_position = Scanner::scanning_positions(1, minPt, maxPt, 2)[0];
-// }

@@ -276,7 +276,7 @@ std::vector<pcl::PointXYZ> Helper::getSphereLightSourceCenters(pcl::PointXYZ& mi
     pcl::PointXYZ midpoint1, midpoint2, midpoint3, midpoint4,
                   midpoint5, midpoint6, midpoint7, midpoint8;
 
-    midpoint1.x = (center.x + minPt.x) / 2; 
+    midpoint1.x = (center.x + minPt.x) / 2; // v2
     midpoint1.y = (center.y + minPt.y) / 2; 
     midpoint1.z = (center.z + minPt.z) / 2;
 
@@ -304,7 +304,7 @@ std::vector<pcl::PointXYZ> Helper::getSphereLightSourceCenters(pcl::PointXYZ& mi
     midpoint7.y = (center.y + maxPt.y) / 2; 
     midpoint7.z = (center.z + minPt.z) / 2;
     
-    midpoint8.x = (center.x + maxPt.x) / 2; 
+    midpoint8.x = (center.x + maxPt.x) / 2; // v1
     midpoint8.y = (center.y + maxPt.y) / 2; 
     midpoint8.z = (center.z + maxPt.z) / 2;
 
@@ -837,6 +837,7 @@ double Helper::rayBasedOcclusionLevelMedian(pcl::PointXYZ& minPt,
                                       pcl::PointXYZ& maxPt,
                                       double density,
                                       double radius,
+                                      int pattern,
                                       pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, 
                                       pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_median_distance,
                                       std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds,
@@ -863,6 +864,19 @@ double Helper::rayBasedOcclusionLevelMedian(pcl::PointXYZ& minPt,
 
 
     for (size_t i = 0; i < centers.size(); ++i) {
+        if (pattern == 2) {
+            if (i == 0) { // ignore the center
+                continue;
+            }
+        } else if (pattern == 4) {
+            if (i == 8) { // ignore the max point
+                continue;
+            }
+        } else if (pattern == 5) { 
+            if (i == 1) { // ignore the min point
+                continue;
+            }
+        }
 
         // std::cout << "*********Center " << i << ": " << centers[i].x << ", " << centers[i].y << ", " << centers[i].z << "*********" << std::endl;
         std::vector<pcl::PointXYZ> samples = Helper::UniformSamplingSphere(centers[i], sphereRadius, num_samples);
@@ -912,6 +926,7 @@ double Helper::rayBasedOcclusionLevelMedian(pcl::PointXYZ& minPt,
 double Helper::rayBasedOcclusionLevel(pcl::PointXYZ& minPt, 
                                       pcl::PointXYZ& maxPt,
                                       double radius,
+                                      int pattern,
                                       pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, 
                                       std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds,
                                       std::vector<pcl::ModelCoefficients::Ptr> allCoefficients) {
@@ -935,8 +950,20 @@ double Helper::rayBasedOcclusionLevel(pcl::PointXYZ& minPt,
     int cloudIntersecRays = 0;
     double sphereRadius = 0.1;
 
-    // we don't  want to check the first center
-    for (size_t i = 1; i < centers.size(); ++i) {
+    for (size_t i = 0; i < centers.size(); ++i) {
+        if (pattern == 2) {
+            if (i == 0) { // ignore the center
+                continue;
+            }
+        } else if (pattern == 4) {
+            if (i == 8) { // ignore the max point
+                continue;
+            }
+        } else if (pattern == 5) { 
+            if (i == 1) { // ignore the min point
+                continue;
+            }
+        }
 
         // std::cout << "*********Center " << i << ": " << centers[i].x << ", " << centers[i].y << ", " << centers[i].z << "*********" << std::endl;
         std::vector<pcl::PointXYZ> samples = Helper::UniformSamplingSphere(centers[i], sphereRadius, num_samples);

@@ -48,7 +48,7 @@ void Evaluation::compareClouds(pcl::PointCloud<pcl::PointXYZRGB>::Ptr segmented_
     ground_truth_map["beam"] = {20};
     ground_truth_map["board"] = {21};
     ground_truth_map["bookcase"] = {9};
-    // ground_truth_map["ceiling"] = {1}; // we define its class same as floor
+    ground_truth_map["ceiling"] = {1}; // we define its class same as floor
     ground_truth_map["chair"] = {4};
     ground_truth_map["column"] = {26};
     ground_truth_map["clutter"] = {25};

@@ -18,8 +18,10 @@ class Scanner {
                                                                     size_t num_samples,
                                                                     pcl::PointXYZ& minPt,
                                                                     pcl::PointXYZ& maxPt,
+                                                                    int pattern,
                                                                     std::vector<pcl::PointXYZ> scanning_positions,
                                                                     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud,
+                                                                    pcl::PointCloud<pcl::PointXYZI>::Ptr gt_cloud,
                                                                     pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud,
                                                                     std::string file_name);
 

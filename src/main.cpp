@@ -115,10 +115,18 @@ void on_message(server& s, websocketpp::connection_hdl hdl, server::message_ptr 
             data_holder.setPolygons(polygons);
         }
         if (payload.substr(0, 2) == "-o") {
+            int pattern;
             std::string file_name = data_holder.getFileName();
             std::string input_path = data_holder.getInputPath();
             std::vector<std::vector<pcl::PointXYZ>> polygons = data_holder.getPolygons();
-
+            int length = file_name.length();
+            if (file_name.substr(length - 6, length - 4) == "v1") {
+                pattern = 4; // max scanning
+            } else if (file_name.substr(length - 6, length - 4) == "v2") {
+                pattern = 5; // min scanning
+            } else {
+                pattern = 2; // center scanning
+            }
             pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
             if (pcl::io::loadPCDFile<pcl::PointXYZ>(input_path, *cloud) == -1) {
                 PCL_ERROR("Couldn't read file\n");
@@ -173,7 +181,7 @@ void on_message(server& s, websocketpp::connection_hdl hdl, server::message_ptr 
 
             double search_radius = 0.1;
 
-            double rayOcclusionLevel = helper.rayBasedOcclusionLevel(minPt, maxPt, search_radius, 
+            double rayOcclusionLevel = helper.rayBasedOcclusionLevel(minPt, maxPt, search_radius, pattern, 
                                                                     cloud, polygonClouds, allCoefficients);
 
             std::cout << "rayOcclusionLevel: " << rayOcclusionLevel << std::endl;
@@ -288,7 +296,7 @@ int main(int argc, char *argv[])
     bool filter_cloud = false;
     double epsilon = 0.1;
     size_t num_points = 0;
-    size_t num_sampled_points = 0;
+    size_t num_scanned_points = 0;
 
     std::string file_name = "";
     std::string input_path = "";
@@ -403,19 +411,29 @@ int main(int argc, char *argv[])
                 num_ray_sample = std::stoi(argi.substr(13, argi.length()));
 
             }
-            pcl::PointCloud<pcl::PointXYZRGB>::Ptr sampled_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
-            // std::vector<pcl::PointXYZ> scanning_positions = scanner.scanning_positions(0, minPt, maxPt, 3);
-            std::vector<pcl::PointXYZ> center_scanning = scanner.scanning_positions(0, minPt, maxPt, 2);
-            sampled_cloud = scanner.multi_sphere_scanner(0.05, 0.05, 0.1, num_ray_sample, minPt, maxPt, center_scanning, cloud, colored_cloud, file_name);
-            
-            num_sampled_points = sampled_cloud->width * sampled_cloud->height;
-            std::cout << "num_sampled_points: " << num_sampled_points << std::endl;
+            pcl::PointCloud<pcl::PointXYZI>::Ptr gt_cloud(new pcl::PointCloud<pcl::PointXYZI>);
+            pcl::io::loadPCDFile<pcl::PointXYZI>(gt_path, *gt_cloud);
 
-            double sample_rate = (double) num_sampled_points / (double) num_points;
-            std::cout << "sample_rate: " << sample_rate << std::endl;
+            pcl::PointCloud<pcl::PointXYZRGB>::Ptr sacnned_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+            int pattern_center = 2;
+            std::vector<pcl::PointXYZ> center_scanning = scanner.scanning_positions(0, minPt, maxPt, pattern_center);
+            sacnned_cloud = scanner.multi_sphere_scanner(0.05, 0.05, 0.1, num_ray_sample, minPt, maxPt, pattern_center, center_scanning, cloud, gt_cloud, colored_cloud, file_name);
+            num_scanned_points = sacnned_cloud->width * sacnned_cloud->height;
+            double sample_rate = (double) num_scanned_points / (double) num_points;
+            std::cout << "center scanning sample rate: " << sample_rate << std::endl;
+
+            pcl::PointCloud<pcl::PointXYZRGB>::Ptr sacnned_cloud_v1(new pcl::PointCloud<pcl::PointXYZRGB>);
+            int pattern_v1 = 4; // max scanning
+            std::vector<pcl::PointXYZ> v1_scanning = scanner.scanning_positions(0, minPt, maxPt, pattern_v1);
+            sacnned_cloud_v1 = scanner.multi_sphere_scanner(0.05, 0.05, 0.1, num_ray_sample, minPt, maxPt, pattern_v1, v1_scanning, cloud, gt_cloud, colored_cloud, file_name);
+
+            pcl::PointCloud<pcl::PointXYZRGB>::Ptr sacnned_cloud_v2(new pcl::PointCloud<pcl::PointXYZRGB>);
+            int pattern_v2 = 5; // min scanning
+            std::vector<pcl::PointXYZ> v2_scanning = scanner.scanning_positions(0, minPt, maxPt, pattern_v2);
+            sacnned_cloud_v2 = scanner.multi_sphere_scanner(0.05, 0.05, 0.1, num_ray_sample, minPt, maxPt, pattern_v2, v2_scanning, cloud, gt_cloud, colored_cloud, file_name);
 
         // compute occlusionlevel
-        } else if (argi.substr(0, 4) == "-sc=") {
+        } else if (argi.substr(0, 4) == "-rsc=") {
             
             size_t num_random_positions = std::stoi(argi.substr(4, argi.length()));
             scanner.random_scanner(0.05, 0.1, num_random_positions, minPt, maxPt, cloud, colored_cloud, file_name);
@@ -435,10 +453,10 @@ int main(int argc, char *argv[])
             }
 
             double search_radius = 0.1;
-
+            int pattern = 2;
             if (argi == "-o") {
 
-                double rayOcclusionLevel = helper.rayBasedOcclusionLevel(minPt, maxPt, search_radius, 
+                double rayOcclusionLevel = helper.rayBasedOcclusionLevel(minPt, maxPt, search_radius, pattern, 
                                                                         cloud, polygonClouds, allCoefficients);
     
             } else if (argi == "-om") {
@@ -449,7 +467,7 @@ int main(int argc, char *argv[])
                 pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_median_distance(new pcl::PointCloud<pcl::PointXYZI>);
                 cloud_with_median_distance = helper.computeMedianDistance(search_radius, cloud, cloud_with_density);
 
-                double rayOcclusionLevel = helper.rayBasedOcclusionLevelMedian(minPt, maxPt, density, search_radius, 
+                double rayOcclusionLevel = helper.rayBasedOcclusionLevelMedian(minPt, maxPt, density, search_radius, pattern, 
                                                                             cloud, cloud_with_median_distance,
                                                                             polygonClouds, allCoefficients);
             }
@@ -472,12 +490,17 @@ int main(int argc, char *argv[])
             std::cout << "polygon_path: " << polygon_path << std::endl;
 
         } else if (argi.substr(0, 3) == "-s=") {
+
             segmentation_path = "../files/" + argi.substr(3, argi.length());
             std::cout << "segmentation_path: " << segmentation_path << std::endl;
+
         } else if (argi.substr(0, 4) == "-gt=") {
+
             gt_path = "../files/" + argi.substr(4, argi.length());
             std::cout << "gt_path: " << gt_path << std::endl;
+
         } else if (argi == "-e") {
+
             pcl::PointCloud<pcl::PointXYZRGB>::Ptr segmented_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
             pcl::io::loadPCDFile<pcl::PointXYZRGB>(segmentation_path, *segmented_cloud);
 

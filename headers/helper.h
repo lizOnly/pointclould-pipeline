@@ -109,6 +109,7 @@ class Helper {
                                             pcl::PointXYZ& maxPt, 
                                             double density, 
                                             double radius,
+                                            int pattern,
                                             pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, 
                                             pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_median_distance,
                                             std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds,
@@ -117,6 +118,7 @@ class Helper {
         double rayBasedOcclusionLevel(pcl::PointXYZ& minPt, 
                                         pcl::PointXYZ& maxPt,
                                         double radius,
+                                        int pattern,
                                         pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, 
                                         std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds,
                                         std::vector<pcl::ModelCoefficients::Ptr> allCoefficients);
