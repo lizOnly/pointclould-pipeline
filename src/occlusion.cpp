@@ -29,6 +29,7 @@
 #include <pcl/surface/convex_hull.h>
 
 #include <Eigen/Geometry>
+#include <Eigen/Core>
 #include <Eigen/Dense>
 
 #include "../headers/occlusion.h"
@@ -1017,6 +1018,7 @@ double Occlusion::rayBasedOcclusionLevel(pcl::PointXYZ& minPt,
 
 // read the .obj file and return a vector of triangles
 void Occlusion::parseTrianglesFromOBJ(const std::string& mesh_path) {
+    std::cout << "Parsing mesh from " << mesh_path << std::endl;
     size_t t_idx = 0;
 
     std::ifstream file(mesh_path);
@@ -1025,8 +1027,8 @@ void Occlusion::parseTrianglesFromOBJ(const std::string& mesh_path) {
         return;
     }
 
-    std::vector<Eigen::Vector3d> vertices;
     std::string line;
+    std::cout << "Reading file..." << std::endl;
     while (std::getline(file, line)) {
         std::istringstream ss(line);
         std::string type;
@@ -1037,8 +1039,13 @@ void Occlusion::parseTrianglesFromOBJ(const std::string& mesh_path) {
             ss >> vertex.x() >> vertex.y() >> vertex.z();
             vertices.push_back(vertex);
         } else if (type == "f") { 
-            size_t i, j, k;
-            ss >> i >> j >> k;
+            std::string i_str, j_str, k_str;
+            ss >> i_str >> j_str >> k_str;
+
+            size_t i = std::stoi(i_str.substr(0, i_str.find('/'))) - 1;
+            size_t j = std::stoi(j_str.substr(0, j_str.find('/'))) - 1;
+            size_t k = std::stoi(k_str.substr(0, k_str.find('/'))) - 1;
+
             Triangle triangle;
             triangle.v1 = vertices[i - 1];
             triangle.v2 = vertices[j - 1];
@@ -1048,9 +1055,17 @@ void Occlusion::parseTrianglesFromOBJ(const std::string& mesh_path) {
             t_triangles[triangle.index] = triangle;
         }
     }
+    std::cout << "Number of triangles: " << t_triangles.size() << std::endl;
     file.close();
 }
 
+
+void Occlusion::computeMeshBoundingBox() {
+    std::cout << "Computing mesh bounding box..." << std::endl;
+    for (const Eigen::Vector3d &vertex : vertices) {
+        bbox.extend(vertex); 
+    }
+}
 
 double Occlusion::calculateTriangleArea(Triangle& tr) {
     Eigen::Vector3d v1 = tr.v1;
@@ -1067,6 +1082,7 @@ double Occlusion::calculateTriangleArea(Triangle& tr) {
 
 // generate a ray from the light source to the point on the sphere
 void Occlusion::generateRaysWithIdx(Eigen::Vector3d& origin, size_t num_samples) {
+    std::cout << "Generating rays..." << std::endl;
     size_t idx = 0;
     double radius = 1.0; // radius of the sphere
     // uniform sampling on a sphere which center is the origin
@@ -1076,13 +1092,16 @@ void Occlusion::generateRaysWithIdx(Eigen::Vector3d& origin, size_t num_samples)
     for (size_t i = 0; i < num_samples; ++i) {
         double theta = 2 * M_PI * distribution(generator);  // Azimuthal angle
         double phi = acos(2 * distribution(generator) - 1); // Polar angle
+
         Eigen::Vector3d surface_point;
         surface_point(0) = origin(0) + radius * sin(phi) * cos(theta); // x component
         surface_point(1) = origin(1) + radius * sin(phi) * sin(theta); // y component
         surface_point(2) = origin(2) + radius * cos(phi);
+
         Eigen::Vector3d direction;
         direction = surface_point - origin;
         direction.normalize();
+
         Ray ray;
         ray.origin = origin;
         ray.direction = direction;
@@ -1090,6 +1109,7 @@ void Occlusion::generateRaysWithIdx(Eigen::Vector3d& origin, size_t num_samples)
         idx++;
         t_rays[ray.index] = ray;
     }
+    std::cout << "Number of rays: " << t_rays.size() << std::endl;
 }
 
 bool Occlusion::rayTriangleIntersect(Triangle& tr, Ray& ray, Eigen::Vector3d& intersectionPoint) {
@@ -1172,11 +1192,7 @@ void Occlusion::isFirstHitIntersection(Ray& ray) {
 }
 
 
-double Occlusion::triangleBasedOcclusionLevel(std::string mesh_path, Eigen::Vector3d& origin, size_t num_samples) {
-    parseTrianglesFromOBJ(mesh_path);
-
-    // generate rays from the light source to the point on the sphere
-    generateRaysWithIdx(origin, num_samples);
+double Occlusion::triangleBasedOcclusionLevel(Eigen::Vector3d& origin) {    
 
     size_t intersection_idx = 0;
     for(auto& ray : t_rays) {
@@ -1190,23 +1206,32 @@ double Occlusion::triangleBasedOcclusionLevel(std::string mesh_path, Eigen::Vect
         isFirstHitIntersection(ray.second);
     }
 
+    std::cout << "Number of intersections: " << t_intersections.size() << std::endl;
+
     double occlusion_level = 0.0;
     double total_area = 0.0;
     double total_visible_area = 0.0;
+
     for (auto& triangle : t_triangles) {
         double area = calculateTriangleArea(triangle.second);
         total_area += area;
         t_triangles[triangle.second.index].area = area;
-        size_t num_intersections = triangle.second.intersectionIdx.size();
         size_t num_first_hit_intersections = 0;
         for (auto& idx : triangle.second.intersectionIdx) {
             if (t_intersections[idx].is_first_hit) {
                 num_first_hit_intersections++;
             }
         }
-        double visible_weight = (double)num_first_hit_intersections / (double)num_intersections;
+        double visible_weight = 0.0;
+        if(triangle.second.intersectionIdx.size() > 0){
+            size_t num_intersections = triangle.second.intersectionIdx.size();
+            visible_weight = (double)num_first_hit_intersections / (double)num_intersections;
+        }
         double visible_area = visible_weight * area;
         total_visible_area += visible_area;
+        if (visible_weight > 0.0) {
+            std::cout << "Visible weight is: " << visible_weight << std::endl;
+        }
     }
     occlusion_level = 1.0 - total_visible_area / total_area;
 

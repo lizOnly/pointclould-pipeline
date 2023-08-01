@@ -1,6 +1,8 @@
 #include <string>
 #include <unordered_map>
 #include <tuple>
+#include <Eigen/Core>
+#include <Eigen/Geometry>
 
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
@@ -9,7 +11,6 @@
 #include <pcl/kdtree/kdtree_flann.h>
 
 #include "BaseStruct.h"
-
 
 class Occlusion {
 
@@ -91,14 +92,20 @@ class Occlusion {
 
         void parseTrianglesFromOBJ(const std::string& mesh_path);
         double calculateTriangleArea(Triangle& tr);
+        void computeMeshBoundingBox();
         void generateRaysWithIdx(Eigen::Vector3d& origin, size_t num_samples);
         bool rayTriangleIntersect(Triangle& tr, Ray& ray, Eigen::Vector3d& intersectionPoint);
         bool getRayTriangleIntersectionPt(Triangle& tr, Ray& ray, Eigen::Vector3d& origin, size_t idx, Intersection& intersection);
         void isFirstHitIntersection(Ray& ray);
-        double triangleBasedOcclusionLevel(std::string mesh_path, Eigen::Vector3d& origin, size_t num_samples);
-
+        double triangleBasedOcclusionLevel(Eigen::Vector3d& origin);
+        Eigen::AlignedBox3d getBoundingBox() {
+            return bbox;
+        }
         
         private:
+            std::vector<Eigen::Vector3d> vertices; // all vertices of mesh
+
+            Eigen::AlignedBox3d bbox; // bounding box of mesh
             std::unordered_map<size_t, Intersection> t_intersections; // table of intersections
             std::unordered_map<size_t, Triangle> t_triangles; // table of triangles
             std::unordered_map<size_t, Ray> t_rays; // table of rays

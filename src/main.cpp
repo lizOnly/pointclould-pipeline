@@ -302,6 +302,7 @@ int main(int argc, char *argv[])
     std::string input_path = "";
     std::string segmentation_path = "";
     std::string polygon_path = "";
+    std::string mesh_path = "";
     std::string recon_path = "";
     std::string recon_gt_path = "";
     std::string gt_path = "";
@@ -348,6 +349,18 @@ int main(int argc, char *argv[])
         }
 
         return 0;
+    } else if (arg1.substr(0, 4) == "-mp=") {
+            mesh_path = "../files/" + arg1.substr(4, arg1.length());
+            std::cout << "mesh_path: " << mesh_path << std::endl;
+            occlusion.parseTrianglesFromOBJ(mesh_path);
+            occlusion.computeMeshBoundingBox();
+            Eigen::AlignedBox3d bbox = occlusion.getBoundingBox();
+            Eigen::Vector3d center = bbox.center();
+            size_t num_samples = 500;
+            occlusion.generateRaysWithIdx(center, num_samples);
+            double ooclulsion_level = occlusion.triangleBasedOcclusionLevel(center);
+            std::cout << "triangle based ooclulsion level is: " << ooclulsion_level << std::endl;
+            return 0;
     } else if (arg1 == "-t") {
 
         std::cout << "Executable running successfully in test" << std::endl;
