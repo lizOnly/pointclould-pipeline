@@ -19,7 +19,7 @@
 #include "../headers/reconstruction.h"
 #include "../headers/evaluation.h"
 #include "../headers/property.h"
-#include "../headers/helper.h"
+#include "../headers/occlusion.h"
 #include "../headers/visualizer.h"
 #include "../headers/scanner.h"
 
@@ -97,7 +97,7 @@ void on_message(server& s, websocketpp::connection_hdl hdl, server::message_ptr 
     std::cout << "on_message called with hdl: " << hdl.lock().get()
               << " and message: " << msg->get_payload()
               << std::endl;
-    Helper helper;
+    Occlusion occlusion;
     // Echo the message back
     try {
         s.send(hdl, msg->get_payload(), msg->get_opcode());
@@ -111,7 +111,7 @@ void on_message(server& s, websocketpp::connection_hdl hdl, server::message_ptr 
         if (payload.substr(0, 3) == "-p=") {
             data_holder.setPolygonData(payload.substr(3, payload.length()));
             std::string polygon_data = data_holder.getPolygonData();
-            std::vector<std::vector<pcl::PointXYZ>> polygons = helper.parsePointString(polygon_data);
+            std::vector<std::vector<pcl::PointXYZ>> polygons = occlusion.parsePointString(polygon_data);
             data_holder.setPolygons(polygons);
         }
         if (payload.substr(0, 2) == "-o") {
@@ -162,18 +162,18 @@ void on_message(server& s, websocketpp::connection_hdl hdl, server::message_ptr 
                 default_polygon.push_back(default_point2);
                 default_polygon.push_back(default_point3);
 
-                pcl::ModelCoefficients::Ptr coefficients = helper.computePlaneCoefficients(default_polygon);
+                pcl::ModelCoefficients::Ptr coefficients = occlusion.computePlaneCoefficients(default_polygon);
                 allCoefficients.push_back(coefficients);
 
-                pcl::PointCloud<pcl::PointXYZ>::Ptr polygon = helper.estimatePolygon(default_polygon, coefficients);
+                pcl::PointCloud<pcl::PointXYZ>::Ptr polygon = occlusion.estimatePolygon(default_polygon, coefficients);
                 polygonClouds.push_back(polygon);
 
             } else {
                 for (int i = 0; i < polygons.size(); i++) {
-                    pcl::ModelCoefficients::Ptr coefficients = helper.computePlaneCoefficients(polygons[i]);
+                    pcl::ModelCoefficients::Ptr coefficients = occlusion.computePlaneCoefficients(polygons[i]);
                     allCoefficients.push_back(coefficients);
 
-                    pcl::PointCloud<pcl::PointXYZ>::Ptr polygon = helper.estimatePolygon(polygons[i], coefficients);
+                    pcl::PointCloud<pcl::PointXYZ>::Ptr polygon = occlusion.estimatePolygon(polygons[i], coefficients);
                     polygonClouds.push_back(polygon);
                 }
             }
@@ -181,7 +181,7 @@ void on_message(server& s, websocketpp::connection_hdl hdl, server::message_ptr 
 
             double search_radius = 0.1;
 
-            double rayOcclusionLevel = helper.rayBasedOcclusionLevel(minPt, maxPt, search_radius, pattern, 
+            double rayOcclusionLevel = occlusion.rayBasedOcclusionLevel(minPt, maxPt, search_radius, pattern, 
                                                                     cloud, polygonClouds, allCoefficients);
 
             std::cout << "rayOcclusionLevel: " << rayOcclusionLevel << std::endl;
@@ -248,7 +248,7 @@ int main(int argc, char *argv[])
         return 0;
     }
 
-    // parse arguments related to input file, or --help or backend server
+    // parse arguments related to input file, or --help or to run backend server
     std::string arg1 = argv[1];
 
     if (arg1 == "-b") {
@@ -308,7 +308,7 @@ int main(int argc, char *argv[])
 
     Property prop;
     Reconstruction recon;
-    Helper helper;
+    Occlusion occlusion;
     Scanner scanner;
 
     std::string folder_path = "/mnt/c/Users/51932/Desktop/s3d/Area_1/conferenceRoom_1/Annotations/"; // default value, batch reconstruction
@@ -391,7 +391,7 @@ int main(int argc, char *argv[])
     }
 
     // pcl::PointCloud<pcl::PointXYZRGB>::Ptr centered_colored_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
-    // centered_colored_cloud = helper.centerColoredCloud(colored_cloud, minPt, maxPt, file_name);
+    // centered_colored_cloud = occlusion.centerColoredCloud(colored_cloud, minPt, maxPt, file_name);
 
     // parse arguments related to functionality
     for (int i = 2; i < argc; i++) {
@@ -440,15 +440,15 @@ int main(int argc, char *argv[])
 
         } else if (argi == "-o" || argi == "-om") {
             
-            std::vector<std::vector<pcl::PointXYZ>> polygons = helper.parsePolygonData(polygon_path);
+            std::vector<std::vector<pcl::PointXYZ>> polygons = occlusion.parsePolygonData(polygon_path);
             std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds;
             std::vector<pcl::ModelCoefficients::Ptr> allCoefficients;
 
             for (int i = 0; i < polygons.size(); i++) {
-                pcl::ModelCoefficients::Ptr coefficients = helper.computePlaneCoefficients(polygons[i]);
+                pcl::ModelCoefficients::Ptr coefficients = occlusion.computePlaneCoefficients(polygons[i]);
                 allCoefficients.push_back(coefficients);
 
-                pcl::PointCloud<pcl::PointXYZ>::Ptr polygon = helper.estimatePolygon(polygons[i], coefficients);
+                pcl::PointCloud<pcl::PointXYZ>::Ptr polygon = occlusion.estimatePolygon(polygons[i], coefficients);
                 polygonClouds.push_back(polygon);
             }
 
@@ -456,7 +456,7 @@ int main(int argc, char *argv[])
             int pattern = 2;
             if (argi == "-o") {
 
-                double rayOcclusionLevel = helper.rayBasedOcclusionLevel(minPt, maxPt, search_radius, pattern, 
+                double rayOcclusionLevel = occlusion.rayBasedOcclusionLevel(minPt, maxPt, search_radius, pattern, 
                                                                         cloud, polygonClouds, allCoefficients);
     
             } else if (argi == "-om") {
@@ -465,9 +465,9 @@ int main(int argc, char *argv[])
                 cloud_with_density = prop.computeDensityGaussian(cloud);
 
                 pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_median_distance(new pcl::PointCloud<pcl::PointXYZI>);
-                cloud_with_median_distance = helper.computeMedianDistance(search_radius, cloud, cloud_with_density);
+                cloud_with_median_distance = occlusion.computeMedianDistance(search_radius, cloud, cloud_with_density);
 
-                double rayOcclusionLevel = helper.rayBasedOcclusionLevelMedian(minPt, maxPt, density, search_radius, pattern, 
+                double rayOcclusionLevel = occlusion.rayBasedOcclusionLevelMedian(minPt, maxPt, density, search_radius, pattern, 
                                                                             cloud, cloud_with_median_distance,
                                                                             polygonClouds, allCoefficients);
             }
@@ -482,7 +482,7 @@ int main(int argc, char *argv[])
             
         } else if (argi == "-f" || argi == "--filter") {
 
-            helper.voxelizePointCloud<pcl::PointXYZRGB>(colored_cloud, file_name);
+            occlusion.voxelizePointCloud<pcl::PointXYZRGB>(colored_cloud, file_name);
 
         } else if (argi.substr(0, 3) == "-p=") {
 

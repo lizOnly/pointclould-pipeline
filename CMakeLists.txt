@@ -25,7 +25,7 @@ add_executable(
     src/reconstruction.cpp headers/reconstruction.h
     src/property.cpp headers/property.h 
     src/evaluation.cpp headers/evaluation.h
-    src/helper.cpp headers/helper.h
+    src/occlusion.cpp headers/occlusion.h
     src/visualizer.cpp headers/visualizer.h
     src/scanner.cpp headers/scanner.h
     )

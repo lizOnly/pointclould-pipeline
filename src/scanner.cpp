@@ -10,7 +10,7 @@
 #include <pcl/common/common.h>
 
 #include "../headers/BaseStruct.h"
-#include "../headers/helper.h"
+#include "../headers/occlusion.h"
 #include "../headers/scanner.h"
 #include "../headers/property.h"
 
@@ -48,7 +48,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::multi_sphere_scanner(double step
                                                                      std::string file_name) {
 
     Property prop;
-    Helper helper;
+    Occlusion occlusion;
     
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
     kdtree.setInputCloud(cloud);
@@ -61,14 +61,14 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::multi_sphere_scanner(double step
 
     for (int k = 0; k < scanning_positions.size(); k++) {
 
-        std::vector<pcl::PointXYZ> sampledPoints = helper.UniformSamplingSphere(scanning_positions[k], sphereRadius, num_samples);
+        std::vector<pcl::PointXYZ> sampledPoints = occlusion.UniformSamplingSphere(scanning_positions[k], sphereRadius, num_samples);
         std::cout << "scanning position " << k << std::endl;
 
         // store all index of points that should be added to the sampled cloud
         for (int i = 0; i < sampledPoints.size(); i++) {
 
             pcl::PointXYZ sampledPoint = sampledPoints[i];
-            Ray3D ray = helper.generateRay(scanning_positions[k], sampledPoint);
+            Ray3D ray = occlusion.generateRay(scanning_positions[k], sampledPoint);
             
             while ( sampledPoint.x < maxPt.x && sampledPoint.y < maxPt.y && sampledPoint.z < maxPt.z && sampledPoint.x > minPt.x && sampledPoint.y > minPt.y && sampledPoint.z > minPt.z) {
                 
@@ -156,7 +156,7 @@ std::vector<pcl::PointXYZ> Scanner::scanning_positions( size_t num_positions,
                                                         pcl::PointXYZ& maxPt,
                                                         int pattern) {
 
-    Helper helper;
+    Occlusion occlusion;
 
     std::vector<pcl::PointXYZ> positions;
     
@@ -211,7 +211,7 @@ std::vector<pcl::PointXYZ> Scanner::scanning_positions( size_t num_positions,
         positions.push_back(center);
         
     } else if (pattern == 3) {
-        positions = helper.getSphereLightSourceCenters(minPt, maxPt);
+        positions = occlusion.getSphereLightSourceCenters(minPt, maxPt);
     } else if (pattern == 4) {
         pcl::PointXYZ max_position;
         max_position.x = (center.x + maxPt.x) / 2;
@@ -330,7 +330,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::multi_square_scanner(double step
                                                                     pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud,
                                                                     std::string file_name)
 {
-    Helper helper;
+    Occlusion occlusion;
 
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
     kdtree.setInputCloud(cloud);
@@ -351,7 +351,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::multi_square_scanner(double step
             for (int j = 0; j < points.size(); j++) {
 
                 pcl::PointXYZ point = points[j];
-                Ray3D ray = helper.generateRay(scanner_position, point);
+                Ray3D ray = occlusion.generateRay(scanner_position, point);
                 
                 while ( point.x < maxPt.x && point.y < maxPt.y && point.z < maxPt.z && point.x > minPt.x && point.y > minPt.y && point.z > minPt.z) {
                     
@@ -435,7 +435,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::random_scanner(double step,
     kdtree.setInputCloud(cloud);
 
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr scanned_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
-    Helper helper;
+    Occlusion occlusion;
 
     std::vector<pcl::PointXYZ> scanner_positions = scanning_positions(num_random_positions, minPt, maxPt, 1); // generate random scanners
 
@@ -449,7 +449,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::random_scanner(double step,
         for (size_t j = 0; j < look_at_directions.size(); j++) {
 
             pcl::PointXYZ look_at_direction = look_at_directions[j];
-            Ray3D ray = helper.generateRay(scanner_position, look_at_direction);
+            Ray3D ray = occlusion.generateRay(scanner_position, look_at_direction);
 
             pcl::PointXYZ point = scanner_position;
             while ( point.x < maxPt.x && point.y < maxPt.y && point.z < maxPt.z && point.x > minPt.x && point.y > minPt.y && point.z > minPt.z) {
