@@ -41,12 +41,17 @@ struct Triangle {
     Eigen::Vector3d v2;
     Eigen::Vector3d v3;
     Eigen::Vector3d normal;
+    Eigen::Vector3d center; // center of gravity
     double area;
     double weighted_area;
     double occlusion_ratio;
     std::vector<size_t> intersectionIdx;
 };
 
-
+struct LeafBBox {
+    Eigen::Vector3d min_pt;
+    Eigen::Vector3d max_pt;
+    std::vector<size_t> triangle_idx;
+};
 
 #endif

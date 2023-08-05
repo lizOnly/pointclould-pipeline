@@ -15,6 +15,7 @@
 #include <pcl/io/ply_io.h>
 #include <pcl/point_cloud.h>
 #include <pcl/common/common.h>
+#include <pcl/octree/octree.h>
 
 #include "../headers/reconstruction.h"
 #include "../headers/evaluation.h"
@@ -119,6 +120,7 @@ void on_message(server& s, websocketpp::connection_hdl hdl, server::message_ptr 
             std::string file_name = data_holder.getFileName();
             std::string input_path = data_holder.getInputPath();
             std::vector<std::vector<pcl::PointXYZ>> polygons = data_holder.getPolygons();
+
             int length = file_name.length();
             if (file_name.substr(length - 6, length - 4) == "v1") {
                 pattern = 4; // max scanning
@@ -127,6 +129,7 @@ void on_message(server& s, websocketpp::connection_hdl hdl, server::message_ptr 
             } else {
                 pattern = 2; // center scanning
             }
+
             pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
             if (pcl::io::loadPCDFile<pcl::PointXYZ>(input_path, *cloud) == -1) {
                 PCL_ERROR("Couldn't read file\n");
@@ -142,7 +145,7 @@ void on_message(server& s, websocketpp::connection_hdl hdl, server::message_ptr 
 
             std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds;
             std::vector<pcl::ModelCoefficients::Ptr> allCoefficients;
-
+            // if user does not specify polygons, use default polygon
             pcl::PointXYZ default_point;
             default_point.x = 0;
             default_point.y = 0;
@@ -181,8 +184,7 @@ void on_message(server& s, websocketpp::connection_hdl hdl, server::message_ptr 
 
             double search_radius = 0.1;
 
-            double rayOcclusionLevel = occlusion.rayBasedOcclusionLevel(minPt, maxPt, search_radius, pattern, 
-                                                                    cloud, polygonClouds, allCoefficients);
+            double rayOcclusionLevel = occlusion.rayBasedOcclusionLevel(minPt, maxPt, search_radius, pattern, cloud, polygonClouds, allCoefficients);
 
             std::cout << "rayOcclusionLevel: " << rayOcclusionLevel << std::endl;
 
@@ -352,14 +354,26 @@ int main(int argc, char *argv[])
     } else if (arg1.substr(0, 4) == "-mp=") {
             mesh_path = "../files/" + arg1.substr(4, arg1.length());
             std::cout << "mesh_path: " << mesh_path << std::endl;
+            
+
             occlusion.parseTrianglesFromOBJ(mesh_path);
+            occlusion.buildOctreeCloud();
+            occlusion.traverseOctree();
+
+            occlusion.generateCloudFromTriangle();
             occlusion.computeMeshBoundingBox();
+
             Eigen::AlignedBox3d bbox = occlusion.getBoundingBox();
             Eigen::Vector3d center = bbox.center();
-            size_t num_samples = 500;
+
+            size_t num_samples = 1000;
             occlusion.generateRaysWithIdx(center, num_samples);
             double ooclulsion_level = occlusion.triangleBasedOcclusionLevel(center);
+            
             std::cout << "triangle based ooclulsion level is: " << ooclulsion_level << std::endl;
+            occlusion.generateCloudFromIntersection();
+            
+
             return 0;
     } else if (arg1 == "-t") {
 
@@ -469,8 +483,7 @@ int main(int argc, char *argv[])
             int pattern = 2;
             if (argi == "-o") {
 
-                double rayOcclusionLevel = occlusion.rayBasedOcclusionLevel(minPt, maxPt, search_radius, pattern, 
-                                                                        cloud, polygonClouds, allCoefficients);
+                double rayOcclusionLevel = occlusion.rayBasedOcclusionLevel(minPt, maxPt, search_radius, pattern, cloud, polygonClouds, allCoefficients);
     
             } else if (argi == "-om") {
 
@@ -480,9 +493,7 @@ int main(int argc, char *argv[])
                 pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_median_distance(new pcl::PointCloud<pcl::PointXYZI>);
                 cloud_with_median_distance = occlusion.computeMedianDistance(search_radius, cloud, cloud_with_density);
 
-                double rayOcclusionLevel = occlusion.rayBasedOcclusionLevelMedian(minPt, maxPt, density, search_radius, pattern, 
-                                                                            cloud, cloud_with_median_distance,
-                                                                            polygonClouds, allCoefficients);
+                double rayOcclusionLevel = occlusion.rayBasedOcclusionLevelMedian(minPt, maxPt, density, search_radius, pattern, cloud, cloud_with_median_distance, polygonClouds, allCoefficients);
             }
 
         } else if (argi == "-d" || argi == "--density") {

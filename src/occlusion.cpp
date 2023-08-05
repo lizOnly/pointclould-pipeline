@@ -566,7 +566,7 @@ bool Occlusion::rayIntersectDisk(const Ray3D& ray, const Disk3D& disk) {
 }
 
 /*
-    This function calculates the intersection point of a ray with a bounding box.
+    This function calculates the intersection point of a ray with the bounding box of point cloud.
     @param ray: the ray
     @param minPt: the minimum point of the bounding box
     @param maxPt: the maximum point of the bounding box
@@ -617,12 +617,7 @@ pcl::PointXYZ Occlusion::rayBoxIntersection(const Ray3D& ray,
     * @param kdtree: the kd-tree for the point cloud
     * @return: true if the ray intersects the point cloud, and false otherwise
 */
-bool Occlusion::rayIntersectPointCloud(const Ray3D& ray, 
-                                    double step, 
-                                    double radius, 
-                                    pcl::PointXYZ& minPt, 
-                                    pcl::PointXYZ& maxPt,
-                                    pcl::KdTreeFLANN<pcl::PointXYZ>& kdtree) {
+bool Occlusion::rayIntersectPointCloud(const Ray3D& ray, double step, double radius, pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt, pcl::KdTreeFLANN<pcl::PointXYZ>& kdtree) {
 
     // get the first point along the ray, which is the intersection of the ray with the bounding box
     pcl::PointXYZ currentPoint = Occlusion::rayBoxIntersection(ray, minPt, maxPt);
@@ -647,9 +642,7 @@ bool Occlusion::rayIntersectPointCloud(const Ray3D& ray,
 }
 
 
-pcl::PointCloud<pcl::PointXYZI>::Ptr Occlusion::computeMedianDistance( double radius, 
-                                                                    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud,
-                                                                    pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_density) {
+pcl::PointCloud<pcl::PointXYZI>::Ptr Occlusion::computeMedianDistance(double radius, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_density) {
 
     std::cout << "Computing median distance..." << std::endl;
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
@@ -727,13 +720,7 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr Occlusion::computeMedianDistance( double ra
 }
 
 
-bool Occlusion::rayIntersectPcdMedianDistance( const Ray3D& ray, 
-                                            double step, 
-                                            double radius, 
-                                            pcl::PointXYZ& minPt, 
-                                            pcl::PointXYZ& maxPt,
-                                            pcl::KdTreeFLANN<pcl::PointXYZ>& kdtree,
-                                            pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_median_distance) {
+bool Occlusion::rayIntersectPcdMedianDistance(const Ray3D& ray, double step, double radius, pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt, pcl::KdTreeFLANN<pcl::PointXYZ>& kdtree, pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_median_distance) {
     
     pcl::PointXYZ currentPoint = Occlusion::rayBoxIntersection(ray, minPt, maxPt);
 
@@ -832,10 +819,7 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr Occlusion::computeDistanceVariance(double r
     * @param num_samples: the number of samples to use for each light source
     * @return: the occlusion level of the point cloud
 */
-double Occlusion::rayBasedOcclusionLevelMedian(pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt, double density, double radius, int pattern,
-                                                pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_median_distance,
-                                                std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds, std::vector<pcl::ModelCoefficients::Ptr> allCoefficients) {
-    
+double Occlusion::rayBasedOcclusionLevelMedian(pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt, double density, double radius, int pattern, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_median_distance, std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds, std::vector<pcl::ModelCoefficients::Ptr> allCoefficients) {
 
     std::vector<pcl::PointXYZ> centers = Occlusion::getSphereLightSourceCenters(minPt, maxPt);
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
@@ -1051,6 +1035,7 @@ void Occlusion::parseTrianglesFromOBJ(const std::string& mesh_path) {
             triangle.v2 = vertices[j - 1];
             triangle.v3 = vertices[k - 1];
             triangle.index = t_idx;
+            triangle.center = (triangle.v1 + triangle.v2 + triangle.v3) / 3.0;
             t_idx++;
             t_triangles[triangle.index] = triangle;
         }
@@ -1180,9 +1165,13 @@ bool Occlusion::getRayTriangleIntersectionPt(Triangle& tr, Ray& ray, Eigen::Vect
 
 void Occlusion::isFirstHitIntersection(Ray& ray) {
     std::vector<size_t> intersectionIdx = ray.intersectionIdx;
+    if (intersectionIdx.size() == 0) {
+        return;
+    }
     double min_distance = std::numeric_limits<double>::max();
     size_t min_idx = 0;
     for (auto idx : intersectionIdx) {
+        t_intersections[idx].is_first_hit = false;
         if (t_intersections[idx].distance_to_origin < min_distance) {
             min_distance = t_intersections[idx].distance_to_origin;
             min_idx = idx;
@@ -1196,11 +1185,18 @@ double Occlusion::triangleBasedOcclusionLevel(Eigen::Vector3d& origin) {
 
     size_t intersection_idx = 0;
     for(auto& ray : t_rays) {
-        for(auto& triangle : t_triangles) {
-            Intersection intersection;
-            if(getRayTriangleIntersectionPt(triangle.second, ray.second, origin, intersection_idx, intersection)) {
-                t_intersections[intersection_idx] = intersection;
-                intersection_idx++;
+        // std::cout << "Ray " << ray.second.index <<" is hitting now" << std::endl;
+
+        for (auto& bbox : octree_leaf_bbox) {
+            if(rayIntersectLeafBbox(ray.second, bbox)) {
+                std::cout << "Ray " << ray.second.index <<" is hitting " << bbox.triangle_idx.size() << " triangles" << std::endl;
+                for(auto& idx : bbox.triangle_idx) {
+                    Intersection intersection;
+                    if(getRayTriangleIntersectionPt(t_triangles[idx], ray.second, origin, intersection_idx, intersection)) {
+                        t_intersections[intersection_idx] = intersection;
+                        intersection_idx++;
+                    }
+                }
             }
         }
         isFirstHitIntersection(ray.second);
@@ -1236,4 +1232,164 @@ double Occlusion::triangleBasedOcclusionLevel(Eigen::Vector3d& origin) {
     occlusion_level = 1.0 - total_visible_area / total_area;
 
     return occlusion_level;
+}
+
+
+// generate cloud from first hit intersection points
+void Occlusion::generateCloudFromIntersection() {
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+
+    for (auto& intersection : t_intersections) {
+        std::cout << "Intersection index: " << intersection.second.index << std::endl;
+        if (intersection.second.is_first_hit) {
+            std::cout << "First hit intersection point: " << intersection.second.index << std::endl;
+            pcl::PointXYZ point;
+            point.x = intersection.second.point(0);
+            point.y = intersection.second.point(1);
+            point.z = intersection.second.point(2);
+            cloud->points.push_back(point);
+        }
+    }
+
+    cloud->width = cloud->points.size();
+    cloud->height = 1;
+    cloud->is_dense = true;
+
+    pcl::io::savePCDFileASCII("../files/mesh_cloud.pcd", *cloud);
+    std::cout << "Saved " << cloud->points.size() << " data points to cloud generated from mesh." << std::endl;
+
+}
+
+void Occlusion::generateCloudFromTriangle() {
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+
+    for(auto& tr : t_triangles) {
+        pcl::PointXYZ point;
+        point.x = tr.second.v1(0);
+        point.y = tr.second.v1(1);
+        point.z = tr.second.v1(2);
+        cloud->points.push_back(point);
+
+        point.x = tr.second.v2(0);
+        point.y = tr.second.v2(1);
+        point.z = tr.second.v2(2);
+        cloud->points.push_back(point);
+
+        point.x = tr.second.v3(0);
+        point.y = tr.second.v3(1);
+        point.z = tr.second.v3(2);
+        cloud->points.push_back(point);
+    }
+
+    cloud->width = cloud->points.size();
+    cloud->height = 1;
+    cloud->is_dense = true;
+
+    pcl::io::savePCDFileASCII("../files/triangle_cloud.pcd", *cloud);
+    std::cout << "Saved " << cloud->points.size() << " data points to cloud generated from triangle." << std::endl;
+}
+
+
+
+void Occlusion::traverseOctree() {
+
+    double resolution = 32.0;
+    pcl::octree::OctreePointCloudSearch<pcl::PointXYZI> octree (resolution);
+    octree.setInputCloud(octree_cloud);
+    octree.addPointsFromInputCloud();
+
+    int maxDepth = octree.getTreeDepth();
+
+    int num_leaf_nodes = octree.getLeafCount();
+    std::cout << "Number of leaf nodes: " << num_leaf_nodes << std::endl;
+
+    for (int depth = 0; depth <= maxDepth; ++depth) {
+        pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>::LeafNodeIterator it;
+        const pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>::LeafNodeIterator it_end = octree.leaf_depth_end();
+
+        for (it = octree.leaf_depth_begin(depth); it != it_end; ++it) {
+            Eigen::Vector3d min_pt, max_pt;
+
+            double size = resolution * static_cast<double>(1 << (maxDepth - depth));
+
+            pcl::octree::OctreeKey key = it.getCurrentOctreeKey();
+            min_pt[0] = static_cast<float>(key.x) * resolution;
+            min_pt[1] = static_cast<float>(key.y) * resolution;
+            min_pt[2] = static_cast<float>(key.z) * resolution;
+
+            max_pt = min_pt + Eigen::Vector3d(size, size, size);
+            LeafBBox bbox;
+            bbox.min_pt = min_pt;
+            bbox.max_pt = max_pt;
+            std::vector<int> point_idx = it.getLeafContainer().getPointIndicesVector();
+            for (auto& idx : point_idx) {
+                size_t triangle_idx = (size_t) octree_cloud->points[idx].intensity;
+                bbox.triangle_idx.push_back(triangle_idx);
+            }
+            octree_leaf_bbox.push_back(bbox);
+        }
+        std::cout << "Depth: " << depth << " has " << octree_leaf_bbox.size() << " leaf nodes." << std::endl;
+    }
+}
+
+
+// build octree from center point of triangles
+void Occlusion::buildOctreeCloud() {
+    octree_cloud = pcl::PointCloud<pcl::PointXYZI>::Ptr(new pcl::PointCloud<pcl::PointXYZI>);
+    for (auto& tr : t_triangles) {
+        pcl::PointXYZI point;
+        
+        point.x = tr.second.center(0);
+        point.y = tr.second.center(1);
+        point.z = tr.second.center(2);
+        point.intensity = (double) tr.second.index;
+
+        octree_cloud->points.push_back(point); 
+    }
+}
+
+
+bool Occlusion::rayIntersectLeafBbox(Ray& ray, LeafBBox& bbox) {
+    Eigen::Vector3d origin = ray.origin;
+    Eigen::Vector3d direction = ray.direction;
+
+    Eigen::Vector3d min_pt = bbox.min_pt;
+    Eigen::Vector3d max_pt = bbox.max_pt;
+
+    if ((origin[0] >= min_pt[0] && origin[0] <= max_pt[0]) &&
+        (origin[1] >= min_pt[1] && origin[1] <= max_pt[1]) &&
+        (origin[2] >= min_pt[2] && origin[2] <= max_pt[2])) 
+    {
+        return true;
+    }
+
+    double tmin = (min_pt[0] - origin[0]) / direction[0];
+    double tmax = (max_pt[0] - origin[0]) / direction[0];
+
+    if (tmin > tmax) std::swap(tmin, tmax);
+
+    double tymin = (min_pt[1] - origin[1]) / direction[1];
+    double tymax = (max_pt[1] - origin[1]) / direction[1];
+
+    if (tymin > tymax) std::swap(tymin, tymax);
+
+    if ((tmin > tymax) || (tymin > tmax))
+        return false;
+
+    if (tymin > tmin)
+        tmin = tymin;
+
+    if (tymax < tmax) 
+        tmax = tymax;
+
+    double tzmin = (min_pt[2] - origin[2]) / direction[2];
+    double tzmax = (max_pt[2] - origin[2]) / direction[2];
+
+    if (tzmin > tzmax) std::swap(tzmin, tzmax);
+
+    if ((tmin > tzmax) || (tzmin > tmax))
+        return false;
+
+    return true;
+
 }

@@ -1,6 +1,7 @@
 #include <string>
 #include <unordered_map>
 #include <tuple>
+
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
@@ -9,6 +10,7 @@
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/ModelCoefficients.h>
 #include <pcl/kdtree/kdtree_flann.h>
+#include <pcl/octree/octree.h>
 
 #include "BaseStruct.h"
 
@@ -54,8 +56,7 @@ class Occlusion {
 
         pcl::ModelCoefficients::Ptr computePlaneCoefficients(std::vector<pcl::PointXYZ> points);
 
-        pcl::PointCloud<pcl::PointXYZ>::Ptr estimatePolygon(std::vector<pcl::PointXYZ> points, 
-                                                            pcl::ModelCoefficients::Ptr coefficients);
+        pcl::PointCloud<pcl::PointXYZ>::Ptr estimatePolygon(std::vector<pcl::PointXYZ> points, pcl::ModelCoefficients::Ptr coefficients);
 
         std::vector<std::vector<pcl::PointXYZ>> parsePointString(const std::string& input);
 
@@ -70,8 +71,7 @@ class Occlusion {
 
         pcl::PointXYZ rayBoxIntersection(const Ray3D& ray, const pcl::PointXYZ& minPt, const pcl::PointXYZ& maxPt);
 
-        bool rayIntersectPointCloud(const Ray3D& ray, double step, double radius, pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt, 
-                                    pcl::KdTreeFLANN<pcl::PointXYZ>& kdtree);
+        bool rayIntersectPointCloud(const Ray3D& ray, double step, double radius, pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt, pcl::KdTreeFLANN<pcl::PointXYZ>& kdtree);
         
         std::vector<pcl::PointXYZ> getSphereLightSourceCenters(pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt);
 
@@ -83,25 +83,41 @@ class Occlusion {
 
         pcl::PointCloud<pcl::PointXYZI>::Ptr computeDistanceVariance(double radius, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);                                    
 
-        double rayBasedOcclusionLevelMedian(pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt, double density, double radius, int pattern,
-                                            pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_median_distance,
-                                            std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds, std::vector<pcl::ModelCoefficients::Ptr> allCoefficients);
+        double rayBasedOcclusionLevelMedian(pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt, double density, double radius, int pattern, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_median_distance, std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds, std::vector<pcl::ModelCoefficients::Ptr> allCoefficients);
 
         double rayBasedOcclusionLevel(pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt, double radius, int pattern, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds, std::vector<pcl::ModelCoefficients::Ptr> allCoefficients);
-
+        /*-----------------------------------------------------------------------------------------------------------*/
 
         void parseTrianglesFromOBJ(const std::string& mesh_path);
+
         double calculateTriangleArea(Triangle& tr);
+
         void computeMeshBoundingBox();
+
         void generateRaysWithIdx(Eigen::Vector3d& origin, size_t num_samples);
+
         bool rayTriangleIntersect(Triangle& tr, Ray& ray, Eigen::Vector3d& intersectionPoint);
+
         bool getRayTriangleIntersectionPt(Triangle& tr, Ray& ray, Eigen::Vector3d& origin, size_t idx, Intersection& intersection);
+
+        bool rayIntersectLeafBbox(Ray& ray, LeafBBox& bbox);
+
         void isFirstHitIntersection(Ray& ray);
+
         double triangleBasedOcclusionLevel(Eigen::Vector3d& origin);
+
+        void generateCloudFromIntersection();
+
+        void generateCloudFromTriangle();
+
         Eigen::AlignedBox3d getBoundingBox() {
             return bbox;
-        }
-        
+        };
+
+        void traverseOctree();
+
+        void buildOctreeCloud();
+
         private:
             std::vector<Eigen::Vector3d> vertices; // all vertices of mesh
 
@@ -109,6 +125,9 @@ class Occlusion {
             std::unordered_map<size_t, Intersection> t_intersections; // table of intersections
             std::unordered_map<size_t, Triangle> t_triangles; // table of triangles
             std::unordered_map<size_t, Ray> t_rays; // table of rays
+
+            pcl::PointCloud<pcl::PointXYZI>::Ptr octree_cloud;
+            std::vector<LeafBBox> octree_leaf_bbox; // bounding box of octree leaf nodes
 
 };
 

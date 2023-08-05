@@ -12,7 +12,7 @@ cd pcd_pipeline
 mkdir build
 cd build
 cmake ..
-make -j4 # denpending on how many cores your cpu has
+make -j6 # denpending on how many cores your cpu has
 
 # below are examples about how to actually use this programm
 
@@ -30,6 +30,9 @@ make -j4 # denpending on how many cores your cpu has
 
 # rotate cloud along x-axis 90 degress clockwise
 ./pcd_pipeline ( -rt | --rotate )
+
+# running program as a backend service, this will be the main usage of this project
+./pcd_pipeline -b
 
 ```
 
