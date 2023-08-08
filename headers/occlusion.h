@@ -127,7 +127,11 @@ class Occlusion {
             std::unordered_map<size_t, Ray> t_rays; // table of rays
 
             pcl::PointCloud<pcl::PointXYZI>::Ptr octree_cloud;
+            pcl::PointCloud<pcl::PointXYZ>::Ptr pure_octree_cloud;
             std::vector<LeafBBox> octree_leaf_bbox; // bounding box of octree leaf nodes
+
+            Eigen::Vector3d oc_cloud_min_pt;
+            Eigen::Vector3d oc_cloud_max_pt;
 
 };
 

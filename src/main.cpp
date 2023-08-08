@@ -360,13 +360,13 @@ int main(int argc, char *argv[])
             occlusion.buildOctreeCloud();
             occlusion.traverseOctree();
 
-            occlusion.generateCloudFromTriangle();
+            // occlusion.generateCloudFromTriangle();
             occlusion.computeMeshBoundingBox();
 
             Eigen::AlignedBox3d bbox = occlusion.getBoundingBox();
             Eigen::Vector3d center = bbox.center();
 
-            size_t num_samples = 1000;
+            size_t num_samples = 50000;
             occlusion.generateRaysWithIdx(center, num_samples);
             double ooclulsion_level = occlusion.triangleBasedOcclusionLevel(center);
             
