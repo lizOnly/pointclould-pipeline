@@ -1,0 +1,4 @@
+pattern=0
+num_sources=1
+num_rays_per_source=10000
+

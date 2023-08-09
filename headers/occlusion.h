@@ -94,7 +94,7 @@ class Occlusion {
 
         void computeMeshBoundingBox();
 
-        void generateRaysWithIdx(Eigen::Vector3d& origin, size_t num_samples);
+        void generateRaysWithIdx(std::vector<Eigen::Vector3d>& origins, size_t num_samples);
 
         bool rayTriangleIntersect(Triangle& tr, Ray& ray, Eigen::Vector3d& intersectionPoint);
 

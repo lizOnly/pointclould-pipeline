@@ -1044,9 +1044,9 @@ void Occlusion::parseTrianglesFromOBJ(const std::string& mesh_path) {
             size_t k = std::stoi(k_str.substr(0, k_str.find('/'))) - 1;
 
             Triangle triangle;
-            triangle.v1 = vertices[i - 1];
-            triangle.v2 = vertices[j - 1];
-            triangle.v3 = vertices[k - 1];
+            triangle.v1 = vertices[i];
+            triangle.v2 = vertices[j];
+            triangle.v3 = vertices[k];
             triangle.index = t_idx;
             triangle.center = (triangle.v1 + triangle.v2 + triangle.v3) / 3.0;
             t_idx++;
@@ -1082,7 +1082,7 @@ double Occlusion::calculateTriangleArea(Triangle& tr) {
 }
 
 // generate a ray from the light source to the point on the sphere
-void Occlusion::generateRaysWithIdx(Eigen::Vector3d& origin, size_t num_samples) {
+void Occlusion::generateRaysWithIdx(std::vector<Eigen::Vector3d>& origins, size_t num_samples) {
     std::cout << "Generating rays..." << std::endl;
     size_t idx = 0;
     double radius = 1.0; // radius of the sphere
@@ -1090,25 +1090,27 @@ void Occlusion::generateRaysWithIdx(Eigen::Vector3d& origin, size_t num_samples)
     static std::default_random_engine generator;
     static std::uniform_real_distribution<double> distribution(0.0, 1.0);
 
-    for (size_t i = 0; i < num_samples; ++i) {
-        double theta = 2 * M_PI * distribution(generator);  // Azimuthal angle
-        double phi = acos(2 * distribution(generator) - 1); // Polar angle
+    for (auto& origin : origins) {
+        for (size_t i = 0; i < num_samples; ++i) {
+            double theta = 2 * M_PI * distribution(generator);  // Azimuthal angle
+            double phi = acos(2 * distribution(generator) - 1); // Polar angle
 
-        Eigen::Vector3d surface_point;
-        surface_point(0) = origin(0) + radius * sin(phi) * cos(theta); // x component
-        surface_point(1) = origin(1) + radius * sin(phi) * sin(theta); // y component
-        surface_point(2) = origin(2) + radius * cos(phi);
+            Eigen::Vector3d surface_point;
+            surface_point(0) = origin(0) + radius * sin(phi) * cos(theta); // x component
+            surface_point(1) = origin(1) + radius * sin(phi) * sin(theta); // y component
+            surface_point(2) = origin(2) + radius * cos(phi);
 
-        Eigen::Vector3d direction;
-        direction = surface_point - origin;
-        direction.normalize();
+            Eigen::Vector3d direction;
+            direction = surface_point - origin;
+            direction.normalize();
 
-        Ray ray;
-        ray.origin = origin;
-        ray.direction = direction;
-        ray.index = idx;
-        idx++;
-        t_rays[ray.index] = ray;
+            Ray ray;
+            ray.origin = origin;
+            ray.direction = direction;
+            ray.index = idx;
+            t_rays[ray.index] = ray;
+            idx++;
+        }
     }
     std::cout << "Number of rays: " << t_rays.size() << std::endl;
 }
@@ -1277,7 +1279,7 @@ void Occlusion::traverseOctree() {
 
         octree.getVoxelBounds(it, min_pt, max_pt);
 
-        std::cout << "Min point: " << min_pt.x() << ", " << min_pt.y() << ", " << min_pt.z() << std::endl;
+        // std::cout << "Min point: " << min_pt.x() << ", " << min_pt.y() << ", " << min_pt.z() << std::endl;
 
         LeafBBox bbox;
         bbox.min_pt.x() = static_cast<double>(min_pt.x());
@@ -1322,13 +1324,19 @@ void Occlusion::buildOctreeCloud() {
         pure_octree_cloud->points.push_back(pure_point);
     }
 
-    pcl::PointXYZ min_pt, max_pt;
-    pcl::getMinMax3D(*pure_octree_cloud, min_pt, max_pt);
+    // pcl::PointXYZ min_pt, max_pt;
+    // pcl::getMinMax3D(*pure_octree_cloud, min_pt, max_pt);
 
-    oc_cloud_min_pt = Eigen::Vector3d(min_pt.x, min_pt.y, min_pt.z);
-    oc_cloud_max_pt = Eigen::Vector3d(max_pt.x, max_pt.y, max_pt.z);
+    // oc_cloud_min_pt = Eigen::Vector3d(min_pt.x, min_pt.y, min_pt.z);
+    // oc_cloud_max_pt = Eigen::Vector3d(max_pt.x, max_pt.y, max_pt.z);
 
     std::cout << "Number of points in octree cloud: " << octree_cloud->points.size() << std::endl;
+
+    pure_octree_cloud->width = octree_cloud->points.size();
+    pure_octree_cloud->height = 1;
+    pure_octree_cloud->is_dense = true;
+
+    pcl::io::savePCDFileASCII("../files/octree_cloud.pcd", *pure_octree_cloud);
 }
 
 

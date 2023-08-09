@@ -360,20 +360,55 @@ int main(int argc, char *argv[])
             occlusion.buildOctreeCloud();
             occlusion.traverseOctree();
 
-            // occlusion.generateCloudFromTriangle();
+            occlusion.generateCloudFromTriangle();
             occlusion.computeMeshBoundingBox();
+
+            size_t num_samples = 10000;
+            std::string arg2 = argv[2];
+            if (arg2.substr(0, 4) == "-mr=") {
+                num_samples = std::stoi(arg2.substr(4, arg2.length()));
+            } 
 
             Eigen::AlignedBox3d bbox = occlusion.getBoundingBox();
             Eigen::Vector3d center = bbox.center();
+            Eigen::Vector3d min = bbox.min();
+            Eigen::Vector3d max = bbox.max();
 
-            size_t num_samples = 50000;
-            occlusion.generateRaysWithIdx(center, num_samples);
+            Eigen::Vector3d min_mid = (min + center) / 2;
+            Eigen::Vector3d max_mid = (max + center) / 2;
+
+            std::vector<Eigen::Vector3d> origins;
+
+            int pattern = 0;
+            std::string arg3 = argv[3];
+            if (arg3.substr(0, 4) == "-pt=") {
+                pattern = std::stoi(arg3.substr(4, arg3.length()));
+            } 
+
+            if (pattern == 0) {
+                origins.push_back(center);
+            } else if (pattern == 1) {
+                origins.push_back(min_mid);
+            } else if (pattern == 2) {
+                origins.push_back(max_mid);
+            } else if (pattern == 3) {
+                origins.push_back(min);
+                origins.push_back(max);
+            } else if (pattern == 4) {
+                origins.push_back(min_mid);
+                origins.push_back(max_mid);
+                origins.push_back(center);
+            }
+            
+            occlusion.generateRaysWithIdx(origins, num_samples);
             double ooclulsion_level = occlusion.triangleBasedOcclusionLevel(center);
             
             std::cout << "triangle based ooclulsion level is: " << ooclulsion_level << std::endl;
             occlusion.generateCloudFromIntersection();
-            
 
+            auto stop = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
+            std::cout << " Time taken by this run: " << duration.count() << " seconds" << std::endl;
             return 0;
     } else if (arg1 == "-t") {
 
