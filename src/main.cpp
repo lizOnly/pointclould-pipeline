@@ -27,6 +27,7 @@
 #include <boost/asio.hpp>
 #include <websocketpp/config/asio_no_tls.hpp>
 #include <websocketpp/server.hpp>
+#include <jsoncpp/json/json.h>
 
 class DataHolder {
 
@@ -182,9 +183,7 @@ void on_message(server& s, websocketpp::connection_hdl hdl, server::message_ptr 
             }
             
 
-            double search_radius = 0.1;
-
-            double rayOcclusionLevel = occlusion.rayBasedOcclusionLevel(minPt, maxPt, search_radius, pattern, cloud, polygonClouds, allCoefficients);
+            double rayOcclusionLevel = occlusion.rayBasedOcclusionLevel(minPt, maxPt, pattern, cloud, polygonClouds, allCoefficients);
 
             std::cout << "rayOcclusionLevel: " << rayOcclusionLevel << std::endl;
 
@@ -358,7 +357,7 @@ int main(int argc, char *argv[])
 
             occlusion.parseTrianglesFromOBJ(mesh_path);
             occlusion.buildOctreeCloud();
-            occlusion.traverseOctree();
+            occlusion.traverseOctreeTriangle();
 
             occlusion.generateCloudFromTriangle();
             occlusion.computeMeshBoundingBox();
@@ -410,6 +409,7 @@ int main(int argc, char *argv[])
             auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
             std::cout << " Time taken by this run: " << duration.count() << " seconds" << std::endl;
             return 0;
+
     } else if (arg1 == "-t") {
 
         std::cout << "Executable running successfully in test" << std::endl;
@@ -500,7 +500,7 @@ int main(int argc, char *argv[])
             size_t num_random_positions = std::stoi(argi.substr(4, argi.length()));
             scanner.random_scanner(0.05, 0.1, num_random_positions, minPt, maxPt, cloud, colored_cloud, file_name);
 
-        } else if (argi == "-o" || argi == "-om") {
+        } else if (argi == "-o") {
             
             std::vector<std::vector<pcl::PointXYZ>> polygons = occlusion.parsePolygonData(polygon_path);
             std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds;
@@ -516,20 +516,34 @@ int main(int argc, char *argv[])
 
             double search_radius = 0.1;
             int pattern = 2;
-            if (argi == "-o") {
 
-                double rayOcclusionLevel = occlusion.rayBasedOcclusionLevel(minPt, maxPt, search_radius, pattern, cloud, polygonClouds, allCoefficients);
-    
-            } else if (argi == "-om") {
+            double rayOcclusionLevel = occlusion.rayBasedOcclusionLevel(minPt, maxPt, pattern, cloud, polygonClouds, allCoefficients);  
+        } else if (argi == "-rgo") { // region growing occlusion
+            
+            occlusion.regionGrowingSegmentation(cloud);
+            occlusion.generateTriangleFromCluster();
+            occlusion.buildOctreeCloud();
+            occlusion.traverseOctreeTriangle();
 
-                pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_density(new pcl::PointCloud<pcl::PointXYZI>);
-                cloud_with_density = prop.computeDensityGaussian(cloud);
+            occlusion.computeMeshBoundingBox();
 
-                pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_median_distance(new pcl::PointCloud<pcl::PointXYZI>);
-                cloud_with_median_distance = occlusion.computeMedianDistance(search_radius, cloud, cloud_with_density);
+            size_t num_samples = 10000;
 
-                double rayOcclusionLevel = occlusion.rayBasedOcclusionLevelMedian(minPt, maxPt, density, search_radius, pattern, cloud, cloud_with_median_distance, polygonClouds, allCoefficients);
-            }
+            Eigen::AlignedBox3d bbox = occlusion.getBoundingBox();
+            Eigen::Vector3d center = bbox.center();
+            Eigen::Vector3d min = bbox.min();
+            Eigen::Vector3d max = bbox.max();
+
+            Eigen::Vector3d min_mid = (min + center) / 2;
+            Eigen::Vector3d max_mid = (max + center) / 2;
+
+            std::vector<Eigen::Vector3d> origins;
+            origins.push_back(center);
+
+            occlusion.generateRaysWithIdx(origins, num_samples);
+            double ooclulsion_level = occlusion.triangleBasedOcclusionLevel(center);
+            
+            std::cout << "triangle based ooclulsion level is: " << ooclulsion_level << std::endl;
 
         } else if (argi == "-d" || argi == "--density") {
 
@@ -572,6 +586,8 @@ int main(int argc, char *argv[])
             eval.calculatePrecision();
             eval.calculateRecall();
             eval.calculateF1Score();
+        } else if (argi == "-rg") {
+            occlusion.regionGrowingSegmentation(cloud);
         }
 
     }

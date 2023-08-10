@@ -41,8 +41,6 @@ class Occlusion {
             return cloud_filtered;
         };
 
-        pcl::PointXYZ transformPoint(pcl::PointXYZ& point, pcl::PointXYZ& center);
-
         pcl::PointCloud<pcl::PointXYZ>::Ptr centerCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt);
 
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr centerColoredCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud, pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt, std::string file_name);
@@ -50,6 +48,10 @@ class Occlusion {
         void removePointsInSpecificColor(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, int color[3]);
 
         void regionGrowingSegmentation(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);
+
+        Eigen::Vector3d computeCentroid(pcl::PointCloud<pcl::PointXYZ>::Ptr polygon_cloud);
+
+        void generateTriangleFromCluster();
 
         void extractWalls(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);
         
@@ -69,9 +71,11 @@ class Occlusion {
 
         bool rayIntersectDisk(const Ray3D& ray, const Disk3D& disk);
 
-        pcl::PointXYZ rayBoxIntersection(const Ray3D& ray, const pcl::PointXYZ& minPt, const pcl::PointXYZ& maxPt);
+        bool rayBoxIntersection(const Ray3D& ray, const pcl::PointXYZ& minPt, const pcl::PointXYZ& maxPt);
 
-        bool rayIntersectPointCloud(const Ray3D& ray, double step, double radius, pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt, pcl::KdTreeFLANN<pcl::PointXYZ>& kdtree);
+        bool rayIntersectSpehre(pcl::PointXYZ& origin, pcl::PointXYZ& direction, pcl::PointXYZ& point);
+
+        bool rayIntersectPointCloud(const Ray3D& ray);
         
         std::vector<pcl::PointXYZ> getSphereLightSourceCenters(pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt);
 
@@ -79,13 +83,9 @@ class Occlusion {
         
         pcl::PointCloud<pcl::PointXYZI>::Ptr computeMedianDistance(double radius, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_density);
 
-        bool rayIntersectPcdMedianDistance(const Ray3D& ray, double step, double radius, pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt, pcl::KdTreeFLANN<pcl::PointXYZ>& kdtree, pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_median_distance);     
+        void traverseOctree();
 
-        pcl::PointCloud<pcl::PointXYZI>::Ptr computeDistanceVariance(double radius, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);                                    
-
-        double rayBasedOcclusionLevelMedian(pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt, double density, double radius, int pattern, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_median_distance, std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds, std::vector<pcl::ModelCoefficients::Ptr> allCoefficients);
-
-        double rayBasedOcclusionLevel(pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt, double radius, int pattern, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds, std::vector<pcl::ModelCoefficients::Ptr> allCoefficients);
+        double rayBasedOcclusionLevel(pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt, int pattern, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds, std::vector<pcl::ModelCoefficients::Ptr> allCoefficients);
         /*-----------------------------------------------------------------------------------------------------------*/
 
         void parseTrianglesFromOBJ(const std::string& mesh_path);
@@ -114,21 +114,27 @@ class Occlusion {
             return bbox;
         };
 
-        void traverseOctree();
+        void traverseOctreeTriangle();
 
         void buildOctreeCloud();
 
         private:
-            std::vector<Eigen::Vector3d> vertices; // all vertices of mesh
 
+            std::vector<pcl::PointIndices> rg_clusters;
+            
+            pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud;
+            std::vector<LeafBBox> octree_leaf_bbox;
+
+
+            std::vector<Eigen::Vector3d> vertices; // all vertices of mesh
             Eigen::AlignedBox3d bbox; // bounding box of mesh
             std::unordered_map<size_t, Intersection> t_intersections; // table of intersections
             std::unordered_map<size_t, Triangle> t_triangles; // table of triangles
             std::unordered_map<size_t, Ray> t_rays; // table of rays
 
-            pcl::PointCloud<pcl::PointXYZI>::Ptr octree_cloud;
-            pcl::PointCloud<pcl::PointXYZ>::Ptr pure_octree_cloud;
-            std::vector<LeafBBox> octree_leaf_bbox; // bounding box of octree leaf nodes
+            pcl::PointCloud<pcl::PointXYZI>::Ptr t_octree_cloud; // octree cloud to store center of triangles
+            pcl::PointCloud<pcl::PointXYZ>::Ptr t_pure_octree_cloud;
+            std::vector<LeafBBox> t_octree_leaf_bbox; // bounding box of octree leaf nodes
 
             Eigen::Vector3d oc_cloud_min_pt;
             Eigen::Vector3d oc_cloud_max_pt;

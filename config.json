@@ -1,0 +1,20 @@
+{
+    "occlusion": {
+        "mesh": {
+            "num_samples": 100000
+        },
+
+        "point_cloud": {
+            "num_rays": 10000,
+            "num_sources": 9,
+            "pattern": 0,
+            "point_radius": 0.025
+        }
+    },
+
+    "scanner": {
+        "num_rays": 10000
+    }
+
+    
+}

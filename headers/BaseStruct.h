@@ -52,6 +52,7 @@ struct LeafBBox {
     Eigen::Vector3d min_pt;
     Eigen::Vector3d max_pt;
     std::vector<size_t> triangle_idx;
+    std::vector<size_t> point_idx;
 };
 
 #endif
