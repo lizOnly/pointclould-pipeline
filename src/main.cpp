@@ -276,22 +276,16 @@ int main(int argc, char *argv[])
     args_map["-i="] = "--input==";
     args_map["-rs="] = "--raysample==";
     args_map["-o"] = "--occlusion";
-    args_map["-sr="] = "--searchradius==";
     args_map["-h"] = "--help";
     args_map["-rc="] = "--reconstruct";
-    args_map["-s="] = "--segmentation==";
     args_map["-p="] = "--polygon==";
     args_map["-sc="] = "--scan==";
     args_map["-e"] = "--evaluate"; // calculate the evaluation metrics, IoU, F1, etc.
-    args_map["-c"] = "--center";
     args_map["-f"] = "--filter";
-    args_map["-rt"] = "--rotate";  // rotate the cloud around the x-axis by 90 degrees clockwise
     args_map["-d"] = "--density"; // compute density of the cloud
     args_map["-t2ply"] = "--transfer2ply"; // transfer pcd file to ply file
     args_map["-t2pcd"] = "--transfer2pcd"; // transfer ply file to pcd file
     args_map["-t"] = "--test"; // test the executable
-
-
 
     int num_ray_sample = 1000; // default value, ray downsampling cloud
     bool filter_cloud = false;
@@ -452,9 +446,6 @@ int main(int argc, char *argv[])
         return (-1);
     }
 
-    // pcl::PointCloud<pcl::PointXYZRGB>::Ptr centered_colored_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
-    // centered_colored_cloud = occlusion.centerColoredCloud(colored_cloud, minPt, maxPt, file_name);
-
     // parse arguments related to functionality
     for (int i = 2; i < argc; i++) {
 
@@ -525,25 +516,17 @@ int main(int argc, char *argv[])
             occlusion.buildOctreeCloud();
             occlusion.traverseOctreeTriangle();
 
-            occlusion.computeMeshBoundingBox();
+            size_t num_samples = 20000;
 
-            size_t num_samples = 10000;
-
-            Eigen::AlignedBox3d bbox = occlusion.getBoundingBox();
-            Eigen::Vector3d center = bbox.center();
-            Eigen::Vector3d min = bbox.min();
-            Eigen::Vector3d max = bbox.max();
-
-            Eigen::Vector3d min_mid = (min + center) / 2;
-            Eigen::Vector3d max_mid = (max + center) / 2;
-
+            Eigen::Vector3d rg_center = Eigen::Vector3d(center.x, center.y, center.z);
+            
             std::vector<Eigen::Vector3d> origins;
-            origins.push_back(center);
+            origins.push_back(rg_center);
 
             occlusion.generateRaysWithIdx(origins, num_samples);
-            double ooclulsion_level = occlusion.triangleBasedOcclusionLevel(center);
+            double occlulsion_level = occlusion.triangleBasedOcclusionLevel(rg_center);
             
-            std::cout << "triangle based ooclulsion level is: " << ooclulsion_level << std::endl;
+            std::cout << "triangle based occlulsion level is: " << occlulsion_level << std::endl;
 
         } else if (argi == "-d" || argi == "--density") {
 
@@ -586,6 +569,7 @@ int main(int argc, char *argv[])
             eval.calculatePrecision();
             eval.calculateRecall();
             eval.calculateF1Score();
+
         } else if (argi == "-rg") {
             occlusion.regionGrowingSegmentation(cloud);
         }

@@ -217,6 +217,8 @@ void Occlusion::removePointsInSpecificColor(pcl::PointCloud<pcl::PointXYZRGB>::P
 
 void Occlusion::regionGrowingSegmentation(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud) {
 
+    input_cloud = cloud;
+
     pcl::PointCloud<pcl::Normal>::Ptr normals(new pcl::PointCloud<pcl::Normal>);
     pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> normal_estimation;
     normal_estimation.setInputCloud(cloud);
@@ -234,6 +236,7 @@ void Occlusion::regionGrowingSegmentation(pcl::PointCloud<pcl::PointXYZ>::Ptr cl
     reg.setSmoothnessThreshold(3.0 / 180.0 * M_PI);
     reg.setCurvatureThreshold(1.0);
 
+    
     reg.extract(rg_clusters);
 
     std::cout << "Number of clusters is equal to " << rg_clusters.size() << std::endl;
@@ -270,33 +273,42 @@ Eigen::Vector3d Occlusion::computeCentroid(pcl::PointCloud<pcl::PointXYZ>::Ptr p
 
 void Occlusion::generateTriangleFromCluster() {
     size_t tri_idx = 0;
-    std::cout << "Number of clusters is: " << rg_clusters.size() << std::endl;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr polygon_clouds(new pcl::PointCloud<pcl::PointXYZ>);
+
     for(auto& cluster : rg_clusters) {
         std::vector<pcl::PointXYZ> points; // points for plane estimation
         for(auto& index : cluster.indices) {
             points.push_back(input_cloud->points[index]);
         }
-
         pcl::ModelCoefficients::Ptr coefficients = computePlaneCoefficients(points);
         pcl::PointCloud<pcl::PointXYZ>::Ptr polygon_cloud = estimatePolygon(points, coefficients);
 
         Eigen::Vector3d polygon_center;
         polygon_center = computeCentroid(polygon_cloud);
 
-        for(size_t i = 0; i < polygon_cloud->points.size(); ++i) {
+        size_t polygon_size = polygon_cloud->points.size();
+        for(size_t i = 0; i < polygon_size; ++i) {
+            polygon_clouds->points.push_back(polygon_cloud->points[i]);
             Triangle triangle;
             triangle.index = tri_idx;
             tri_idx++;
 
             triangle.v1 = Eigen::Vector3d(polygon_center[0], polygon_center[1], polygon_center[2]);
             triangle.v2 = Eigen::Vector3d(polygon_cloud->points[i].x, polygon_cloud->points[i].y, polygon_cloud->points[i].z);
-            triangle.v3 = Eigen::Vector3d(polygon_cloud->points[(i + 1) % polygon_cloud->points.size()].x, polygon_cloud->points[(i + 1) % polygon_cloud->points.size()].y, polygon_cloud->points[(i + 1) % polygon_cloud->points.size()].z);
-        
+            triangle.v3 = Eigen::Vector3d(polygon_cloud->points[(i + 1) % polygon_size].x, polygon_cloud->points[(i + 1) % polygon_size].y, polygon_cloud->points[(i + 1) % polygon_size].z);
+
+
             triangle.center = (triangle.v1 + triangle.v2 + triangle.v3) / 3.0;
             t_triangles[triangle.index] = triangle;
         
         }
     }
+    polygon_clouds->width = polygon_clouds->points.size();
+    polygon_clouds->height = 1;
+    polygon_clouds->is_dense = true;
+
+    pcl::io::savePCDFileASCII("../files/polygon_clouds.pcd", *polygon_clouds);
+
     std::cout << "Number of triangles is: " << t_triangles.size() << std::endl;
 }
 
@@ -406,7 +418,7 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr Occlusion::estimatePolygon(std::vector<pcl::
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
     
-    for (auto& point : points){
+    for (auto& point : points) {
         cloud->points.push_back(point);
     }
     
@@ -424,16 +436,16 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr Occlusion::estimatePolygon(std::vector<pcl::
     chull.setInputCloud(cloud_projected);
     chull.reconstruct(*cloud_hull);
 
-    std::cout << "Convex hull has: " << cloud_hull->points.size() << " data points." << std::endl;
-    std::cout << "Points are: " << std::endl;
+    // std::cout << "Convex hull has: " << cloud_hull->points.size() << " data points." << std::endl;
+    // std::cout << "Points are: " << std::endl;
     
-    for (size_t i = 0; i < cloud_hull->points.size(); ++i) {
+    // for (size_t i = 0; i < cloud_hull->points.size(); ++i) {
 
-        std::cout << "    " << cloud_hull->points[i].x << " "
-                  << cloud_hull->points[i].y << " "
-                  << cloud_hull->points[i].z << std::endl;
+    //     std::cout << "    " << cloud_hull->points[i].x << " "
+    //               << cloud_hull->points[i].y << " "
+    //               << cloud_hull->points[i].z << std::endl;
 
-    }
+    // }
 
     return cloud_hull;
 }
@@ -1017,6 +1029,13 @@ double Occlusion::calculateTriangleArea(Triangle& tr) {
 
     double area = 0.5 * v12.cross(v13).norm();
 
+    if (std::isnan(area)) {
+        std::cerr << "Computed area is nan." << std::endl;
+        return 0.0;
+    }
+
+    std::cout << "Triangle area: " << area << std::endl;
+
     return area;
 }
 
@@ -1185,9 +1204,11 @@ double Occlusion::triangleBasedOcclusionLevel(Eigen::Vector3d& origin) {
         double visible_area = visible_weight * area;
         total_visible_area += visible_area;
         if (visible_weight > 0.0) {
-            // std::cout << "Visible weight is: " << visible_weight << std::endl;
+            std::cout << "Visible weight is: " << visible_weight << std::endl;
         }
     }
+    std::cout << "Total area: " << total_area << std::endl;
+    std::cout << "Total visible area: " << total_visible_area << std::endl;
     occlusion_level = 1.0 - total_visible_area / total_area;
 
     return occlusion_level;
