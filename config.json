@@ -1,20 +1,23 @@
 {
     "occlusion": {
         "mesh": {
-            "num_samples": 100000
+            "path": "../files/conf_m.obj",
+            "num_samples": 10000,
+            "pattern": 0
         },
 
         "point_cloud": {
-            "num_rays": 10000,
-            "num_sources": 9,
+            "num_rays_per_vp": 10000,
+            "num_vp": 9,
             "pattern": 0,
-            "point_radius": 0.025
+            "point_radius": 0.025,
+            "polygon_path": "../files/polyon_conf.txt"
         }
     },
 
     "scanner": {
-        "num_rays": 10000
+        "num_rays": 10000,
+        "pattern": 0
     }
 
-    
 }

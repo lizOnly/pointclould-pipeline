@@ -26,7 +26,6 @@ add_executable(
     src/property.cpp headers/property.h 
     src/evaluation.cpp headers/evaluation.h
     src/occlusion.cpp headers/occlusion.h
-    src/visualizer.cpp headers/visualizer.h
     src/scanner.cpp headers/scanner.h
     )
 

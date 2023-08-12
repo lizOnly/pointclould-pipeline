@@ -9,6 +9,14 @@
 #include <pcl/kdtree/kdtree_flann.h>
 #include <pcl/common/common.h>
 
+#include <pcl/octree/octree_base.h>
+#include <pcl/octree/octree.h>
+#include <pcl/octree/octree_pointcloud.h>
+
+#include <Eigen/Geometry>
+#include <Eigen/Core>
+#include <Eigen/Dense>
+
 #include "../headers/BaseStruct.h"
 #include "../headers/occlusion.h"
 #include "../headers/scanner.h"
@@ -28,30 +36,189 @@ Scanner::~Scanner()
     // empty destructor
 }
 
+void Scanner::traverseOctree() {
+
+    float resolution = 1.0;
+    pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> octree(resolution);
+    octree.setInputCloud(input_cloud);
+    octree.addPointsFromInputCloud();
+
+    int max_depth = octree.getTreeDepth();
+    std::cout << "Max depth: " << max_depth << std::endl;
+    int num_leaf_nodes = octree.getLeafCount();
+    std::cout << "Total number of leaf nodes: " << num_leaf_nodes << std::endl;
+
+    pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>::LeafNodeIterator it;
+    pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>::LeafNodeIterator it_end = octree.leaf_depth_end();
+
+
+    for (it = octree.leaf_depth_begin(max_depth); it != it_end; ++it) {
+        Eigen::Vector3f min_pt, max_pt;
+        
+        pcl::octree::OctreeKey key = it.getCurrentOctreeKey();
+
+        octree.getVoxelBounds(it, min_pt, max_pt);
+
+        LeafBBox bbox;
+        bbox.min_pt.x() = static_cast<double>(min_pt.x());
+        bbox.min_pt.y() = static_cast<double>(min_pt.y());
+        bbox.min_pt.z() = static_cast<double>(min_pt.z());
+        
+        bbox.max_pt.x() = static_cast<double>(max_pt.x());
+        bbox.max_pt.y() = static_cast<double>(max_pt.y());
+        bbox.max_pt.z() = static_cast<double>(max_pt.z());
+
+        std::vector<int> point_idx = it.getLeafContainer().getPointIndicesVector();
+        // std::cout << "Number of points in leaf node: " << point_idx.size() << std::endl;
+        for (auto& idx : point_idx) {
+            bbox.point_idx.push_back(idx);
+        }
+        octree_leaf_bbox.push_back(bbox);
+    }
+
+    std::cout << "Number of leaf bbox: " << octree_leaf_bbox.size() << std::endl;
+}
+
+
+bool Scanner::rayBoxIntersection(const Ray3D& ray, const pcl::PointXYZ& minPt, const pcl::PointXYZ& maxPt) {
+
+    if(ray.origin.x >= minPt.x && ray.origin.x <= maxPt.x &&
+       ray.origin.y >= minPt.y && ray.origin.y <= maxPt.y &&
+       ray.origin.z >= minPt.z && ray.origin.z <= maxPt.z) {
+        return true;
+    }
+    
+    double tmin, tmax, tymin, tymax, tzmin, tzmax;
+
+    if (ray.direction.x != 0) {
+        if (ray.direction.x >= 0) {
+            tmin = (minPt.x - ray.origin.x) / ray.direction.x;
+            tmax = (maxPt.x - ray.origin.x) / ray.direction.x;
+        } else {
+            tmin = (maxPt.x - ray.origin.x) / ray.direction.x;
+            tmax = (minPt.x - ray.origin.x) / ray.direction.x;
+        }
+    } else {
+        if (ray.origin.x < minPt.x || ray.origin.x > maxPt.x) {
+            return false;
+        }
+        tmin = std::numeric_limits<double>::lowest();
+        tmax = std::numeric_limits<double>::max();
+    }
+
+    if (ray.direction.y != 0) {
+        if (ray.direction.y >= 0) {
+            tymin = (minPt.y - ray.origin.y) / ray.direction.y;
+            tymax = (maxPt.y - ray.origin.y) / ray.direction.y;
+        } else {
+            tymin = (maxPt.y - ray.origin.y) / ray.direction.y;
+            tymax = (minPt.y - ray.origin.y) / ray.direction.y;
+        }
+    } else {
+        if (ray.origin.y < minPt.y || ray.origin.y > maxPt.y) {
+            return false;
+        }
+        tymin = std::numeric_limits<double>::lowest();
+        tymax = std::numeric_limits<double>::max();
+    }
+
+    if ((tmin > tymax) || (tymin > tmax))
+        return false;
+
+    if (tymin > tmin)
+        tmin = tymin;
+    if (tymax < tmax)
+        tmax = tymax;
+
+    if (ray.direction.z != 0) {
+        if (ray.direction.z >= 0) {
+            tzmin = (minPt.z - ray.origin.z) / ray.direction.z;
+            tzmax = (maxPt.z - ray.origin.z) / ray.direction.z;
+        } else {
+            tzmin = (maxPt.z - ray.origin.z) / ray.direction.z;
+            tzmax = (minPt.z - ray.origin.z) / ray.direction.z;
+        }
+    } else {
+        if (ray.origin.z < minPt.z || ray.origin.z > maxPt.z) {
+            return false;
+        }
+        tzmin = std::numeric_limits<double>::lowest();
+        tzmax = std::numeric_limits<double>::max();
+    }
+
+    if ((tmin > tzmax) || (tzmin > tmax))
+        return false;
+
+    return true;
+}
+
+
+bool Scanner::rayIntersectSpehre(pcl::PointXYZ& origin, pcl::PointXYZ& direction, pcl::PointXYZ& point) {
+    
+    double radius = 0.025;
+    double dirMagnitude = sqrt(direction.x * direction.x + direction.y * direction.y + direction.z * direction.z);
+    direction.x /= dirMagnitude;
+    direction.y /= dirMagnitude;
+    direction.z /= dirMagnitude;
+
+    pcl::PointXYZ L(point.x - origin.x, point.y - origin.y, point.z - origin.z);
+
+    double originDistance2 = L.x * L.x + L.y * L.y + L.z * L.z;
+    if (originDistance2 < radius * radius) return true;  // origin is inside the sphere
+
+    double t_ca = L.x * direction.x + L.y * direction.y + L.z * direction.z;
+
+    if (t_ca < 0) return false;
+
+    double d2 = originDistance2 - t_ca * t_ca;
+
+    if (d2 > radius * radius) return false;
+
+    return true;
+
+}
+
+
+bool Scanner::rayIntersectPointCloud(Ray3D& ray, pcl::PointXYZ& intersection, size_t& index) {
+
+    pcl::PointXYZ origin = ray.origin;
+    pcl::PointXYZ direction = ray.direction;
+
+    for(auto& bbox : octree_leaf_bbox) {
+
+        pcl::PointXYZ min_pt(bbox.min_pt.x(), bbox.min_pt.y(), bbox.min_pt.z());
+        pcl::PointXYZ max_pt(bbox.max_pt.x(), bbox.max_pt.y(), bbox.max_pt.z());
+
+        if(rayBoxIntersection(ray, min_pt, max_pt)) {
+            for(auto& point_idx : bbox.point_idx) {
+                pcl::PointXYZ point = input_cloud->points[point_idx];
+                if(rayIntersectSpehre(origin, direction, point)) {
+                    intersection = point;
+                    index = point_idx;
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
 
 /*
     This method is used to generate a sampled cloud using ray sampling method. We cast a ray from a light source to a point on the sphere. 
     Then we sample points along the ray with given step, for each point we search for its nearest neighbor within a given search radius.
     The neighbor points are added to the sampled cloud.
 */
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::multi_sphere_scanner(double step, 
-                                                                     double searchRadius, // search radius
-                                                                     double sphereRadius, // radius of sphere
-                                                                     size_t num_samples, // number of samples
-                                                                     pcl::PointXYZ& minPt,
-                                                                     pcl::PointXYZ& maxPt,
-                                                                     int pattern,
-                                                                     std::vector<pcl::PointXYZ> scanning_positions,
-                                                                     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud,
-                                                                     pcl::PointCloud<pcl::PointXYZI>::Ptr gt_cloud,
-                                                                     pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud,
-                                                                     std::string file_name) {
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::multi_sphere_scanner(double step, double searchRadius, double sphereRadius, size_t num_samples,  pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt, int pattern, std::vector<pcl::PointXYZ> scanning_positions,
+                                                                     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointCloud<pcl::PointXYZI>::Ptr gt_cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud, std::string file_name) {
 
     Property prop;
     Occlusion occlusion;
     
-    pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
-    kdtree.setInputCloud(cloud);
+    input_cloud = cloud;
+
+    traverseOctree();
 
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr sampledCloud(new pcl::PointCloud<pcl::PointXYZRGB>);
     pcl::PointCloud<pcl::PointXYZI>::Ptr sampledCloudGT(new pcl::PointCloud<pcl::PointXYZI>);
@@ -69,25 +236,32 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::multi_sphere_scanner(double step
 
             pcl::PointXYZ sampledPoint = sampledPoints[i];
             Ray3D ray = occlusion.generateRay(scanning_positions[k], sampledPoint);
-            
-            while ( sampledPoint.x < maxPt.x && sampledPoint.y < maxPt.y && sampledPoint.z < maxPt.z && sampledPoint.x > minPt.x && sampledPoint.y > minPt.y && sampledPoint.z > minPt.z) {
-                
-                std::vector<int> pointIdxRadiusSearch;
-                std::vector<float> pointRadiusSquaredDistance;
-                
-                if ( kdtree.radiusSearch(sampledPoint, searchRadius, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0 ) {
-              
-                    addedPoints.insert(pointIdxRadiusSearch[0]);
-                    break;
-                    
-                }
-                
-                sampledPoint.x += step * ray.direction.x;
-                sampledPoint.y += step * ray.direction.y;
-                sampledPoint.z += step * ray.direction.z;
-                
+
+            pcl::PointXYZ intersection;
+            std::vector<pcl::PointXYZ> intersections;
+            size_t index;
+            std::vector<size_t> indices;
+            if (rayIntersectPointCloud(ray, intersection, index)) {
+                intersections.push_back(intersection);
+                indices.push_back(index);
             }
+
+            if (indices.size() == 0) {
+                continue;
+            }
+
+            double min_distance = std::numeric_limits<double>::max();
+            size_t min_idx = 0;
+            for (size_t j = 0; j < intersections.size(); j++) {
+                double distance = sqrt(pow(intersections[j].x - ray.origin.x, 2) + pow(intersections[j].y - ray.origin.y, 2) + pow(intersections[j].z - ray.origin.z, 2));
+                if (distance < min_distance) {
+                    min_distance = distance;
+                    min_idx = indices[j];
+                }
+            }
+            addedPoints.insert(min_idx);
         }
+        
     }
 
     std::cout << "total points after scanning: " << addedPoints.size() << std::endl;
@@ -151,10 +325,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::multi_sphere_scanner(double step
 
 
 
-std::vector<pcl::PointXYZ> Scanner::scanning_positions( size_t num_positions, 
-                                                        pcl::PointXYZ& minPt, 
-                                                        pcl::PointXYZ& maxPt,
-                                                        int pattern) {
+std::vector<pcl::PointXYZ> Scanner::scanning_positions(size_t num_positions, pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt, int pattern) {
 
     Occlusion occlusion;
 

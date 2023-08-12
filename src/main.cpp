@@ -21,13 +21,16 @@
 #include "../headers/evaluation.h"
 #include "../headers/property.h"
 #include "../headers/occlusion.h"
-#include "../headers/visualizer.h"
 #include "../headers/scanner.h"
 
 #include <boost/asio.hpp>
 #include <websocketpp/config/asio_no_tls.hpp>
 #include <websocketpp/server.hpp>
-#include <jsoncpp/json/json.h>
+#include <nlohmann/json.hpp>
+
+
+using json = nlohmann::json;
+
 
 class DataHolder {
 
@@ -272,6 +275,14 @@ int main(int argc, char *argv[])
     auto start = std::chrono::high_resolution_clock::now();
     std::cout << "Parsing arguments ... " << std::endl;
 
+    std::ifstream f("../config.json", std::ifstream::in);
+    json j;
+    f >> j;
+    std::cout << "mesh path: " << j.at("occlusion").at("mesh").at("path") << std::endl;
+
+    std::string mesh_path = j.at("occlusion").at("mesh").at("path");
+
+
     std::map<std::string, std::string> args_map;
     args_map["-i="] = "--input==";
     args_map["-rs="] = "--raysample==";
@@ -297,7 +308,6 @@ int main(int argc, char *argv[])
     std::string input_path = "";
     std::string segmentation_path = "";
     std::string polygon_path = "";
-    std::string mesh_path = "";
     std::string recon_path = "";
     std::string recon_gt_path = "";
     std::string gt_path = "";
@@ -516,12 +526,20 @@ int main(int argc, char *argv[])
             occlusion.buildOctreeCloud();
             occlusion.traverseOctreeTriangle();
 
-            size_t num_samples = 20000;
+            size_t num_samples = 10000;
 
             Eigen::Vector3d rg_center = Eigen::Vector3d(center.x, center.y, center.z);
+            Eigen::Vector3d min = Eigen::Vector3d(minPt.x, minPt.y, minPt.z);
+            Eigen::Vector3d max = Eigen::Vector3d(maxPt.x, maxPt.y, maxPt.z);
+
+            Eigen::Vector3d min_mid = (min + rg_center) / 2;
+            Eigen::Vector3d max_mid = (max + rg_center) / 2;
+
             
             std::vector<Eigen::Vector3d> origins;
             origins.push_back(rg_center);
+            origins.push_back(min_mid);
+            origins.push_back(max_mid);
 
             occlusion.generateRaysWithIdx(origins, num_samples);
             double occlulsion_level = occlusion.triangleBasedOcclusionLevel(rg_center);

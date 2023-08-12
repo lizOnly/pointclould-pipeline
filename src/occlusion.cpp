@@ -751,7 +751,6 @@ bool Occlusion::rayIntersectPointCloud(const Ray3D& ray) {
             }
         }
 
-
     }
 
     return false;
@@ -879,8 +878,7 @@ void Occlusion::traverseOctree() {
 }
 
 double Occlusion::rayBasedOcclusionLevel(pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt, int pattern, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, 
-                                        std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds,
-                                        std::vector<pcl::ModelCoefficients::Ptr> allCoefficients) {
+                                         std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds, std::vector<pcl::ModelCoefficients::Ptr> allCoefficients) {
                                             
     input_cloud = cloud;
 
@@ -914,13 +912,13 @@ double Occlusion::rayBasedOcclusionLevel(pcl::PointXYZ& minPt, pcl::PointXYZ& ma
         }
 
         // std::cout << "*********Center " << i << ": " << centers[i].x << ", " << centers[i].y << ", " << centers[i].z << "*********" << std::endl;
-        std::vector<pcl::PointXYZ> samples = Occlusion::UniformSamplingSphere(centers[i], sphereRadius, num_samples);
+        std::vector<pcl::PointXYZ> samples = UniformSamplingSphere(centers[i], sphereRadius, num_samples);
 
         // iterate over the samples
         for (size_t j = 0; j < samples.size(); ++j) {
-            Ray3D ray = Occlusion::generateRay(centers[i], samples[j]);            
+            Ray3D ray = generateRay(centers[i], samples[j]);            
             // check if the ray intersects any polygon or point cloud
-            if (Occlusion::rayIntersectPointCloud(ray)) {
+            if (rayIntersectPointCloud(ray)) {
                 // std::cout << "*--> Ray hit cloud!!!" << std::endl;
                 cloudIntersecRays++;
 
@@ -1030,11 +1028,8 @@ double Occlusion::calculateTriangleArea(Triangle& tr) {
     double area = 0.5 * v12.cross(v13).norm();
 
     if (std::isnan(area)) {
-        std::cerr << "Computed area is nan." << std::endl;
         return 0.0;
     }
-
-    std::cout << "Triangle area: " << area << std::endl;
 
     return area;
 }
@@ -1203,9 +1198,9 @@ double Occlusion::triangleBasedOcclusionLevel(Eigen::Vector3d& origin) {
         }
         double visible_area = visible_weight * area;
         total_visible_area += visible_area;
-        if (visible_weight > 0.0) {
-            std::cout << "Visible weight is: " << visible_weight << std::endl;
-        }
+        // if (visible_weight > 0.0) {
+        //     std::cout << "Visible weight is: " << visible_weight << std::endl;
+        // }
     }
     std::cout << "Total area: " << total_area << std::endl;
     std::cout << "Total visible area: " << total_visible_area << std::endl;
