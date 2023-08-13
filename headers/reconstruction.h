@@ -14,12 +14,12 @@ class Reconstruction
 
         void batchReconstructionFromTxt(std::string folder);
 
-        void pcd2ply(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, std::string file_name);
+        void pcd2ply(std::string path);
 
         void ply2pcd(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, std::string file_name);
 
         int findUnderScore(std::string& str);
 
     private:   
-        void saveMeshAsOBJWithMTL(const pcl::PolygonMesh& mesh, const std::string& obj_filename, const std::string& mtl_filename);
+    
 };

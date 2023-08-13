@@ -62,6 +62,8 @@ class Occlusion {
 
         std::vector<std::vector<pcl::PointXYZ>> parsePointString(const std::string& input);
 
+        std::vector<pcl::PointXYZ> generateDefultPolygon();
+
         std::vector<std::vector<pcl::PointXYZ>> parsePolygonData(const std::string& filename);
 
         // occlusion level
@@ -73,19 +75,19 @@ class Occlusion {
 
         bool rayBoxIntersection(const Ray3D& ray, const pcl::PointXYZ& minPt, const pcl::PointXYZ& maxPt);
 
-        bool rayIntersectSpehre(pcl::PointXYZ& origin, pcl::PointXYZ& direction, pcl::PointXYZ& point);
+        bool rayIntersectSpehre(pcl::PointXYZ& origin, pcl::PointXYZ& direction, pcl::PointXYZ& point, double radius);
 
-        bool rayIntersectPointCloud(const Ray3D& ray);
+        bool rayIntersectPointCloud(const Ray3D& ray, double radius);
         
         std::vector<pcl::PointXYZ> getSphereLightSourceCenters(pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt);
 
-        std::vector<pcl::PointXYZ> UniformSamplingSphere(pcl::PointXYZ center, double radius, size_t num_samples);
+        std::vector<pcl::PointXYZ> UniformSamplingSphere(pcl::PointXYZ center, size_t num_samples);
         
         pcl::PointCloud<pcl::PointXYZI>::Ptr computeMedianDistance(double radius, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_density);
 
         void traverseOctree();
 
-        double rayBasedOcclusionLevel(pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt, int pattern, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds, std::vector<pcl::ModelCoefficients::Ptr> allCoefficients);
+        double rayBasedOcclusionLevel(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, size_t num_rays_per_vp, double point_radius, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds, std::vector<pcl::ModelCoefficients::Ptr> allCoefficients);
         /*-----------------------------------------------------------------------------------------------------------*/
 
         void parseTrianglesFromOBJ(const std::string& mesh_path);
@@ -95,6 +97,8 @@ class Occlusion {
         void computeMeshBoundingBox();
 
         void generateRaysWithIdx(std::vector<Eigen::Vector3d>& origins, size_t num_samples);
+
+        std::vector<Eigen::Vector3d> viewPointPattern(const int& pattern);
 
         bool rayTriangleIntersect(Triangle& tr, Ray& ray, Eigen::Vector3d& intersectionPoint);
 

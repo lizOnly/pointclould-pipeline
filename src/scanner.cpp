@@ -210,25 +210,22 @@ bool Scanner::rayIntersectPointCloud(Ray3D& ray, pcl::PointXYZ& intersection, si
     Then we sample points along the ray with given step, for each point we search for its nearest neighbor within a given search radius.
     The neighbor points are added to the sampled cloud.
 */
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::multi_sphere_scanner(double step, double searchRadius, double sphereRadius, size_t num_samples,  pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt, int pattern, std::vector<pcl::PointXYZ> scanning_positions,
-                                                                     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointCloud<pcl::PointXYZI>::Ptr gt_cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud, std::string file_name) {
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::sphere_scanner(size_t num_rays_per_vp, int pattern, std::vector<pcl::PointXYZ> scanning_positions, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointCloud<pcl::PointXYZI>::Ptr gt_cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud, std::string file_name) {
 
-    Property prop;
     Occlusion occlusion;
-    
     input_cloud = cloud;
 
     traverseOctree();
 
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr sampledCloud(new pcl::PointCloud<pcl::PointXYZRGB>);
     pcl::PointCloud<pcl::PointXYZI>::Ptr sampledCloudGT(new pcl::PointCloud<pcl::PointXYZI>);
-    std::cout << "total rays: " << num_samples * scanning_positions.size() << std::endl;
+    std::cout << "total rays: " << num_rays_per_vp * scanning_positions.size() << std::endl;
 
     std::unordered_set<int> addedPoints;
 
     for (int k = 0; k < scanning_positions.size(); k++) {
 
-        std::vector<pcl::PointXYZ> sampledPoints = occlusion.UniformSamplingSphere(scanning_positions[k], sphereRadius, num_samples);
+        std::vector<pcl::PointXYZ> sampledPoints = occlusion.UniformSamplingSphere(scanning_positions[k], num_rays_per_vp);
         std::cout << "scanning position " << k << std::endl;
 
         // store all index of points that should be added to the sampled cloud
@@ -307,14 +304,14 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::multi_sphere_scanner(double step
     sampledCloudGT->is_dense = true;
     std::cout << "scanned cloud ground truth size: " << sampledCloudGT->size() << std::endl;
 
-    std::string outputPath = "../files/" + file_name.substr(0, file_name.length() - 4) + "_" + std::to_string(num_samples) + ".pcd";
-    std::string gt_output_path = "../files/" + file_name.substr(0, file_name.length() - 4) + "_" + std::to_string(num_samples) + "_gt.pcd";
-    if(pattern == 4) {
-        outputPath = "../files/" + file_name.substr(0, file_name.length() - 4) + "_" + std::to_string(num_samples) + "_v1.pcd";
-        gt_output_path = "../files/" + file_name.substr(0, file_name.length() - 4) + "_" + std::to_string(num_samples) + "_v1_gt.pcd";
-    } else if (pattern == 5) {
-        outputPath = "../files/" + file_name.substr(0, file_name.length() - 4) + "_" + std::to_string(num_samples) + "_v2.pcd";
-        gt_output_path = "../files/" + file_name.substr(0, file_name.length() - 4) + "_" + std::to_string(num_samples) + "_v2_gt.pcd";
+    std::string outputPath = "../files/" + file_name.substr(0, file_name.length() - 4) + "_" + std::to_string(num_rays_per_vp) + ".pcd";
+    std::string gt_output_path = "../files/" + file_name.substr(0, file_name.length() - 4) + "_" + std::to_string(num_rays_per_vp) + "_gt.pcd";
+    if(pattern == 1) {
+        outputPath = "../files/" + file_name.substr(0, file_name.length() - 4) + "_" + std::to_string(num_rays_per_vp) + "_v1.pcd";
+        gt_output_path = "../files/" + file_name.substr(0, file_name.length() - 4) + "_" + std::to_string(num_rays_per_vp) + "_v1_gt.pcd";
+    } else if (pattern == 2) {
+        outputPath = "../files/" + file_name.substr(0, file_name.length() - 4) + "_" + std::to_string(num_rays_per_vp) + "_v2.pcd";
+        gt_output_path = "../files/" + file_name.substr(0, file_name.length() - 4) + "_" + std::to_string(num_rays_per_vp) + "_v2_gt.pcd";
     }
     pcl::io::savePCDFileASCII (outputPath, *sampledCloud);
     pcl::io::savePCDFileASCII (gt_output_path, *sampledCloudGT);
@@ -325,79 +322,38 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::multi_sphere_scanner(double step
 
 
 
-std::vector<pcl::PointXYZ> Scanner::scanning_positions(size_t num_positions, pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt, int pattern) {
+std::vector<pcl::PointXYZ> Scanner::scanning_positions(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, int pattern) {
 
     Occlusion occlusion;
 
     std::vector<pcl::PointXYZ> positions;
     
     pcl::PointXYZ center;
-    center.x = (minPt.x + maxPt.x) / 2;
-    center.y = (minPt.y + maxPt.y) / 2;
-    center.z = (minPt.z + maxPt.z) / 2;
+    center.x = (min_pt.x + max_pt.x) / 2;
+    center.y = (min_pt.y + max_pt.y) / 2;
+    center.z = (min_pt.z + max_pt.z) / 2;
 
-    // pattern 0: fixed 5 positions for square scanner                                            
-    if (pattern == 0) {
-
-        pcl::PointXYZ position1;
-        position1.x = (center.x + minPt.x) / 2;
-        position1.y = (center.y + minPt.y) / 2;
-        position1.z = center.z;
-
-        pcl::PointXYZ position2;
-        position2.x = (center.x + maxPt.x) / 2;
-        position2.y = (center.y + maxPt.y) / 2;
-        position2.z = center.z;
-
-        pcl::PointXYZ position3;
-        position3.x = (center.x + minPt.x) / 2;
-        position3.y = (center.y + maxPt.y) / 2;
-        position3.z = center.z;
-
-        pcl::PointXYZ position4;
-        position4.x = (center.x + maxPt.x) / 2;
-        position4.y = (center.y + minPt.y) / 2;
-        position4.z = center.z;
-
-        positions.push_back(center);
-        positions.push_back(position1);
-        positions.push_back(position2);
-        positions.push_back(position3);
-        positions.push_back(position4);
-
-    } else if (pattern == 1) { // random positions
-
-        pcl::PointXYZ position;
-        for (int i = 0; i < num_positions; i++) {
-
-            position.x = minPt.x + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(maxPt.x-minPt.x)));
-            position.y = minPt.y + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(maxPt.y-minPt.y)));
-            position.z = minPt.z + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(maxPt.z-minPt.z)));
-
-            positions.push_back(position);
-
-        }
-    } else if (pattern == 2) { // one center position
+    if (pattern == 0) { // one center position
 
         positions.push_back(center);
         
-    } else if (pattern == 3) {
-        positions = occlusion.getSphereLightSourceCenters(minPt, maxPt);
-    } else if (pattern == 4) {
+    } else if (pattern == 1) {
         pcl::PointXYZ max_position;
-        max_position.x = (center.x + maxPt.x) / 2;
-        max_position.y = (center.y + maxPt.y) / 2;
-        max_position.z = (center.z + maxPt.z) / 2;
+        max_position.x = (center.x + max_pt.x) / 2;
+        max_position.y = (center.y + max_pt.y) / 2;
+        max_position.z = (center.z + max_pt.z) / 2;
 
         positions.push_back(max_position); 
 
-    } else if (pattern == 5) {
+    } else if (pattern == 2) {
         pcl::PointXYZ min_position;
-        min_position.x = (center.x + minPt.x) / 2;
-        min_position.y = (center.y + minPt.y) / 2;
-        min_position.z = (center.z + minPt.z) / 2;
+        min_position.x = (center.x + min_pt.x) / 2;
+        min_position.y = (center.y + min_pt.y) / 2;
+        min_position.z = (center.z + min_pt.z) / 2;
 
         positions.push_back(min_position);
+    }  else if (pattern == 3) {
+        positions = occlusion.getSphereLightSourceCenters(min_pt, max_pt);
     }
 
     return positions;
@@ -608,7 +564,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::random_scanner(double step,
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr scanned_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
     Occlusion occlusion;
 
-    std::vector<pcl::PointXYZ> scanner_positions = scanning_positions(num_random_positions, minPt, maxPt, 1); // generate random scanners
+    std::vector<pcl::PointXYZ> scanner_positions = scanning_positions(minPt, maxPt, 1); // generate random scanners
 
     std::unordered_set<int> addedPoints;
 

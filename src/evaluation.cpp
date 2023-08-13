@@ -139,33 +139,48 @@ float Evaluation::calculateIoU() {
     std::cout << "Calculating IoU... " << std::endl;
     size_t tp, fp, fn, tn;
     updateProperties(tp, fp, fn, tn);
-    return static_cast<float>(tp) / (tp + fp + fn);
+    double iou = static_cast<double>(tp) / (tp + fp + fn);
+    std::cout << "IoU: " << iou << std::endl;
+
+    return iou;
 }
 
 float Evaluation::calculateAccuracy() {
     std::cout << "Calculating accuracy... " << std::endl;
     size_t tp, fp, fn, tn;
     updateProperties(tp, fp, fn, tn);
-    return static_cast<float>(tp + tn) / (tp + fp + fn + tn);
+    double accuracy = static_cast<double>(tp + tn) / (tp + fp + fn + tn);
+    std::cout << "Accuracy: " << accuracy << std::endl;
+
+    return accuracy;
 }
 
 float Evaluation::calculatePrecision() {
     std::cout << "Calculating precision... " << std::endl;
     size_t tp, fp, fn, tn;
     updateProperties(tp, fp, fn, tn);
-    return static_cast<float>(tp) / (tp + fp);
+    double precision = static_cast<double>(tp) / (tp + fp);
+    std::cout << "Precision: " << precision << std::endl;
+
+    return precision;
 }
 
 float Evaluation::calculateRecall() {
     std::cout << "Calculating recall... " << std::endl;
     size_t tp, fp, fn, tn;
     updateProperties(tp, fp, fn, tn);
-    return static_cast<float>(tp) / (tp + fn);
+    double recall = static_cast<double>(tp) / (tp + fn);
+    std::cout << "Recall: " << recall << std::endl;
+
+    return recall;
 }
 
 float Evaluation::calculateF1Score() {
     std::cout << "Calculating F1 score... " << std::endl;
     size_t tp, fp, fn, tn;
     updateProperties(tp, fp, fn, tn);
-    return 2 * static_cast<float>(tp) / (2 * tp + fp + fn);
+    double f1_score = 2 * static_cast<double>(tp) / (2 * tp + fp + fn);
+    std::cout << "F1 score: " << f1_score << std::endl;
+
+    return f1_score;
 }

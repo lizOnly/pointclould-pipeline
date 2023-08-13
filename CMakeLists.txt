@@ -24,9 +24,10 @@ add_executable(
     src/main.cpp 
     src/reconstruction.cpp headers/reconstruction.h
     src/property.cpp headers/property.h 
+    src/helper.cpp headers/helper.h
     src/evaluation.cpp headers/evaluation.h
     src/occlusion.cpp headers/occlusion.h
     src/scanner.cpp headers/scanner.h
-    )
+)
 
 target_link_libraries(pcd_pipeline ${PCL_LIBRARIES})

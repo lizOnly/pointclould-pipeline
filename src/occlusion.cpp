@@ -215,7 +215,7 @@ void Occlusion::removePointsInSpecificColor(pcl::PointCloud<pcl::PointXYZRGB>::P
 }
 
 
-void Occlusion::regionGrowingSegmentation(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud) {
+void Occlusion::regionGrowingSegmentation(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, size_t min_cluster_size, size_t max_cluster_size, int num_neighbours, double smoothness_threshold, double curvature_threshold) {
 
     input_cloud = cloud;
 
@@ -228,21 +228,21 @@ void Occlusion::regionGrowingSegmentation(pcl::PointCloud<pcl::PointXYZ>::Ptr cl
     normal_estimation.compute(*normals);
 
     pcl::RegionGrowing<pcl::PointXYZ, pcl::Normal> reg;
-    reg.setMinClusterSize(1000);
+    reg.setMinClusterSize(min_cluster_size);
+    reg.setMaxClusterSize(max_cluster_size);
     reg.setSearchMethod(tree);
-    reg.setNumberOfNeighbours(30);
+    reg.setNumberOfNeighbours(num_neighbours);
     reg.setInputCloud(cloud);
     reg.setInputNormals(normals);
-    reg.setSmoothnessThreshold(3.0 / 180.0 * M_PI);
-    reg.setCurvatureThreshold(1.0);
+    reg.setSmoothnessThreshold(smoothness_threshold / 180.0 * M_PI);
+    reg.setCurvatureThreshold(curvature_threshold);
 
-    
     reg.extract(rg_clusters);
 
     std::cout << "Number of clusters is equal to " << rg_clusters.size() << std::endl;
 
-    // pcl::PointCloud <pcl::PointXYZRGB>::Ptr colored_cloud = reg.getColoredCloud();
-    // pcl::io::savePCDFileASCII("../files/rg.pcd", *colored_cloud);
+    pcl::PointCloud <pcl::PointXYZRGB>::Ptr colored_cloud = reg.getColoredCloud();
+    pcl::io::savePCDFileASCII("../files/rg.pcd", *colored_cloud);
 }
 
 Eigen::Vector3d Occlusion::computeCentroid(pcl::PointCloud<pcl::PointXYZ>::Ptr polygon_cloud) {
@@ -263,7 +263,6 @@ Eigen::Vector3d Occlusion::computeCentroid(pcl::PointCloud<pcl::PointXYZ>::Ptr p
         centroid[0] += (xi + xi1) * Ai;
         centroid[1] += (yi + yi1) * Ai;
     }
-
 
     A *= 0.5;  
     centroid /= (6.0 * A); 
@@ -366,8 +365,9 @@ std::vector<pcl::PointXYZ> Occlusion::getSphereLightSourceCenters(pcl::PointXYZ&
 }
 
 
-std::vector<pcl::PointXYZ> Occlusion::UniformSamplingSphere(pcl::PointXYZ center, double radius, size_t num_samples) {
+std::vector<pcl::PointXYZ> Occlusion::UniformSamplingSphere(pcl::PointXYZ center, size_t num_samples) {
     
+    double radius = 0.1;
     static std::default_random_engine generator;
     static std::uniform_real_distribution<double> distribution(0.0, 1.0);
 
@@ -472,6 +472,30 @@ std::vector<std::vector<pcl::PointXYZ>> Occlusion::parsePointString(const std::s
     }
 
     return result;
+}
+
+
+std::vector<PointXYZ> Occlusion::generateDefultPolygon() {
+    std::vector<pcl::PointXYZ> default_polygon;
+
+    pcl::PointXYZ default_point;
+    default_point.x = 0;
+    default_point.y = 0;
+    default_point.z = 0;
+    pcl::PointXYZ default_point2;
+    default_point2.x = 1;
+    default_point2.y = 1;
+    default_point2.z = 1;
+    pcl::PointXYZ default_point3;
+    default_point3.x = 1;
+    default_point3.y = 0;
+    default_point3.z = 1;
+
+    default_polygon.push_back(default_point);
+    default_polygon.push_back(default_point2);
+    default_polygon.push_back(default_point3);
+
+    return default_polygon;
 }
 
 
@@ -701,9 +725,8 @@ bool Occlusion::rayBoxIntersection(const Ray3D& ray, const pcl::PointXYZ& minPt,
 }
 
 
-bool Occlusion::rayIntersectSpehre(pcl::PointXYZ& origin, pcl::PointXYZ& direction, pcl::PointXYZ& point) {
+bool Occlusion::rayIntersectSpehre(pcl::PointXYZ& origin, pcl::PointXYZ& direction, pcl::PointXYZ& point, double radius) {
     
-    double radius = 0.025;
     double dirMagnitude = sqrt(direction.x * direction.x + direction.y * direction.y + direction.z * direction.z);
     direction.x /= dirMagnitude;
     direction.y /= dirMagnitude;
@@ -732,7 +755,7 @@ bool Occlusion::rayIntersectSpehre(pcl::PointXYZ& origin, pcl::PointXYZ& directi
     * @param ray: the ray
     * @return: true if the ray intersects the point cloud, and false otherwise
 */
-bool Occlusion::rayIntersectPointCloud(const Ray3D& ray) {
+bool Occlusion::rayIntersectPointCloud(const Ray3D& ray, double radius) {
 
     pcl::PointXYZ origin = ray.origin;
     pcl::PointXYZ direction = ray.direction;
@@ -745,7 +768,7 @@ bool Occlusion::rayIntersectPointCloud(const Ray3D& ray) {
         if(rayBoxIntersection(ray, min_pt, max_pt)) {
             for(auto& point_idx : bbox.point_idx) {
                 pcl::PointXYZ point = input_cloud->points[point_idx];
-                if(rayIntersectSpehre(origin, direction, point)) {
+                if(rayIntersectSpehre(origin, direction, point, radius)) {
                     return true;
                 }
             }
@@ -831,7 +854,6 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr Occlusion::computeMedianDistance(double rad
 }
 
 
-
 void Occlusion::traverseOctree() {
 
     float resolution = 0.5;
@@ -877,7 +899,8 @@ void Occlusion::traverseOctree() {
     std::cout << "Number of leaf bbox: " << octree_leaf_bbox.size() << std::endl;
 }
 
-double Occlusion::rayBasedOcclusionLevel(pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt, int pattern, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, 
+
+double Occlusion::rayBasedOcclusionLevel(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, size_t num_rays_per_vp, double point_radius, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, 
                                          std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds, std::vector<pcl::ModelCoefficients::Ptr> allCoefficients) {
                                             
     input_cloud = cloud;
@@ -886,39 +909,23 @@ double Occlusion::rayBasedOcclusionLevel(pcl::PointXYZ& minPt, pcl::PointXYZ& ma
 
     std::vector<pcl::PointXYZ> centers = Occlusion::getSphereLightSourceCenters(minPt, maxPt);
 
-    size_t num_samples = 10000;
-    double step = 0.05; // step size for ray traversal
     double occlusionLevel = 0.0;
 
-    int numRays = centers.size() * num_samples;
-    int occlusionRays = 0;
-    int polygonIntersecRays = 0;
-    int cloudIntersecRays = 0;
-    double sphereRadius = 0.1;
+    int num_rays = centers.size() * num_rays_per_vp;
+    int occlusion_rays = 0;
+    int polygonIntersec_rays = 0;
+    int cloudIntersec_rays = 0;
 
     for (size_t i = 0; i < centers.size(); ++i) {
-        if (pattern == 2) {
-            if (i == 0) { // ignore the center
-                continue;
-            }
-        } else if (pattern == 4) {
-            if (i == 8) { // ignore the max point
-                continue;
-            }
-        } else if (pattern == 5) { 
-            if (i == 1) { // ignore the min point
-                continue;
-            }
-        }
 
         // std::cout << "*********Center " << i << ": " << centers[i].x << ", " << centers[i].y << ", " << centers[i].z << "*********" << std::endl;
-        std::vector<pcl::PointXYZ> samples = UniformSamplingSphere(centers[i], sphereRadius, num_samples);
+        std::vector<pcl::PointXYZ> samples = UniformSamplingSphere(centers[i], num_rays_per_vp);
 
         // iterate over the samples
         for (size_t j = 0; j < samples.size(); ++j) {
             Ray3D ray = generateRay(centers[i], samples[j]);            
             // check if the ray intersects any polygon or point cloud
-            if (rayIntersectPointCloud(ray)) {
+            if (rayIntersectPointCloud(ray, point_radius)) {
                 // std::cout << "*--> Ray hit cloud!!!" << std::endl;
                 cloudIntersecRays++;
 
@@ -927,29 +934,25 @@ double Occlusion::rayBasedOcclusionLevel(pcl::PointXYZ& minPt, pcl::PointXYZ& ma
                 for (size_t k = 0; k < polygonClouds.size(); ++k) {
 
                     if (Occlusion::rayIntersectPolygon(ray, polygonClouds[k], allCoefficients[k])) {
-
                         // std::cout << "*--> Ray didn't hit cloud but hit polygon of index " << k << std::endl;
                         polygonIntersecRays++;
                         break;
-
                     } else if (k == (polygonClouds.size() - 1)) {
-
                         // std::cout << "*--> Ray did not hit anything, it's an occlusion" << std::endl;
                         occlusionRays++;
-
                     }
                 }
             }
         }
     }
 
-    occlusionLevel = (double) occlusionRays / (double) numRays;
+    occlusion_level = (double) occlusion_rays / (double) num_rays;
     
-    std::cout << "Number of rays: " << numRays << std::endl;
-    std::cout << "Number of cloud intersection rays: " << cloudIntersecRays << std::endl;
-    std::cout << "Number of polygon intersection rays: " << polygonIntersecRays << std::endl;
-    std::cout << "Number of occlusion rays: " << occlusionRays << std::endl;
-    std::cout << "Occlusion level: " << occlusionLevel << std::endl;
+    std::cout << "Number of rays: " << num_rays << std::endl;
+    std::cout << "Number of cloud intersection rays: " << cloudIntersec_rays << std::endl;
+    std::cout << "Number of polygon intersection rays: " << polygonIntersec_rays << std::endl;
+    std::cout << "Number of occlusion rays: " << occlusion_rays << std::endl;
+    std::cout << "Occlusion level: " << occlusion_level << std::endl;
     
     return occlusionLevel;
 }
@@ -1032,6 +1035,28 @@ double Occlusion::calculateTriangleArea(Triangle& tr) {
     }
 
     return area;
+}
+
+
+std::vector<Eigen::Vector3d> Occlusion::viewPointPattern(const int& pattern) {
+    std::vector<Eigen::Vector3d> origins;
+
+    if (pattern == 0) {
+            origins.push_back(center);
+        } else if (pattern == 1) {
+            origins.push_back(min_mid);
+        } else if (pattern == 2) {
+            origins.push_back(max_mid);
+        } else if (pattern == 3) {
+            origins.push_back(min);
+            origins.push_back(max);
+        } else if (pattern == 4) {
+            origins.push_back(min_mid);
+            origins.push_back(max_mid);
+            origins.push_back(center);
+        }
+
+    return origins;
 }
 
 // generate a ray from the light source to the point on the sphere

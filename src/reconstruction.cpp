@@ -15,7 +15,6 @@
 #include <pcl/features/normal_3d.h>
 #include <pcl/surface/poisson.h>
 #include <pcl/surface/marching_cubes_hoppe.h>
-#include <pcl/io/vtk_io.h>
 
 #include "../headers/reconstruction.h"
 #include "../headers/evaluation.h"
@@ -203,9 +202,11 @@ void Reconstruction::batchReconstructionFromTxt(std::string folder_path) {
 }
 
 
-void Reconstruction::pcd2ply(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, std::string file_name) {
+void Reconstruction::pcd2ply(std::string path) {
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+    pcl::io::loadPCDFile<pcl::PointXYZRGB>(path, *cloud);
 
-    std::string path = "../files/" + file_name.substr(0, file_name.length() - 4) + ".ply";
+    std::string output_path = path.substr(0, path.length() - 4) + ".ply";
     pcl::io::savePLYFileASCII(path, *cloud);
 
 }
