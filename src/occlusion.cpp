@@ -475,7 +475,7 @@ std::vector<std::vector<pcl::PointXYZ>> Occlusion::parsePointString(const std::s
 }
 
 
-std::vector<PointXYZ> Occlusion::generateDefultPolygon() {
+std::vector<pcl::PointXYZ> Occlusion::generateDefaultPolygon() {
     std::vector<pcl::PointXYZ> default_polygon;
 
     pcl::PointXYZ default_point;
@@ -528,7 +528,7 @@ std::vector<std::vector<pcl::PointXYZ>> Occlusion::parsePolygonData(const std::s
         polygons.push_back(polygon);
     }
 
-    std::cout << polygons.size() << std::endl;
+    std::cout << polygons.size() << " polygons" << std::endl;
     return polygons;
 }
 
@@ -755,7 +755,7 @@ bool Occlusion::rayIntersectSpehre(pcl::PointXYZ& origin, pcl::PointXYZ& directi
     * @param ray: the ray
     * @return: true if the ray intersects the point cloud, and false otherwise
 */
-bool Occlusion::rayIntersectPointCloud(const Ray3D& ray, double radius) {
+bool Occlusion::rayIntersectPointCloud(const Ray3D& ray) {
 
     pcl::PointXYZ origin = ray.origin;
     pcl::PointXYZ direction = ray.direction;
@@ -768,7 +768,7 @@ bool Occlusion::rayIntersectPointCloud(const Ray3D& ray, double radius) {
         if(rayBoxIntersection(ray, min_pt, max_pt)) {
             for(auto& point_idx : bbox.point_idx) {
                 pcl::PointXYZ point = input_cloud->points[point_idx];
-                if(rayIntersectSpehre(origin, direction, point, radius)) {
+                if(rayIntersectSpehre(origin, direction, point, point_radius)) {
                     return true;
                 }
             }
@@ -856,8 +856,7 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr Occlusion::computeMedianDistance(double rad
 
 void Occlusion::traverseOctree() {
 
-    float resolution = 0.5;
-    pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> octree(resolution);
+    pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> octree(octree_resolution);
     octree.setInputCloud(input_cloud);
     octree.addPointsFromInputCloud();
 
@@ -900,21 +899,22 @@ void Occlusion::traverseOctree() {
 }
 
 
-double Occlusion::rayBasedOcclusionLevel(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, size_t num_rays_per_vp, double point_radius, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, 
+double Occlusion::rayBasedOcclusionLevel(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, size_t num_rays_per_vp, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, 
                                          std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds, std::vector<pcl::ModelCoefficients::Ptr> allCoefficients) {
                                             
     input_cloud = cloud;
 
     traverseOctree();
 
-    std::vector<pcl::PointXYZ> centers = Occlusion::getSphereLightSourceCenters(minPt, maxPt);
+    std::vector<pcl::PointXYZ> centers = Occlusion::getSphereLightSourceCenters(min_pt, max_pt);
 
-    double occlusionLevel = 0.0;
+    double occlusion_level = 0.0;
 
-    int num_rays = centers.size() * num_rays_per_vp;
-    int occlusion_rays = 0;
-    int polygonIntersec_rays = 0;
-    int cloudIntersec_rays = 0;
+    size_t num_rays = centers.size() * num_rays_per_vp;
+    size_t occlusion_rays = 0;
+    size_t polygon_intersec_rays = 0;
+    size_t cloud_intersec_rays = 0;
+
 
     for (size_t i = 0; i < centers.size(); ++i) {
 
@@ -925,9 +925,9 @@ double Occlusion::rayBasedOcclusionLevel(pcl::PointXYZ& min_pt, pcl::PointXYZ& m
         for (size_t j = 0; j < samples.size(); ++j) {
             Ray3D ray = generateRay(centers[i], samples[j]);            
             // check if the ray intersects any polygon or point cloud
-            if (rayIntersectPointCloud(ray, point_radius)) {
+            if (rayIntersectPointCloud(ray)) {
                 // std::cout << "*--> Ray hit cloud!!!" << std::endl;
-                cloudIntersecRays++;
+                cloud_intersec_rays++;
 
             } else {
 
@@ -935,11 +935,11 @@ double Occlusion::rayBasedOcclusionLevel(pcl::PointXYZ& min_pt, pcl::PointXYZ& m
 
                     if (Occlusion::rayIntersectPolygon(ray, polygonClouds[k], allCoefficients[k])) {
                         // std::cout << "*--> Ray didn't hit cloud but hit polygon of index " << k << std::endl;
-                        polygonIntersecRays++;
+                        polygon_intersec_rays++;
                         break;
                     } else if (k == (polygonClouds.size() - 1)) {
                         // std::cout << "*--> Ray did not hit anything, it's an occlusion" << std::endl;
-                        occlusionRays++;
+                        occlusion_rays++;
                     }
                 }
             }
@@ -949,12 +949,12 @@ double Occlusion::rayBasedOcclusionLevel(pcl::PointXYZ& min_pt, pcl::PointXYZ& m
     occlusion_level = (double) occlusion_rays / (double) num_rays;
     
     std::cout << "Number of rays: " << num_rays << std::endl;
-    std::cout << "Number of cloud intersection rays: " << cloudIntersec_rays << std::endl;
-    std::cout << "Number of polygon intersection rays: " << polygonIntersec_rays << std::endl;
+    std::cout << "Number of cloud intersection rays: " << cloud_intersec_rays << std::endl;
+    std::cout << "Number of polygon intersection rays: " << polygon_intersec_rays << std::endl;
     std::cout << "Number of occlusion rays: " << occlusion_rays << std::endl;
     std::cout << "Occlusion level: " << occlusion_level << std::endl;
     
-    return occlusionLevel;
+    return occlusion_level;
 }
 
 // read the .obj file and return a vector of triangles
@@ -1038,29 +1038,54 @@ double Occlusion::calculateTriangleArea(Triangle& tr) {
 }
 
 
-std::vector<Eigen::Vector3d> Occlusion::viewPointPattern(const int& pattern) {
+std::vector<Eigen::Vector3d> Occlusion::viewPointPattern(const int& pattern, Eigen::Vector3d& min, Eigen::Vector3d& max, Eigen::Vector3d& center) {
     std::vector<Eigen::Vector3d> origins;
 
+    Eigen::Vector3d min_mid((min.x() + center.x()) / 2.0, (min.y() + center.y()) / 2.0, (min.z() + center.z()) / 2.0);
+    Eigen::Vector3d max_mid((max.x() + center.x()) / 2.0, (max.y() + center.y()) / 2.0, (max.z() + center.z()) / 2.0);
+    
+    std::cout << "Viewpoint pattern: " << pattern << std::endl;
+
     if (pattern == 0) {
-            origins.push_back(center);
-        } else if (pattern == 1) {
-            origins.push_back(min_mid);
-        } else if (pattern == 2) {
-            origins.push_back(max_mid);
-        } else if (pattern == 3) {
-            origins.push_back(min);
-            origins.push_back(max);
-        } else if (pattern == 4) {
-            origins.push_back(min_mid);
-            origins.push_back(max_mid);
-            origins.push_back(center);
-        }
+
+        origins.push_back(center);
+
+    } else if (pattern == 1) {
+
+        origins.push_back(min_mid);
+
+    } else if (pattern == 2) {
+
+        origins.push_back(max_mid);
+
+    } else if (pattern == 3) {
+
+        origins.push_back(min_mid);
+        origins.push_back(max_mid);
+
+    } else if (pattern == 4) {
+
+        origins.push_back(min_mid);
+        origins.push_back(center);
+
+    } else if (pattern == 5) {
+
+        origins.push_back(max_mid);
+        origins.push_back(center);
+
+    } else if (pattern == 6) {
+
+        origins.push_back(min_mid);
+        origins.push_back(max_mid);
+        origins.push_back(center);
+        
+    }
 
     return origins;
 }
 
 // generate a ray from the light source to the point on the sphere
-void Occlusion::generateRaysWithIdx(std::vector<Eigen::Vector3d>& origins, size_t num_samples) {
+void Occlusion::generateRaysWithIdx(std::vector<Eigen::Vector3d>& origins, size_t num_rays_per_vp) {
     std::cout << "Generating rays..." << std::endl;
     size_t idx = 0;
     double radius = 1.0; // radius of the sphere
@@ -1069,7 +1094,7 @@ void Occlusion::generateRaysWithIdx(std::vector<Eigen::Vector3d>& origins, size_
     static std::uniform_real_distribution<double> distribution(0.0, 1.0);
 
     for (auto& origin : origins) {
-        for (size_t i = 0; i < num_samples; ++i) {
+        for (size_t i = 0; i < num_rays_per_vp; ++i) {
             double theta = 2 * M_PI * distribution(generator);  // Azimuthal angle
             double phi = acos(2 * distribution(generator) - 1); // Polar angle
 
@@ -1137,7 +1162,7 @@ bool Occlusion::rayTriangleIntersect(Triangle& tr, Ray& ray, Eigen::Vector3d& in
 }
 
 
-bool Occlusion::getRayTriangleIntersectionPt(Triangle& tr, Ray& ray, Eigen::Vector3d& origin, size_t idx, Intersection& intersection) {
+bool Occlusion::getRayTriangleIntersectionPt(Triangle& tr, Ray& ray, size_t idx, Intersection& intersection) {
 
     Eigen::Vector3d intersectionPt = Eigen::Vector3d::Zero();
     bool isIntersect = rayTriangleIntersect(tr, ray, intersectionPt);
@@ -1148,7 +1173,7 @@ bool Occlusion::getRayTriangleIntersectionPt(Triangle& tr, Ray& ray, Eigen::Vect
         intersection.triangle_index = tr.index;
         intersection.ray_index = ray.index;
 
-        double distance_to_origin = (intersectionPt - origin).norm();
+        double distance_to_origin = (intersectionPt - ray.origin).norm();
         intersection.distance_to_origin = distance_to_origin;
 
         tr.intersectionIdx.push_back(idx);
@@ -1179,7 +1204,7 @@ void Occlusion::isFirstHitIntersection(Ray& ray) {
 }
 
 
-double Occlusion::triangleBasedOcclusionLevel(Eigen::Vector3d& origin) {    
+double Occlusion::triangleBasedOcclusionLevel() {    
 
     size_t intersection_idx = 0;
 
@@ -1190,7 +1215,7 @@ double Occlusion::triangleBasedOcclusionLevel(Eigen::Vector3d& origin) {
                 // std::cout << "Ray " << ray.second.index <<" is hitting " << bbox.triangle_idx.size() << " triangles" << std::endl;
                 for(auto& idx : bbox.triangle_idx) {
                     Intersection intersection;
-                    if(getRayTriangleIntersectionPt(t_triangles[idx], ray.second, origin, intersection_idx, intersection)) {
+                    if(getRayTriangleIntersectionPt(t_triangles[idx], ray.second, intersection_idx, intersection)) {
                         t_intersections[intersection_idx] = intersection;
                         intersection_idx++;
                     }
@@ -1237,8 +1262,7 @@ double Occlusion::triangleBasedOcclusionLevel(Eigen::Vector3d& origin) {
 
 void Occlusion::traverseOctreeTriangle() {
 
-    float resolution = 64.0;
-    pcl::octree::OctreePointCloudSearch<pcl::PointXYZI> octree(resolution);
+    pcl::octree::OctreePointCloudSearch<pcl::PointXYZI> octree(octree_resolution_triangle);
     octree.setInputCloud(t_octree_cloud);
     octree.addPointsFromInputCloud();
 
@@ -1252,8 +1276,6 @@ void Occlusion::traverseOctreeTriangle() {
 
     for (it = octree.leaf_depth_begin(max_depth); it != it_end; ++it) {
         Eigen::Vector3f min_pt, max_pt;
-
-        float size = resolution;
         
         pcl::octree::OctreeKey key = it.getCurrentOctreeKey();
 

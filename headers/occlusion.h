@@ -21,6 +21,17 @@ class Occlusion {
         Occlusion();
         ~Occlusion();
         
+        void setPointRadius(double radius) {
+            point_radius = radius;
+        };
+
+        void setOctreeResolution(float resolution) {
+            octree_resolution = resolution;
+        };
+
+        void setOctreeResolutionTriangle(float resolution) {
+            octree_resolution_triangle = resolution;
+        };
 
         template <typename PointT>
 
@@ -47,7 +58,7 @@ class Occlusion {
 
         void removePointsInSpecificColor(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, int color[3]);
 
-        void regionGrowingSegmentation(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);
+        void regionGrowingSegmentation(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, size_t min_cluster_size, size_t max_cluster_size, int num_neighbours, double smoothness_threshold, double curvature_threshold);
 
         Eigen::Vector3d computeCentroid(pcl::PointCloud<pcl::PointXYZ>::Ptr polygon_cloud);
 
@@ -62,7 +73,7 @@ class Occlusion {
 
         std::vector<std::vector<pcl::PointXYZ>> parsePointString(const std::string& input);
 
-        std::vector<pcl::PointXYZ> generateDefultPolygon();
+        std::vector<pcl::PointXYZ> generateDefaultPolygon();
 
         std::vector<std::vector<pcl::PointXYZ>> parsePolygonData(const std::string& filename);
 
@@ -77,7 +88,7 @@ class Occlusion {
 
         bool rayIntersectSpehre(pcl::PointXYZ& origin, pcl::PointXYZ& direction, pcl::PointXYZ& point, double radius);
 
-        bool rayIntersectPointCloud(const Ray3D& ray, double radius);
+        bool rayIntersectPointCloud(const Ray3D& ray);
         
         std::vector<pcl::PointXYZ> getSphereLightSourceCenters(pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt);
 
@@ -87,7 +98,7 @@ class Occlusion {
 
         void traverseOctree();
 
-        double rayBasedOcclusionLevel(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, size_t num_rays_per_vp, double point_radius, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds, std::vector<pcl::ModelCoefficients::Ptr> allCoefficients);
+        double rayBasedOcclusionLevel(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, size_t num_rays_per_vp, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds, std::vector<pcl::ModelCoefficients::Ptr> allCoefficients);
         /*-----------------------------------------------------------------------------------------------------------*/
 
         void parseTrianglesFromOBJ(const std::string& mesh_path);
@@ -96,19 +107,19 @@ class Occlusion {
 
         void computeMeshBoundingBox();
 
-        void generateRaysWithIdx(std::vector<Eigen::Vector3d>& origins, size_t num_samples);
+        void generateRaysWithIdx(std::vector<Eigen::Vector3d>& origins, size_t num_rays_per_vp);
 
-        std::vector<Eigen::Vector3d> viewPointPattern(const int& pattern);
+        std::vector<Eigen::Vector3d> viewPointPattern(const int& pattern, Eigen::Vector3d& min, Eigen::Vector3d& max, Eigen::Vector3d& center);
 
         bool rayTriangleIntersect(Triangle& tr, Ray& ray, Eigen::Vector3d& intersectionPoint);
 
-        bool getRayTriangleIntersectionPt(Triangle& tr, Ray& ray, Eigen::Vector3d& origin, size_t idx, Intersection& intersection);
+        bool getRayTriangleIntersectionPt(Triangle& tr, Ray& ray, size_t idx, Intersection& intersection);
 
         bool rayIntersectLeafBbox(Ray& ray, LeafBBox& bbox);
 
         void isFirstHitIntersection(Ray& ray);
 
-        double triangleBasedOcclusionLevel(Eigen::Vector3d& origin);
+        double triangleBasedOcclusionLevel();
 
         void generateCloudFromIntersection();
 
@@ -123,6 +134,11 @@ class Occlusion {
         void buildOctreeCloud();
 
         private:
+
+            double point_radius;
+            float octree_resolution;
+            float octree_resolution_triangle;
+
 
             std::vector<pcl::PointIndices> rg_clusters;
             

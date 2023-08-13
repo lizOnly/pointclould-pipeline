@@ -2,6 +2,7 @@
 #include <pcl/point_types.h>
 
 #include "../headers/BaseStruct.h"
+#include "../headers/Helper.h"
 
 
 Helper::Helper()
@@ -19,5 +20,5 @@ void Helper::displayRunningTime(std::chrono::high_resolution_clock::time_point s
 {
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
-    std::cout << " Time taken by this run: " << duration.count() << " seconds" << std::endl;
+    std::cout << "Time taken by this run: " << duration.count() << " seconds" << std::endl;
 }

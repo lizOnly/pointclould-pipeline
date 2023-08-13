@@ -1,3 +1,5 @@
+#include <chrono>
+
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 
@@ -15,11 +17,3 @@ class Helper
     private:
         /* data */
 };
-
-helper::helper(/* args */)
-{
-}
-
-helper::~helper()
-{
-}

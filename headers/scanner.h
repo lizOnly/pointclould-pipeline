@@ -10,7 +10,11 @@ class Scanner {
 
         ~Scanner();
 
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr sphere_scanner(size_t num_rays_per_vp, int pattern, std::vector<pcl::PointXYZ> scanning_positions, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointCloud<pcl::PointXYZI>::Ptr gt_cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud, std::string file_name);
+        void setOctreeResolution(float resolution) {
+            octree_resolution = resolution;
+        }
+
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr sphere_scanner(size_t num_rays_per_vp, int pattern, std::vector<pcl::PointXYZ> scanning_positions, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointCloud<pcl::PointXYZI>::Ptr gt_cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud, std::string path);
         
         void traverseOctree();
 
@@ -35,6 +39,8 @@ class Scanner {
         pcl::PointCloud<pcl::PointXYZ>::Ptr octree_cloud;
 
         std::vector<LeafBBox> octree_leaf_bbox;
+
+        float octree_resolution;
             
 };
 

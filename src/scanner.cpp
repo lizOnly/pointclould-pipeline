@@ -38,8 +38,7 @@ Scanner::~Scanner()
 
 void Scanner::traverseOctree() {
 
-    float resolution = 1.0;
-    pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> octree(resolution);
+    pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> octree(octree_resolution);
     octree.setInputCloud(input_cloud);
     octree.addPointsFromInputCloud();
 
@@ -210,7 +209,7 @@ bool Scanner::rayIntersectPointCloud(Ray3D& ray, pcl::PointXYZ& intersection, si
     Then we sample points along the ray with given step, for each point we search for its nearest neighbor within a given search radius.
     The neighbor points are added to the sampled cloud.
 */
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::sphere_scanner(size_t num_rays_per_vp, int pattern, std::vector<pcl::PointXYZ> scanning_positions, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointCloud<pcl::PointXYZI>::Ptr gt_cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud, std::string file_name) {
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::sphere_scanner(size_t num_rays_per_vp, int pattern, std::vector<pcl::PointXYZ> scanning_positions, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointCloud<pcl::PointXYZI>::Ptr gt_cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud, std::string path) {
 
     Occlusion occlusion;
     input_cloud = cloud;
@@ -304,16 +303,16 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::sphere_scanner(size_t num_rays_p
     sampledCloudGT->is_dense = true;
     std::cout << "scanned cloud ground truth size: " << sampledCloudGT->size() << std::endl;
 
-    std::string outputPath = "../files/" + file_name.substr(0, file_name.length() - 4) + "_" + std::to_string(num_rays_per_vp) + ".pcd";
-    std::string gt_output_path = "../files/" + file_name.substr(0, file_name.length() - 4) + "_" + std::to_string(num_rays_per_vp) + "_gt.pcd";
+    std::string output_path = path.substr(0, path.length() - 4) + "_" + std::to_string(num_rays_per_vp) + ".pcd";
+    std::string gt_output_path = path.substr(0, path.length() - 4) + "_" + std::to_string(num_rays_per_vp) + "_gt.pcd";
     if(pattern == 1) {
-        outputPath = "../files/" + file_name.substr(0, file_name.length() - 4) + "_" + std::to_string(num_rays_per_vp) + "_v1.pcd";
-        gt_output_path = "../files/" + file_name.substr(0, file_name.length() - 4) + "_" + std::to_string(num_rays_per_vp) + "_v1_gt.pcd";
+        output_path = path.substr(0, path.length() - 4) + "_" + std::to_string(num_rays_per_vp) + "_v1.pcd";
+        gt_output_path = path.substr(0, path.length() - 4) + "_" + std::to_string(num_rays_per_vp) + "_v1_gt.pcd";
     } else if (pattern == 2) {
-        outputPath = "../files/" + file_name.substr(0, file_name.length() - 4) + "_" + std::to_string(num_rays_per_vp) + "_v2.pcd";
-        gt_output_path = "../files/" + file_name.substr(0, file_name.length() - 4) + "_" + std::to_string(num_rays_per_vp) + "_v2_gt.pcd";
+        output_path = path.substr(0, path.length() - 4) + "_" + std::to_string(num_rays_per_vp) + "_v2.pcd";
+        gt_output_path = path.substr(0, path.length() - 4) + "_" + std::to_string(num_rays_per_vp) + "_v2_gt.pcd";
     }
-    pcl::io::savePCDFileASCII (outputPath, *sampledCloud);
+    pcl::io::savePCDFileASCII (output_path, *sampledCloud);
     pcl::io::savePCDFileASCII (gt_output_path, *sampledCloudGT);
 
     return sampledCloud;
@@ -449,13 +448,8 @@ std::vector<pcl::PointXYZ> Scanner::sample_square_points(const pcl::PointXYZ& sc
 }
 
 
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::multi_square_scanner(double step, 
-                                                                    double searchRadius, // search radius
-                                                                    pcl::PointXYZ& minPt, 
-                                                                    pcl::PointXYZ& maxPt,
-                                                                    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud,
-                                                                    pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud,
-                                                                    std::string file_name)
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::multi_square_scanner(double step, double searchRadius, pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt,
+                                                                    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud, std::string file_name)
 {
     Occlusion occlusion;
 
@@ -464,7 +458,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::multi_square_scanner(double step
 
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr scanned_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
 
-    std::vector<pcl::PointXYZ> scanner_positions = scanning_positions(5, minPt, maxPt, 0); // generate fixed scanners
+    std::vector<pcl::PointXYZ> scanner_positions = scanning_positions(minPt, maxPt, 0); // generate fixed scanners
     std::cout << "total scanners: " << scanner_positions.size() << std::endl;
 
     std::unordered_set<int> addedPoints;

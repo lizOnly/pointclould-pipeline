@@ -3,36 +3,39 @@
         "mesh": {
             "path": "../files/conf_m.obj",
             "num_rays_per_vp": 10000,
-            "pattern": 0
+            "pattern": 3,
+            "octree_resolution": 64.0
         },
 
         "point_cloud": {
-            "path": "../files/conf_1.pcd",
+            "path": "../files/conf1_50000.pcd",
             "num_rays_per_vp": 10000, 
             "num_vp": 9, 
             "point_radius": 0.025,
-            "polygon_path": "../files/polyon_conf.txt"
+            "polygon_path": "../files/polygon_conf.txt",
+            "octree_resolution": 0.5
         },
 
         "rg_mesh": {
             "seg_config": {
                 "min_cluster_size": 1000,
-                "max_cluster_size": 10000,
+                "max_cluster_size": 100000,
                 "num_neighbours": 30,
-                "smoothness_threshold": 5.0,
+                "smoothness_threshold": 3.0,
                 "curvature_threshold": 1.0
             },
-            "path": "../files/conf_m.obj",
+            "path": "../files/conf1.pcd",
             "num_rays_per_vp": 10000,
-            "pattern": 0,
-            "pattern_v1": 1,
-            "pattern_v2": 2
+            "pattern": 1,
+            "octree_resolution": 1.0
         }
     },
 
     "scanner": {
         "num_rays_per_vp": 10000,
         "pattern": 0,
+        "pattern_v1": 1,
+        "pattern_v2": 2,
         "path": "../files/conf1.pcd",
         "gt_path": "../files/conf1_gt.pcd"
     },
