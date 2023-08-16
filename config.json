@@ -3,12 +3,13 @@
         "mesh": {
             "path": "../files/conf_m.obj",
             "num_rays_per_vp": 10000,
-            "pattern": 3,
-            "octree_resolution": 64.0
+            "pattern": 0,
+            "octree_resolution": 128.0,
+            "enable_acceleration": true
         },
 
         "point_cloud": {
-            "path": "../files/conf1_50000.pcd",
+            "path": "../files/conf1_80000.pcd",
             "num_rays_per_vp": 10000, 
             "num_vp": 9, 
             "point_radius": 0.025,
@@ -18,10 +19,11 @@
 
         "rg_mesh": {
             "seg_config": {
-                "min_cluster_size": 1000,
-                "max_cluster_size": 100000,
-                "num_neighbours": 30,
-                "smoothness_threshold": 3.0,
+                "min_cluster_size": 100,
+                "max_cluster_size": 1000000,
+                "num_neighbours": 40,
+                "k_search_neighbours": 80,
+                "smoothness_threshold": 4.0,
                 "curvature_threshold": 1.0
             },
             "path": "../files/conf1.pcd",
@@ -32,12 +34,14 @@
     },
 
     "scanner": {
-        "num_rays_per_vp": 10000,
+        "num_rays_per_vp": 20000,
         "pattern": 0,
         "pattern_v1": 1,
         "pattern_v2": 2,
         "path": "../files/conf1.pcd",
-        "gt_path": "../files/conf1_gt.pcd"
+        "gt_path": "../files/conf1_gt.pcd",
+        "octree_resolution": 0.5,
+        "point_radius": 0.05
     },
 
     "evaluation": {

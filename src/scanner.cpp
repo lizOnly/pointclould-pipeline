@@ -50,7 +50,6 @@ void Scanner::traverseOctree() {
     pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>::LeafNodeIterator it;
     pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>::LeafNodeIterator it_end = octree.leaf_depth_end();
 
-
     for (it = octree.leaf_depth_begin(max_depth); it != it_end; ++it) {
         Eigen::Vector3f min_pt, max_pt;
         
@@ -154,7 +153,6 @@ bool Scanner::rayBoxIntersection(const Ray3D& ray, const pcl::PointXYZ& minPt, c
 
 bool Scanner::rayIntersectSpehre(pcl::PointXYZ& origin, pcl::PointXYZ& direction, pcl::PointXYZ& point) {
     
-    double radius = 0.025;
     double dirMagnitude = sqrt(direction.x * direction.x + direction.y * direction.y + direction.z * direction.z);
     direction.x /= dirMagnitude;
     direction.y /= dirMagnitude;
@@ -163,7 +161,7 @@ bool Scanner::rayIntersectSpehre(pcl::PointXYZ& origin, pcl::PointXYZ& direction
     pcl::PointXYZ L(point.x - origin.x, point.y - origin.y, point.z - origin.z);
 
     double originDistance2 = L.x * L.x + L.y * L.y + L.z * L.z;
-    if (originDistance2 < radius * radius) return true;  // origin is inside the sphere
+    if (originDistance2 < point_radius * point_radius) return true;  // origin is inside the sphere
 
     double t_ca = L.x * direction.x + L.y * direction.y + L.z * direction.z;
 
@@ -171,7 +169,7 @@ bool Scanner::rayIntersectSpehre(pcl::PointXYZ& origin, pcl::PointXYZ& direction
 
     double d2 = originDistance2 - t_ca * t_ca;
 
-    if (d2 > radius * radius) return false;
+    if (d2 > point_radius * point_radius) return false;
 
     return true;
 
@@ -318,7 +316,6 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::sphere_scanner(size_t num_rays_p
     return sampledCloud;
 
 }
-
 
 
 std::vector<pcl::PointXYZ> Scanner::scanning_positions(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, int pattern) {

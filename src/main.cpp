@@ -262,16 +262,18 @@ int main(int argc, char *argv[])
         int pattern = occlusion_mesh.at("pattern");
         size_t num_rays_per_vp = occlusion_mesh.at("num_rays_per_vp");
         float octree_resolution = occlusion_mesh.at("octree_resolution");
+        bool enable_acceleration = occlusion_mesh.at("enable_acceleration");
 
         Occlusion occlusion;
 
         occlusion.setOctreeResolutionTriangle(octree_resolution);
         occlusion.parseTrianglesFromOBJ(mesh_path);
+        occlusion.computeMeshBoundingBox();
+
         occlusion.buildOctreeCloud();
         occlusion.traverseOctreeTriangle();
         occlusion.generateCloudFromTriangle();
-        occlusion.computeMeshBoundingBox();
-
+        
         Eigen::AlignedBox3d bbox = occlusion.getBoundingBox();
         Eigen::Vector3d center = bbox.center();
         Eigen::Vector3d min = bbox.min();
@@ -280,12 +282,13 @@ int main(int argc, char *argv[])
         std::vector<Eigen::Vector3d> origins = occlusion.viewPointPattern(pattern, min, max, center);
         
         occlusion.generateRaysWithIdx(origins, num_rays_per_vp);
-        double occlusion_level = occlusion.triangleBasedOcclusionLevel();
+        double occlusion_level = occlusion.triangleBasedOcclusionLevel(enable_acceleration);
         
         std::cout << "Mesh based occlusion level is: " << occlusion_level << std::endl;
         occlusion.generateCloudFromIntersection();
 
         helper.displayRunningTime(start);
+
     } else if (arg1 == "-poc") {
     
         auto occlusion_point_cloud = j.at("occlusion").at("point_cloud");
@@ -324,6 +327,7 @@ int main(int argc, char *argv[])
         double rayOcclusionLevel = occlusion.rayBasedOcclusionLevel(min_pt, max_pt, num_rays_per_vp, cloud, polygonClouds, allCoefficients);  
 
         helper.displayRunningTime(start);
+
     } else if (arg1 == "-rgoc") {
         
         auto occlusion_rg_mesh = j.at("occlusion").at("rg_mesh");
@@ -339,6 +343,7 @@ int main(int argc, char *argv[])
         size_t min_cluster_size = seg_config.at("min_cluster_size");
         size_t max_cluster_size = seg_config.at("max_cluster_size");
         int num_neighbours = seg_config.at("num_neighbours");
+        int k_search_neighbours = seg_config.at("k_search_neighbours");
         double smoothness_threshold = seg_config.at("smoothness_threshold");
         double curvature_threshold = seg_config.at("curvature_threshold");
 
@@ -356,16 +361,17 @@ int main(int argc, char *argv[])
 
         std::vector<Eigen::Vector3d> origins = occlusion.viewPointPattern(pattern, min, max, center);
         
-        occlusion.regionGrowingSegmentation(cloud, min_cluster_size, max_cluster_size, num_neighbours, smoothness_threshold, curvature_threshold);
+        occlusion.regionGrowingSegmentation(cloud, min_cluster_size, max_cluster_size, num_neighbours, k_search_neighbours, smoothness_threshold, curvature_threshold);
         occlusion.generateTriangleFromCluster();
         occlusion.buildOctreeCloud();
         occlusion.traverseOctreeTriangle();
         occlusion.generateRaysWithIdx(origins, num_rays_per_vp);
-        double occlulsion_level = occlusion.triangleBasedOcclusionLevel();
+        double occlulsion_level = occlusion.triangleBasedOcclusionLevel(true);
         
         std::cout << "RG mesh based occlulsion level is: " << occlulsion_level << std::endl;
 
         helper.displayRunningTime(start);
+
     } else if (arg1 == "-scan") {
         
         Scanner scanner;
@@ -388,8 +394,10 @@ int main(int argc, char *argv[])
         int pattern_v1 = scan.at("pattern_v1");
         int pattern_v2 = scan.at("pattern_v2");
         float octree_resolution = scan.at("octree_resolution");
+        double point_radius = scan.at("point_radius");
 
         scanner.setOctreeResolution(octree_resolution);
+        scanner.setPointRadius(point_radius);
 
         pcl::PointCloud<pcl::PointXYZI>::Ptr gt_cloud(new pcl::PointCloud<pcl::PointXYZI>);
         pcl::io::loadPCDFile<pcl::PointXYZI>(gt_path, *gt_cloud);
@@ -408,6 +416,7 @@ int main(int argc, char *argv[])
         sacnned_cloud_v2 = scanner.sphere_scanner(num_rays_per_vp, pattern_v2, v2_scanning, cloud, gt_cloud, colored_cloud, path);
 
         helper.displayRunningTime(start);
+
     } else if (arg1 == "-recon") {
 
         auto recon = j.at("recon");
@@ -417,10 +426,10 @@ int main(int argc, char *argv[])
         Reconstruction reconstruction;
 
         helper.displayRunningTime(start);
-        return 0;
+
     } else if (arg1 == "-eval") {
         Evaluation eval;
-        auto evaluation = j.at("eval");
+        auto evaluation = j.at("evaluation");
         std::string seg_path = evaluation.at("seg_path");
         std::string gt_path = evaluation.at("gt_path");
 
@@ -438,6 +447,7 @@ int main(int argc, char *argv[])
         eval.calculateF1Score();
 
         helper.displayRunningTime(start);
+
     } else if (arg1 == "-t2ply") {
         Reconstruction recon;
         std::string path = j.at("transfer").at("path_pcd");
@@ -446,6 +456,7 @@ int main(int argc, char *argv[])
         recon.pcd2ply(path);
 
         helper.displayRunningTime(start);
+
     } else if (arg1 == "-h") {
         
         std::map<std::string, std::string> instructions;
@@ -458,6 +469,7 @@ int main(int argc, char *argv[])
         for (auto const& x : instructions) {
             std::cout << x.first << ": " << x.second << std::endl;
         }
+        
     } else {
             std::cout << "Invalid argument" << std::endl;
     }

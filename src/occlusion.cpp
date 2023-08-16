@@ -215,16 +215,16 @@ void Occlusion::removePointsInSpecificColor(pcl::PointCloud<pcl::PointXYZRGB>::P
 }
 
 
-void Occlusion::regionGrowingSegmentation(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, size_t min_cluster_size, size_t max_cluster_size, int num_neighbours, double smoothness_threshold, double curvature_threshold) {
+void Occlusion::regionGrowingSegmentation(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, size_t min_cluster_size, size_t max_cluster_size, int num_neighbours, int k_search_neighbours, double smoothness_threshold, double curvature_threshold) {
 
     input_cloud = cloud;
 
+    pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
     pcl::PointCloud<pcl::Normal>::Ptr normals(new pcl::PointCloud<pcl::Normal>);
     pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> normal_estimation;
     normal_estimation.setInputCloud(cloud);
-    pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
     normal_estimation.setSearchMethod(tree);
-    normal_estimation.setRadiusSearch(0.06);
+    normal_estimation.setKSearch(50);
     normal_estimation.compute(*normals);
 
     pcl::RegionGrowing<pcl::PointXYZ, pcl::Normal> reg;
@@ -828,8 +828,8 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr Occlusion::computeMedianDistance(double rad
                     for (size_t k = j + 1; k < pointIdxRadiusSearch.size(); ++k) {
 
                         double distance = sqrt(pow(cloud->points[pointIdxRadiusSearch[j]].x - cloud->points[pointIdxRadiusSearch[k]].x, 2) +
-                                            pow(cloud->points[pointIdxRadiusSearch[j]].y - cloud->points[pointIdxRadiusSearch[k]].y, 2) +
-                                            pow(cloud->points[pointIdxRadiusSearch[j]].z - cloud->points[pointIdxRadiusSearch[k]].z, 2));
+                                                pow(cloud->points[pointIdxRadiusSearch[j]].y - cloud->points[pointIdxRadiusSearch[k]].y, 2) +
+                                                pow(cloud->points[pointIdxRadiusSearch[j]].z - cloud->points[pointIdxRadiusSearch[k]].z, 2));
                         
                         distances.push_back(distance);
                     }
@@ -899,8 +899,7 @@ void Occlusion::traverseOctree() {
 }
 
 
-double Occlusion::rayBasedOcclusionLevel(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, size_t num_rays_per_vp, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, 
-                                         std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds, std::vector<pcl::ModelCoefficients::Ptr> allCoefficients) {
+double Occlusion::rayBasedOcclusionLevel(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, size_t num_rays_per_vp, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds, std::vector<pcl::ModelCoefficients::Ptr> allCoefficients) {
                                             
     input_cloud = cloud;
 
@@ -1078,7 +1077,7 @@ std::vector<Eigen::Vector3d> Occlusion::viewPointPattern(const int& pattern, Eig
         origins.push_back(min_mid);
         origins.push_back(max_mid);
         origins.push_back(center);
-        
+
     }
 
     return origins;
@@ -1093,8 +1092,21 @@ void Occlusion::generateRaysWithIdx(std::vector<Eigen::Vector3d>& origins, size_
     static std::default_random_engine generator;
     static std::uniform_real_distribution<double> distribution(0.0, 1.0);
 
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr sphere_light_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+
     for (auto& origin : origins) {
+        pcl::PointXYZRGB origin_point;
+        origin_point.x = origin(0);
+        origin_point.y = origin(1);
+        origin_point.z = origin(2);
+        origin_point.r = 255;
+        origin_point.g = 0;
+        origin_point.b = 255;
+
+        sphere_light_cloud->points.push_back(origin_point);
+
         for (size_t i = 0; i < num_rays_per_vp; ++i) {
+            pcl::PointXYZRGB point;
             double theta = 2 * M_PI * distribution(generator);  // Azimuthal angle
             double phi = acos(2 * distribution(generator) - 1); // Polar angle
 
@@ -1102,10 +1114,19 @@ void Occlusion::generateRaysWithIdx(std::vector<Eigen::Vector3d>& origins, size_
             surface_point(0) = origin(0) + radius * sin(phi) * cos(theta); // x component
             surface_point(1) = origin(1) + radius * sin(phi) * sin(theta); // y component
             surface_point(2) = origin(2) + radius * cos(phi);
-
+            
             Eigen::Vector3d direction;
             direction = surface_point - origin;
             direction.normalize();
+            
+            point.x = surface_point(0);
+            point.y = surface_point(1);
+            point.z = surface_point(2);
+            point.r = 255;
+            point.g = 0;
+            point.b = 255;
+
+            sphere_light_cloud->points.push_back(point);
 
             Ray ray;
             ray.origin = origin;
@@ -1115,12 +1136,18 @@ void Occlusion::generateRaysWithIdx(std::vector<Eigen::Vector3d>& origins, size_
             idx++;
         }
     }
+    sphere_light_cloud->width = sphere_light_cloud->points.size();
+    sphere_light_cloud->height = 1;
+    sphere_light_cloud->is_dense = true;
+
+    pcl::io::savePCDFileASCII("../files/sphere_light_cloud.pcd", *sphere_light_cloud);
+
     std::cout << "Number of rays: " << t_rays.size() << std::endl;
 }
 
 
 // Möller–Trumbore intersection algorithm
-bool Occlusion::rayTriangleIntersect(Triangle& tr, Ray& ray, Eigen::Vector3d& intersectionPoint) {
+bool Occlusion::rayTriangleIntersect(Triangle& tr, Ray& ray, Eigen::Vector3d& intersection_point) {
     double t, u, v;
 
     Eigen::Vector3d h, s, q;
@@ -1154,7 +1181,7 @@ bool Occlusion::rayTriangleIntersect(Triangle& tr, Ray& ray, Eigen::Vector3d& in
     t = f * e2.dot(q);
 
     if (t > 1e-8) {
-        intersectionPoint = ray.origin + ray.direction * t;
+        intersection_point = ray.origin + ray.direction * t;
         return true;
     }
 
@@ -1164,25 +1191,23 @@ bool Occlusion::rayTriangleIntersect(Triangle& tr, Ray& ray, Eigen::Vector3d& in
 
 bool Occlusion::getRayTriangleIntersectionPt(Triangle& tr, Ray& ray, size_t idx, Intersection& intersection) {
 
-    Eigen::Vector3d intersectionPt = Eigen::Vector3d::Zero();
-    bool isIntersect = rayTriangleIntersect(tr, ray, intersectionPt);
+    Eigen::Vector3d intersection_point = Eigen::Vector3d::Zero();
+    bool isIntersect = rayTriangleIntersect(tr, ray, intersection_point);
 
     if (isIntersect) {
-        intersection.point = intersectionPt;
+        intersection.point = intersection_point;
         intersection.index = idx;
         intersection.triangle_index = tr.index;
         intersection.ray_index = ray.index;
 
-        double distance_to_origin = (intersectionPt - ray.origin).norm();
+        double distance_to_origin = (intersection_point - ray.origin).norm();
         intersection.distance_to_origin = distance_to_origin;
 
         tr.intersectionIdx.push_back(idx);
         ray.intersectionIdx.push_back(idx);
-
-        return true;
     } 
 
-    return false;
+    return isIntersect;
 }
 
 
@@ -1204,25 +1229,51 @@ void Occlusion::isFirstHitIntersection(Ray& ray) {
 }
 
 
-double Occlusion::triangleBasedOcclusionLevel() {    
+double Occlusion::triangleBasedOcclusionLevel(bool enable_acceleration) {    
 
     size_t intersection_idx = 0;
 
-    for(auto& ray : t_rays) {
-        // std::cout << "Ray " << ray.second.index <<" is hitting now" << std::endl;
-        for (auto& bbox : t_octree_leaf_bbox) {
-            if(rayIntersectLeafBbox(ray.second, bbox)) {
-                // std::cout << "Ray " << ray.second.index <<" is hitting " << bbox.triangle_idx.size() << " triangles" << std::endl;
-                for(auto& idx : bbox.triangle_idx) {
-                    Intersection intersection;
-                    if(getRayTriangleIntersectionPt(t_triangles[idx], ray.second, intersection_idx, intersection)) {
-                        t_intersections[intersection_idx] = intersection;
-                        intersection_idx++;
+    if (enable_acceleration) {
+        std::cout << "Using octree acceleration structure..." << std::endl;
+        for(auto& ray : t_rays) {
+            // std::cout << "Ray " << ray.second.index <<" is hitting now" << std::endl;
+            bool intersectBbox = false;
+            int current_idx = intersection_idx;
+            for (auto& bbox : t_octree_leaf_bbox) {
+                if(rayIntersectLeafBbox(ray.second, bbox)) {
+                    intersectBbox = true;
+                    // std::cout << "Ray " << ray.second.index <<" is hitting " << bbox.triangle_idx.size() << " triangles" << std::endl;
+                    
+                    for(auto& idx : bbox.triangle_idx) {
+                        Intersection intersection;
+                        if(getRayTriangleIntersectionPt(t_triangles[idx], ray.second, intersection_idx, intersection)) {
+                            t_intersections[intersection_idx] = intersection;
+                            intersection_idx++;
+                        }
                     }
+
                 }
+            
+            }
+            if (intersection_idx == current_idx) {
+                std::cout << "Ray " << ray.second.index <<" is not hitting any triangle" << std::endl;
+            }
+            isFirstHitIntersection(ray.second);
+            if (!intersectBbox) {
+                std::cout << "Ray " << ray.second.index <<" is not hitting any bbox" << std::endl;
             }
         }
-        isFirstHitIntersection(ray.second);
+    } else {
+        for (auto& ray : t_rays) {
+            for (auto& triangle : t_triangles) {
+                Intersection intersection;
+                if (getRayTriangleIntersectionPt(triangle.second, ray.second, intersection_idx, intersection)) {
+                    t_intersections[intersection_idx] = intersection;
+                    intersection_idx++;
+                }
+            }
+            isFirstHitIntersection(ray.second);
+        }
     }
 
     std::cout << "Number of intersections: " << t_intersections.size() << std::endl;
@@ -1232,20 +1283,25 @@ double Occlusion::triangleBasedOcclusionLevel() {
     double total_visible_area = 0.0;
 
     for (auto& triangle : t_triangles) {
+
         double area = calculateTriangleArea(triangle.second);
         total_area += area;
         t_triangles[triangle.second.index].area = area;
         size_t num_first_hit_intersections = 0;
-        for (auto& idx : triangle.second.intersectionIdx) {
+        double visible_weight = 0.0;
+
+        if(triangle.second.intersectionIdx.size() > 0) {
+            for (auto& idx : triangle.second.intersectionIdx) {
             if (t_intersections[idx].is_first_hit) {
                 num_first_hit_intersections++;
+                }
             }
-        }
-        double visible_weight = 0.0;
-        if(triangle.second.intersectionIdx.size() > 0){
+            
             size_t num_intersections = triangle.second.intersectionIdx.size();
             visible_weight = (double)num_first_hit_intersections / (double)num_intersections;
+        
         }
+                    
         double visible_area = visible_weight * area;
         total_visible_area += visible_area;
         // if (visible_weight > 0.0) {
@@ -1268,17 +1324,69 @@ void Occlusion::traverseOctreeTriangle() {
 
     int max_depth = octree.getTreeDepth();
     std::cout << "Max depth: " << max_depth << std::endl;
+    int num_branch_nodes = octree.getBranchCount();
+    std::cout << "Total number of branch nodes: " << num_branch_nodes << std::endl;
     int num_leaf_nodes = octree.getLeafCount();
     std::cout << "Total number of leaf nodes: " << num_leaf_nodes << std::endl;
+
+
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr t_octree_cloud_rgb(new pcl::PointCloud<pcl::PointXYZRGB>);
+    
+    // int r_o = 255;
+    // int g_o = 0;
+    // int b_o = 255;
+    // for (size_t i = 0; i < t_octree_cloud->points.size(); ++i) {
+    //     pcl::PointXYZRGB point;
+    //     r_o -= 30;
+    //     g_o += 30;
+    //     b_o -= 15;
+    //     if (r_o < 0) {
+    //         r_o = 250;
+    //         g_o = 0;
+    //         b_o = 250;
+    //     } 
+    //     point.x = t_octree_cloud->points[i].x;
+    //     point.y = t_octree_cloud->points[i].y;
+    //     point.z = t_octree_cloud->points[i].z;
+    //     point.r = r_o;
+    //     point.g = g_o;
+    //     point.b = b_o;
+    //     t_octree_cloud_rgb->points.push_back(point);
+    // }
+
+    for (auto i = octree.begin(); i != octree.end(); ++i) {
+        if (i.isBranchNode()) {
+            std::cout << "Branch node at depth " << i.getCurrentOctreeDepth() << std::endl;
+            Eigen::Vector3f min_pt, max_pt;
+            octree.getVoxelBounds(i, min_pt, max_pt);
+            std::cout << "Min point of branch node: " << min_pt.x() << ", " << min_pt.y() << ", " << min_pt.z() << std::endl;
+            std::cout << "Max point of branch node: " << max_pt.x() << ", " << max_pt.y() << ", " << max_pt.z() << std::endl;
+        }
+
+        if (i.isLeafNode()) {
+            std::cout << "Leaf node at depth " << i.getCurrentOctreeDepth() << std::endl;
+
+        }
+    }
 
     pcl::octree::OctreePointCloudSearch<pcl::PointXYZI>::LeafNodeIterator it;
     pcl::octree::OctreePointCloudSearch<pcl::PointXYZI>::LeafNodeIterator it_end = octree.leaf_depth_end();
 
+    int r = 255;
+    int g = 0;
+    int b = 255;
+
     for (it = octree.leaf_depth_begin(max_depth); it != it_end; ++it) {
+        r -= 30;
+        g += 30;
+        b -= 15;
+        if (r < 0) {
+            r = 250;
+            g = 0;
+            b = 250;
+        }
         Eigen::Vector3f min_pt, max_pt;
         
-        pcl::octree::OctreeKey key = it.getCurrentOctreeKey();
-
         octree.getVoxelBounds(it, min_pt, max_pt);
 
         // std::cout << "Min point: " << min_pt.x() << ", " << min_pt.y() << ", " << min_pt.z() << std::endl;
@@ -1291,24 +1399,160 @@ void Occlusion::traverseOctreeTriangle() {
         bbox.max_pt.x() = static_cast<double>(max_pt.x());
         bbox.max_pt.y() = static_cast<double>(max_pt.y());
         bbox.max_pt.z() = static_cast<double>(max_pt.z());
+        
+        // colored bounding box of each leaf node
+        pcl::PointXYZRGB min_pt_rgb, min_x_rgb, min_y_rgb, min_diag_rgb, max_pt_rgb, max_x_rgb, max_y_rgb, max_diag_rgb;
+        min_pt_rgb.x = min_pt.x(); 
+        min_pt_rgb.y = min_pt.y(); 
+        min_pt_rgb.z = min_pt.z();
+
+        min_pt_rgb.r = r; min_pt_rgb.g = g; min_pt_rgb.b = b;
+
+        min_x_rgb.x = max_pt.x(); 
+        min_x_rgb.y = min_pt.y(); 
+        min_x_rgb.z = min_pt.z();
+
+        min_x_rgb.r = r; min_x_rgb.g = g; min_x_rgb.b = b;
+
+        min_y_rgb.x = min_pt.x(); 
+        min_y_rgb.y = max_pt.y(); 
+        min_y_rgb.z = min_pt.z();
+
+        min_y_rgb.r = r; min_y_rgb.g = g; min_y_rgb.b = b;
+
+        min_diag_rgb.x = max_pt.x(); 
+        min_diag_rgb.y = max_pt.y(); 
+        min_diag_rgb.z = min_pt.z();
+
+        min_diag_rgb.r = r; min_diag_rgb.g = g; min_diag_rgb.b = b;
+
+        max_pt_rgb.x = max_pt.x();
+        max_pt_rgb.y = max_pt.y();
+        max_pt_rgb.z = max_pt.z();
+
+        max_pt_rgb.r = r; max_pt_rgb.g = g; max_pt_rgb.b = b;
+
+        max_x_rgb.x = min_pt.x();
+        max_x_rgb.y = max_pt.y();
+        max_x_rgb.z = max_pt.z();
+
+        max_x_rgb.r = r; max_x_rgb.g = g; max_x_rgb.b = b;
+
+        max_y_rgb.x = max_pt.x();
+        max_y_rgb.y = min_pt.y();
+        max_y_rgb.z = max_pt.z();
+
+        max_y_rgb.r = r; max_y_rgb.g = g; max_y_rgb.b = b;
+
+        max_diag_rgb.x = min_pt.x();
+        max_diag_rgb.y = min_pt.y();
+        max_diag_rgb.z = max_pt.z();
+
+        max_diag_rgb.r = r; max_diag_rgb.g = g; max_diag_rgb.b = b;
+
+        t_octree_cloud_rgb->points.push_back(min_pt_rgb);
+        t_octree_cloud_rgb->points.push_back(max_pt_rgb);
+        t_octree_cloud_rgb->points.push_back(min_x_rgb);
+        t_octree_cloud_rgb->points.push_back(max_x_rgb);
+        t_octree_cloud_rgb->points.push_back(min_y_rgb);
+        t_octree_cloud_rgb->points.push_back(max_y_rgb);
+        t_octree_cloud_rgb->points.push_back(min_diag_rgb);
+        t_octree_cloud_rgb->points.push_back(max_diag_rgb);
 
         std::vector<int> point_idx = it.getLeafContainer().getPointIndicesVector();
         // std::cout << "Number of points in leaf node: " << point_idx.size() << std::endl;
         for (auto& idx : point_idx) {
             size_t triangle_idx = (size_t) t_octree_cloud->points[idx].intensity;
+            if (triangle_idx == -1) {
+                continue;
+            }
+            // std::cout << "Triangle index: " << triangle_idx << std::endl;
             bbox.triangle_idx.push_back(triangle_idx);
         }
         t_octree_leaf_bbox.push_back(bbox);
     }
+
+    t_octree_cloud_rgb->width = t_octree_cloud_rgb->points.size();
+    t_octree_cloud_rgb->height = 1;
+    t_octree_cloud_rgb->is_dense = true;
+
+    std::cout << "Number of points in octree cloud with bbox: " << t_octree_cloud_rgb->points.size() << std::endl;
+    pcl::io::savePCDFileASCII("../files/octree_cloud_rgb.pcd", *t_octree_cloud_rgb);
+
     std::cout << "Number of leaf bbox: " << t_octree_leaf_bbox.size() << std::endl;
 }
 
 
 // build octree from center point of triangles
 void Occlusion::buildOctreeCloud() {
+    Eigen::Vector3d min = bbox.min();
+    Eigen::Vector3d max = bbox.max();
+    
+    min.x() -= 1.0;
+    min.y() -= 1.0;
+    min.z() -= 1.0;
+
+    max.x() += 1.0;
+    max.y() += 1.0;
+    max.z() += 1.0;
+
+    // make sure the bounding box is slightly larger than the mesh 
+    pcl::PointXYZI min_pt, min_x, min_y, min_diag, max_pt, max_x, max_y, max_diag;
+    min_pt.x = min.x();
+    min_pt.y = min.y();
+    min_pt.z = min.z();
+    min_pt.intensity = -1.0;
+
+    min_x.x = max.x();
+    min_x.y = min.y();
+    min_x.z = min.z();
+    min_x.intensity = -1.0;
+
+    min_y.x = min.x();
+    min_y.y = max.y();
+    min_y.z = min.z();
+    min_y.intensity = -1.0;
+
+    min_diag.x = max.x();
+    min_diag.y = max.y();
+    min_diag.z = min.z();
+    min_diag.intensity = -1.0;
+
+    max_pt.x = max.x();
+    max_pt.y = max.y();
+    max_pt.z = max.z();
+    max_pt.intensity = -1.0;
+
+    max_x.x = min.x();
+    max_x.y = max.y();
+    max_x.z = max.z();
+    max_x.intensity = -1.0;
+    
+    max_y.x = max.x();
+    max_y.y = min.y();
+    max_y.z = max.z();
+    max_y.intensity = -1.0;
+
+    max_diag.x = min.x();
+    max_diag.y = min.y();
+    max_diag.z = max.z();
+    max_diag.intensity = -1.0;
+
+
     t_octree_cloud = pcl::PointCloud<pcl::PointXYZI>::Ptr(new pcl::PointCloud<pcl::PointXYZI>);
     t_pure_octree_cloud = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>);
+
+    t_octree_cloud->points.push_back(min_pt);
+    t_octree_cloud->points.push_back(max_pt);
+    t_octree_cloud->points.push_back(min_x);
+    t_octree_cloud->points.push_back(max_x);
+    t_octree_cloud->points.push_back(min_y);
+    t_octree_cloud->points.push_back(max_y);
+    t_octree_cloud->points.push_back(min_diag);
+    t_octree_cloud->points.push_back(max_diag);
+
     for (auto& tr : t_triangles) {
+
         pcl::PointXYZI point;
         
         point.x = tr.second.center(0);
@@ -1334,11 +1578,11 @@ void Occlusion::buildOctreeCloud() {
 
     std::cout << "Number of points in octree cloud: " << t_octree_cloud->points.size() << std::endl;
 
-    t_pure_octree_cloud->width = t_pure_octree_cloud->points.size();
-    t_pure_octree_cloud->height = 1;
-    t_pure_octree_cloud->is_dense = true;
+    t_octree_cloud->width = t_octree_cloud->points.size();
+    t_octree_cloud->height = 1;
+    t_octree_cloud->is_dense = true;
 
-    pcl::io::savePCDFileASCII("../files/octree_cloud.pcd", *t_pure_octree_cloud);
+    pcl::io::savePCDFileASCII("../files/octree_cloud.pcd", *t_octree_cloud);
 }
 
 
@@ -1353,6 +1597,7 @@ bool Occlusion::rayIntersectLeafBbox(Ray& ray, LeafBBox& bbox) {
         (origin[1] >= min_pt[1] && origin[1] <= max_pt[1]) &&
         (origin[2] >= min_pt[2] && origin[2] <= max_pt[2])) 
     {   
+        // std::cout << "Ray origin is inside the bbox" << std::endl;
         return true;
     }
 
@@ -1408,16 +1653,22 @@ bool Occlusion::rayIntersectLeafBbox(Ray& ray, LeafBBox& bbox) {
 // generate cloud from first hit intersection points
 void Occlusion::generateCloudFromIntersection() {
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_first_hit(new pcl::PointCloud<pcl::PointXYZ>);
 
     for (auto& intersection : t_intersections) {
         // std::cout << "Intersection index: " << intersection.second.index << std::endl;
+        pcl::PointXYZ point;
+        point.x = intersection.second.point(0);
+        point.y = intersection.second.point(1);
+        point.z = intersection.second.point(2);
+        cloud->points.push_back(point);
         if (intersection.second.is_first_hit) {
             // std::cout << "First hit intersection point: " << intersection.second.index << std::endl;
-            pcl::PointXYZ point;
-            point.x = intersection.second.point(0);
-            point.y = intersection.second.point(1);
-            point.z = intersection.second.point(2);
-            cloud->points.push_back(point);
+            pcl::PointXYZ point_first_hit;
+            point_first_hit.x = intersection.second.point(0);
+            point_first_hit.y = intersection.second.point(1);
+            point_first_hit.z = intersection.second.point(2);
+            cloud_first_hit->points.push_back(point_first_hit);
         }
     }
 
@@ -1425,8 +1676,15 @@ void Occlusion::generateCloudFromIntersection() {
     cloud->height = 1;
     cloud->is_dense = true;
 
-    pcl::io::savePCDFileASCII("../files/mesh_cloud.pcd", *cloud);
+    pcl::io::savePCDFileASCII("../files/intersection_cloud.pcd", *cloud);
     std::cout << "Saved " << cloud->points.size() << " data points to cloud generated from mesh." << std::endl;
+
+    cloud_first_hit->width = cloud_first_hit->points.size();
+    cloud_first_hit->height = 1;
+    cloud_first_hit->is_dense = true;
+
+    pcl::io::savePCDFileASCII("../files/first_hit_intersection_cloud.pcd", *cloud_first_hit);
+    std::cout << "Saved " << cloud_first_hit->points.size() << " data points to first cloud generated from mesh." << std::endl;
 
 }
 

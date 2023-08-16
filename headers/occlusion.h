@@ -58,7 +58,7 @@ class Occlusion {
 
         void removePointsInSpecificColor(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, int color[3]);
 
-        void regionGrowingSegmentation(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, size_t min_cluster_size, size_t max_cluster_size, int num_neighbours, double smoothness_threshold, double curvature_threshold);
+        void regionGrowingSegmentation(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, size_t min_cluster_size, size_t max_cluster_size, int num_neighbours, int k_search_neighbours, double smoothness_threshold, double curvature_threshold);
 
         Eigen::Vector3d computeCentroid(pcl::PointCloud<pcl::PointXYZ>::Ptr polygon_cloud);
 
@@ -111,7 +111,7 @@ class Occlusion {
 
         std::vector<Eigen::Vector3d> viewPointPattern(const int& pattern, Eigen::Vector3d& min, Eigen::Vector3d& max, Eigen::Vector3d& center);
 
-        bool rayTriangleIntersect(Triangle& tr, Ray& ray, Eigen::Vector3d& intersectionPoint);
+        bool rayTriangleIntersect(Triangle& tr, Ray& ray, Eigen::Vector3d& intersection_point);
 
         bool getRayTriangleIntersectionPt(Triangle& tr, Ray& ray, size_t idx, Intersection& intersection);
 
@@ -119,7 +119,7 @@ class Occlusion {
 
         void isFirstHitIntersection(Ray& ray);
 
-        double triangleBasedOcclusionLevel();
+        double triangleBasedOcclusionLevel(bool enable_acceleration);
 
         void generateCloudFromIntersection();
 

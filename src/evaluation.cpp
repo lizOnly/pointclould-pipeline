@@ -141,6 +141,7 @@ float Evaluation::calculateIoU() {
     updateProperties(tp, fp, fn, tn);
     double iou = static_cast<double>(tp) / (tp + fp + fn);
     std::cout << "IoU: " << iou << std::endl;
+    std::cout << std::endl;
 
     return iou;
 }
@@ -151,6 +152,7 @@ float Evaluation::calculateAccuracy() {
     updateProperties(tp, fp, fn, tn);
     double accuracy = static_cast<double>(tp + tn) / (tp + fp + fn + tn);
     std::cout << "Accuracy: " << accuracy << std::endl;
+    std::cout << std::endl;
 
     return accuracy;
 }
@@ -161,6 +163,7 @@ float Evaluation::calculatePrecision() {
     updateProperties(tp, fp, fn, tn);
     double precision = static_cast<double>(tp) / (tp + fp);
     std::cout << "Precision: " << precision << std::endl;
+    std::cout << std::endl;
 
     return precision;
 }
@@ -171,6 +174,7 @@ float Evaluation::calculateRecall() {
     updateProperties(tp, fp, fn, tn);
     double recall = static_cast<double>(tp) / (tp + fn);
     std::cout << "Recall: " << recall << std::endl;
+    std::cout << std::endl;
 
     return recall;
 }
@@ -181,6 +185,7 @@ float Evaluation::calculateF1Score() {
     updateProperties(tp, fp, fn, tn);
     double f1_score = 2 * static_cast<double>(tp) / (2 * tp + fp + fn);
     std::cout << "F1 score: " << f1_score << std::endl;
+    std::cout << std::endl;
 
     return f1_score;
 }

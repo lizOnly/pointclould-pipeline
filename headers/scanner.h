@@ -10,6 +10,10 @@ class Scanner {
 
         ~Scanner();
 
+        void setPointRadius(float radius) {
+            point_radius = radius;
+        }
+
         void setOctreeResolution(float resolution) {
             octree_resolution = resolution;
         }
@@ -41,6 +45,7 @@ class Scanner {
         std::vector<LeafBBox> octree_leaf_bbox;
 
         float octree_resolution;
+        double point_radius;
             
 };
 
