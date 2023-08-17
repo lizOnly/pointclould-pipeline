@@ -263,11 +263,13 @@ int main(int argc, char *argv[])
         size_t num_rays_per_vp = occlusion_mesh.at("num_rays_per_vp");
         float octree_resolution = occlusion_mesh.at("octree_resolution");
         bool enable_acceleration = occlusion_mesh.at("enable_acceleration");
+        double samples_per_unit_area = occlusion_mesh.at("samples_per_unit_area");
 
         Occlusion occlusion;
 
         occlusion.setOctreeResolutionTriangle(octree_resolution);
         occlusion.parseTrianglesFromOBJ(mesh_path);
+        occlusion.uniformSampleTriangle(samples_per_unit_area);
         occlusion.computeMeshBoundingBox();
 
         occlusion.buildOctreeCloud();
@@ -281,11 +283,11 @@ int main(int argc, char *argv[])
 
         std::vector<Eigen::Vector3d> origins = occlusion.viewPointPattern(pattern, min, max, center);
         
-        occlusion.generateRaysWithIdx(origins, num_rays_per_vp);
+        occlusion.generateRayFromTriangle(origins);
         double occlusion_level = occlusion.triangleBasedOcclusionLevel(enable_acceleration);
         
         std::cout << "Mesh based occlusion level is: " << occlusion_level << std::endl;
-        occlusion.generateCloudFromIntersection();
+        // occlusion.generateCloudFromIntersection();
 
         helper.displayRunningTime(start);
 
@@ -337,6 +339,8 @@ int main(int argc, char *argv[])
         size_t num_rays_per_vp = occlusion_rg_mesh.at("num_rays_per_vp");
         int pattern = occlusion_rg_mesh.at("pattern");
         float octree_resolution = occlusion_rg_mesh.at("octree_resolution");
+        double samples_per_unit_area = occlusion_rg_mesh.at("samples_per_unit_area");
+        bool enable_acceleration = occlusion_rg_mesh.at("enable_acceleration");
 
         // region growing segmentation configuration
         auto seg_config = occlusion_rg_mesh.at("seg_config");
@@ -363,12 +367,13 @@ int main(int argc, char *argv[])
         
         occlusion.regionGrowingSegmentation(cloud, min_cluster_size, max_cluster_size, num_neighbours, k_search_neighbours, smoothness_threshold, curvature_threshold);
         occlusion.generateTriangleFromCluster();
+        occlusion.uniformSampleTriangle(samples_per_unit_area);
         occlusion.buildOctreeCloud();
         occlusion.traverseOctreeTriangle();
-        occlusion.generateRaysWithIdx(origins, num_rays_per_vp);
-        double occlulsion_level = occlusion.triangleBasedOcclusionLevel(true);
+        occlusion.generateRayFromTriangle(origins);
+        double occlulsion_level = occlusion.triangleBasedOcclusionLevel(enable_acceleration);
         
-        std::cout << "RG mesh based occlulsion level is: " << occlulsion_level << std::endl;
+        std::cout << "Region growing generated mesh based occlulsion level is: " << occlulsion_level << std::endl;
 
         helper.displayRunningTime(start);
 

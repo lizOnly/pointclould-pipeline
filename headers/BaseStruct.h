@@ -24,15 +24,19 @@ struct Intersection {
     size_t triangle_index;
     size_t ray_index;
     Eigen::Vector3d point;
-    double distance_to_origin;
+    double distance_to_look_at_point;
     bool is_first_hit;
 };
 
-struct Ray {
+struct Ray { 
     size_t index;
+    size_t source_triangle_index;
+    size_t source_intersection_index;
     Eigen::Vector3d origin;
+    Eigen::Vector3d look_at_point;
     Eigen::Vector3d direction;
-    std::vector<size_t> intersectionIdx;
+    std::vector<size_t> intersection_idx;
+    std::vector<size_t> triangle_idx;
 };
 
 struct Triangle {
@@ -40,12 +44,13 @@ struct Triangle {
     Eigen::Vector3d v1;
     Eigen::Vector3d v2;
     Eigen::Vector3d v3;
-    Eigen::Vector3d normal;
-    Eigen::Vector3d center; // center of gravity
+    Eigen::Vector3d center;
     double area;
     double weighted_area;
     double occlusion_ratio;
-    std::vector<size_t> intersectionIdx;
+    std::vector<Eigen::Vector3d> samples;
+    std::vector<size_t> intersection_idx;
+    std::vector<size_t> ray_idx;
 };
 
 struct LeafBBox {

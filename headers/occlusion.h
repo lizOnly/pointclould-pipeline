@@ -82,8 +82,6 @@ class Occlusion {
         
         Ray3D generateRay(const pcl::PointXYZ& center, const pcl::PointXYZ& surfacePoint);
 
-        bool rayIntersectDisk(const Ray3D& ray, const Disk3D& disk);
-
         bool rayBoxIntersection(const Ray3D& ray, const pcl::PointXYZ& minPt, const pcl::PointXYZ& maxPt);
 
         bool rayIntersectSpehre(pcl::PointXYZ& origin, pcl::PointXYZ& direction, pcl::PointXYZ& point, double radius);
@@ -103,9 +101,13 @@ class Occlusion {
 
         void parseTrianglesFromOBJ(const std::string& mesh_path);
 
+        void uniformSampleTriangle(double samples_per_unit_area);
+
         double calculateTriangleArea(Triangle& tr);
 
         void computeMeshBoundingBox();
+
+        void generateRayFromTriangle(std::vector<Eigen::Vector3d>& origins);
 
         void generateRaysWithIdx(std::vector<Eigen::Vector3d>& origins, size_t num_rays_per_vp);
 
@@ -117,7 +119,7 @@ class Occlusion {
 
         bool rayIntersectLeafBbox(Ray& ray, LeafBBox& bbox);
 
-        void isFirstHitIntersection(Ray& ray);
+        // void isFirstHitIntersection(Ray& ray);
 
         double triangleBasedOcclusionLevel(bool enable_acceleration);
 
@@ -139,7 +141,6 @@ class Occlusion {
             float octree_resolution;
             float octree_resolution_triangle;
 
-
             std::vector<pcl::PointIndices> rg_clusters;
             
             pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud;
@@ -153,8 +154,8 @@ class Occlusion {
             std::unordered_map<size_t, Ray> t_rays; // table of rays
 
             pcl::PointCloud<pcl::PointXYZI>::Ptr t_octree_cloud; // octree cloud to store center of triangles
-            pcl::PointCloud<pcl::PointXYZ>::Ptr t_pure_octree_cloud;
             std::vector<LeafBBox> t_octree_leaf_bbox; // bounding box of octree leaf nodes
+            std::vector<LeafBBox> t_octree_leaf_bbox_triangle;
 
             Eigen::Vector3d oc_cloud_min_pt;
             Eigen::Vector3d oc_cloud_max_pt;
