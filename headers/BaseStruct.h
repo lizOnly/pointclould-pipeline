@@ -31,12 +31,20 @@ struct Intersection {
 struct Ray { 
     size_t index;
     size_t source_triangle_index;
-    size_t source_intersection_index;
+    size_t source_sample_index;
     Eigen::Vector3d origin;
     Eigen::Vector3d look_at_point;
     Eigen::Vector3d direction;
     std::vector<size_t> intersection_idx;
     std::vector<size_t> triangle_idx;
+};
+
+struct Sample {
+    size_t index;
+    size_t triangle_index;
+    Eigen::Vector3d point;
+    bool is_visible = false;
+    std::vector<size_t> ray_idx;
 };
 
 struct Triangle {
@@ -48,7 +56,7 @@ struct Triangle {
     double area;
     double weighted_area;
     double occlusion_ratio;
-    std::vector<Eigen::Vector3d> samples;
+    std::vector<size_t> sample_idx;
     std::vector<size_t> intersection_idx;
     std::vector<size_t> ray_idx;
 };

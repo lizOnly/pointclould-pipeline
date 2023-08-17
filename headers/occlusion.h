@@ -152,6 +152,7 @@ class Occlusion {
             std::unordered_map<size_t, Intersection> t_intersections; // table of intersections
             std::unordered_map<size_t, Triangle> t_triangles; // table of triangles
             std::unordered_map<size_t, Ray> t_rays; // table of rays
+            std::unordered_map<size_t, Sample> t_samples; // table of samples
 
             pcl::PointCloud<pcl::PointXYZI>::Ptr t_octree_cloud; // octree cloud to store center of triangles
             std::vector<LeafBBox> t_octree_leaf_bbox; // bounding box of octree leaf nodes

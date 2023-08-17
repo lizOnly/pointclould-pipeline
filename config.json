@@ -3,10 +3,10 @@
         "mesh": {
             "path": "../files/conf_m.obj",
             "num_rays_per_vp": 10000,
-            "pattern": 1,
+            "pattern": 6,
             "octree_resolution": 128.0,
             "enable_acceleration": true,
-            "samples_per_unit_area": 0.0001
+            "samples_per_unit_area": 0.0005
         },
 
         "point_cloud": {
@@ -32,7 +32,7 @@
             "pattern": 6,
             "octree_resolution": 1.0,
             "enable_acceleration": true,
-            "samples_per_unit_area": 1
+            "samples_per_unit_area": 2
         }
     },
 
