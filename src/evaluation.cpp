@@ -22,6 +22,7 @@ void Evaluation::compareClouds(pcl::PointCloud<pcl::PointXYZRGB>::Ptr segmented_
     std::vector<std::vector<bool>> labels;
     
     std::map<std::string, std::vector<int>> color_label_map; // label defined in segmentation
+    
     color_label_map["wall"] = {174, 199, 232, 0};
     color_label_map["floor"] = {152, 223, 138, 1};
     // color_label_map["ceiling"] = {152, 223, 138, 1};
@@ -119,6 +120,7 @@ void Evaluation::compareClouds(pcl::PointCloud<pcl::PointXYZRGB>::Ptr segmented_
 }
 
 void Evaluation::updateProperties(size_t& tp, size_t& fp, size_t& fn, size_t& tn) {
+
     std::cout << "Updating properties... " << std::endl;
     tp = fp = fn = tn = 0;
 
@@ -136,6 +138,7 @@ void Evaluation::updateProperties(size_t& tp, size_t& fp, size_t& fn, size_t& tn
 }
 
 float Evaluation::calculateIoU() {
+
     std::cout << "Calculating IoU... " << std::endl;
     size_t tp, fp, fn, tn;
     updateProperties(tp, fp, fn, tn);
@@ -147,6 +150,7 @@ float Evaluation::calculateIoU() {
 }
 
 float Evaluation::calculateAccuracy() {
+
     std::cout << "Calculating accuracy... " << std::endl;
     size_t tp, fp, fn, tn;
     updateProperties(tp, fp, fn, tn);
@@ -158,6 +162,7 @@ float Evaluation::calculateAccuracy() {
 }
 
 float Evaluation::calculatePrecision() {
+
     std::cout << "Calculating precision... " << std::endl;
     size_t tp, fp, fn, tn;
     updateProperties(tp, fp, fn, tn);
@@ -169,6 +174,7 @@ float Evaluation::calculatePrecision() {
 }
 
 float Evaluation::calculateRecall() {
+
     std::cout << "Calculating recall... " << std::endl;
     size_t tp, fp, fn, tn;
     updateProperties(tp, fp, fn, tn);
@@ -180,6 +186,7 @@ float Evaluation::calculateRecall() {
 }
 
 float Evaluation::calculateF1Score() {
+
     std::cout << "Calculating F1 score... " << std::endl;
     size_t tp, fp, fn, tn;
     updateProperties(tp, fp, fn, tn);

@@ -269,33 +269,37 @@ void Occlusion::generateTriangleFromCluster() {
     pcl::PointCloud<pcl::PointXYZ>::Ptr polygon_clouds(new pcl::PointCloud<pcl::PointXYZ>);
 
     for(auto& cluster : rg_clusters) {
+
         std::vector<pcl::PointXYZ> points; // points for plane estimation
+
         for(auto& index : cluster.indices) {
             points.push_back(input_cloud->points[index]);
         }
+
         pcl::ModelCoefficients::Ptr coefficients = computePlaneCoefficients(points);
         pcl::PointCloud<pcl::PointXYZ>::Ptr polygon_cloud = estimatePolygon(points, coefficients);
-
         Eigen::Vector3d polygon_center;
         polygon_center = computeCentroid(polygon_cloud);
-
         size_t polygon_size = polygon_cloud->points.size();
+
         for(size_t i = 0; i < polygon_size; ++i) {
+
             polygon_clouds->points.push_back(polygon_cloud->points[i]);
             Triangle triangle;
             triangle.index = tri_idx;
-            tri_idx++;
-
             triangle.v1 = Eigen::Vector3d(polygon_center[0], polygon_center[1], polygon_center[2]);
             triangle.v2 = Eigen::Vector3d(polygon_cloud->points[i].x, polygon_cloud->points[i].y, polygon_cloud->points[i].z);
             triangle.v3 = Eigen::Vector3d(polygon_cloud->points[(i + 1) % polygon_size].x, polygon_cloud->points[(i + 1) % polygon_size].y, polygon_cloud->points[(i + 1) % polygon_size].z);
-
-
             triangle.center = (triangle.v1 + triangle.v2 + triangle.v3) / 3.0;
+
+            double area = calculateTriangleArea(triangle);
+            triangle.area = area;
             t_triangles[triangle.index] = triangle;
-        
+            tri_idx++;
+
         }
     }
+
     polygon_clouds->width = polygon_clouds->points.size();
     polygon_clouds->height = 1;
     polygon_clouds->is_dense = true;
@@ -1059,10 +1063,6 @@ double Occlusion::calculateTriangleArea(Triangle& tr) {
 
     if (std::isnan(area)) {
         return 0.0;
-    }
-
-    if (area < 1.0) {
-        return 1.0;
     }
 
     return area;
