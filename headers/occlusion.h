@@ -52,20 +52,13 @@ class Occlusion {
             return cloud_filtered;
         };
 
-        pcl::PointCloud<pcl::PointXYZ>::Ptr centerCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt);
 
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr centerColoredCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud, pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt, std::string file_name);
-
-        void removePointsInSpecificColor(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, int color[3]);
 
         void regionGrowingSegmentation(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, size_t min_cluster_size, size_t max_cluster_size, int num_neighbours, int k_search_neighbours, double smoothness_threshold, double curvature_threshold);
 
         Eigen::Vector3d computeCentroid(pcl::PointCloud<pcl::PointXYZ>::Ptr polygon_cloud);
 
         void generateTriangleFromCluster();
-
-        void extractWalls(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);
-        
 
         pcl::ModelCoefficients::Ptr computePlaneCoefficients(std::vector<pcl::PointXYZ> points);
 
@@ -82,13 +75,13 @@ class Occlusion {
         
         Ray3D generateRay(const pcl::PointXYZ& center, const pcl::PointXYZ& surfacePoint);
 
-        bool rayBoxIntersection(const Ray3D& ray, const pcl::PointXYZ& minPt, const pcl::PointXYZ& maxPt);
+        bool rayBoxIntersection(const Ray3D& ray, const pcl::PointXYZ& min_pt, const pcl::PointXYZ& max_pt);
 
         bool rayIntersectSpehre(pcl::PointXYZ& origin, pcl::PointXYZ& direction, pcl::PointXYZ& point, double radius);
 
         bool rayIntersectPointCloud(const Ray3D& ray);
         
-        std::vector<pcl::PointXYZ> getSphereLightSourceCenters(pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt);
+        std::vector<pcl::PointXYZ> getSphereLightSourceCenters(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt);
 
         std::vector<pcl::PointXYZ> UniformSamplingSphere(pcl::PointXYZ center, size_t num_samples);
         
@@ -118,8 +111,6 @@ class Occlusion {
         bool getRayTriangleIntersectionPt(Triangle& tr, Ray& ray, size_t idx, Intersection& intersection);
 
         bool rayIntersectLeafBbox(Ray& ray, LeafBBox& bbox);
-
-        // void isFirstHitIntersection(Ray& ray);
 
         double triangleBasedOcclusionLevel(bool enable_acceleration);
 
@@ -155,6 +146,8 @@ class Occlusion {
             std::unordered_map<size_t, Sample> t_samples; // table of samples
 
             pcl::PointCloud<pcl::PointXYZI>::Ptr t_octree_cloud; // octree cloud to store center of triangles
+            pcl::PointCloud<pcl::PointXYZ>::Ptr t_pure_octree_cloud; // pure octree cloud to store center of triangles
+            
             std::vector<LeafBBox> t_octree_leaf_bbox; // bounding box of octree leaf nodes
             std::vector<LeafBBox> t_octree_leaf_bbox_triangle;
 

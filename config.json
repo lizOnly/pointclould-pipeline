@@ -2,11 +2,10 @@
     "occlusion": {
         "mesh": {
             "path": "../files/conf_m.obj",
-            "num_rays_per_vp": 10000,
-            "pattern": 1,
-            "octree_resolution": 128.0,
+            "pattern": 0,
+            "octree_resolution": 32.0,
             "enable_acceleration": true,
-            "samples_per_unit_area": 0.001
+            "samples_per_unit_area": 0.0001
         },
 
         "point_cloud": {
@@ -21,18 +20,17 @@
         "rg_mesh": {
             "seg_config": {
                 "min_cluster_size": 100,
-                "max_cluster_size": 1000000,
+                "max_cluster_size": 100000,
                 "num_neighbours": 40,
-                "k_search_neighbours": 80,
+                "k_search_neighbours": 50,
                 "smoothness_threshold": 4.0,
                 "curvature_threshold": 1.0
             },
             "path": "../files/conf1.pcd",
-            "num_rays_per_vp": 10000,
             "pattern": 0,
             "octree_resolution": 1.0,
             "enable_acceleration": true,
-            "samples_per_unit_area": 2
+            "samples_per_unit_area": 1
         }
     },
 

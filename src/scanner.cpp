@@ -51,10 +51,8 @@ void Scanner::traverseOctree() {
     pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>::LeafNodeIterator it_end = octree.leaf_depth_end();
 
     for (it = octree.leaf_depth_begin(max_depth); it != it_end; ++it) {
-        Eigen::Vector3f min_pt, max_pt;
         
-        pcl::octree::OctreeKey key = it.getCurrentOctreeKey();
-
+        Eigen::Vector3f min_pt, max_pt;
         octree.getVoxelBounds(it, min_pt, max_pt);
 
         LeafBBox bbox;
@@ -187,15 +185,23 @@ bool Scanner::rayIntersectPointCloud(Ray3D& ray, pcl::PointXYZ& intersection, si
         pcl::PointXYZ max_pt(bbox.max_pt.x(), bbox.max_pt.y(), bbox.max_pt.z());
 
         if(rayBoxIntersection(ray, min_pt, max_pt)) {
+
             for(auto& point_idx : bbox.point_idx) {
+
                 pcl::PointXYZ point = input_cloud->points[point_idx];
+
                 if(rayIntersectSpehre(origin, direction, point)) {
+
                     intersection = point;
                     index = point_idx;
                     return true;
+
                 }
+
             }
+
         }
+        
     }
 
     return false;

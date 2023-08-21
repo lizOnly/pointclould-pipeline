@@ -260,7 +260,6 @@ int main(int argc, char *argv[])
         std::cout << "mesh path is: " << mesh_path << std::endl;
 
         int pattern = occlusion_mesh.at("pattern");
-        size_t num_rays_per_vp = occlusion_mesh.at("num_rays_per_vp");
         float octree_resolution = occlusion_mesh.at("octree_resolution");
         bool enable_acceleration = occlusion_mesh.at("enable_acceleration");
         double samples_per_unit_area = occlusion_mesh.at("samples_per_unit_area");
@@ -287,7 +286,7 @@ int main(int argc, char *argv[])
         double occlusion_level = occlusion.triangleBasedOcclusionLevel(enable_acceleration);
         
         std::cout << "Mesh based occlusion level is: " << occlusion_level << std::endl;
-        // occlusion.generateCloudFromIntersection();
+        occlusion.generateCloudFromIntersection();
 
         helper.displayRunningTime(start);
 
@@ -336,7 +335,6 @@ int main(int argc, char *argv[])
         
         std::string path = occlusion_rg_mesh.at("path");
         std::cout << "input cloud path is: " << path << std::endl;
-        size_t num_rays_per_vp = occlusion_rg_mesh.at("num_rays_per_vp");
         int pattern = occlusion_rg_mesh.at("pattern");
         float octree_resolution = occlusion_rg_mesh.at("octree_resolution");
         double samples_per_unit_area = occlusion_rg_mesh.at("samples_per_unit_area");
@@ -423,6 +421,8 @@ int main(int argc, char *argv[])
         helper.displayRunningTime(start);
 
     } else if (arg1 == "-recon") {
+        
+        // Since we use S3d as our dataset, we have to reconstruct the ground truth point cloud from .txt file
 
         auto recon = j.at("recon");
         std::string path = recon.at("path");
