@@ -22,20 +22,20 @@ class Scanner {
         
         void traverseOctree();
 
-        bool rayBoxIntersection(const Ray3D& ray, const pcl::PointXYZ& minPt, const pcl::PointXYZ& maxPt);
+        bool rayBoxIntersection(const Ray3D& ray, const pcl::PointXYZ& min_pt, const pcl::PointXYZ& max_pt);
 
         bool rayIntersectSpehre(pcl::PointXYZ& origin, pcl::PointXYZ& direction, pcl::PointXYZ& point);
 
         bool rayIntersectPointCloud(Ray3D& ray, pcl::PointXYZ& intersection, size_t& index);
 
-        std::vector<pcl::PointXYZ> scanning_positions(pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt, int pattern);
+        std::vector<pcl::PointXYZ> fixed_scanning_positions(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, int pattern);
         
         std::vector<pcl::PointXYZ> sample_square_points(const pcl::PointXYZ& scanner_position, int sample_step, double distance, double angle);
 
 
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr multi_square_scanner(double step, double searchRadius, pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud, std::string file_name);
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr multi_square_scanner(double step, double searchRadius, pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud, std::string file_name);
 
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr random_scanner(double step, double searchRadius, size_t num_random_positions, pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud, std::string file_name);
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr random_scanner(double step, double searchRadius, size_t num_random_positions, pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud, std::string file_name);
 
     private:
 

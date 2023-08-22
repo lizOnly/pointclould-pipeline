@@ -56,7 +56,6 @@ void Reconstruction::poissonReconstruction(pcl::PointCloud<pcl::PointXYZ>::Ptr c
 }
 
 
-
 void Reconstruction::marchingCubesReconstruction(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud)
 {
     pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> n;
@@ -132,38 +131,28 @@ void Reconstruction::pointCloudReconstructionFromTxt(std::string path)
     *          if no underscore is found, return -1
 */
 int Reconstruction::findUnderScore(std::string& str) {
+
     for (int i = 0; i < str.size(); ++i) {
+
         if (str[i] == '_') {
             return i;
         }
+
     }
     return -1;
 }
 
 
 // build ground truth point cloud from txt files
-void Reconstruction::batchReconstructionFromTxt(std::string folder_path) {
-
-    std::map<std::string, std::vector<int>> ground_truth_map;
-    ground_truth_map["beam"] = {20};
-    ground_truth_map["board"] = {21};
-    ground_truth_map["bookcase"] = {9};
-    ground_truth_map["ceiling"] = {1}; // we define its class same as floor
-    ground_truth_map["chair"] = {4};
-    ground_truth_map["column"] = {26};
-    ground_truth_map["clutter"] = {25};
-    ground_truth_map["door"] = {7};
-    ground_truth_map["floor"] = {1};
-    ground_truth_map["sofa"] = {5};
-    ground_truth_map["table"] = {6};
-    ground_truth_map["wall"] = {0};
-    ground_truth_map["window"] = {8};
+void Reconstruction::buildGroundTruthCloud(std::string folder_path) {
 
     // Load the point cloud data from the text file
     std::cout << "Loading point cloud data from " << folder_path << std::endl;
 
     // intensity is used to store the label
     pcl::PointCloud<pcl::PointXYZI>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZI>);
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr exterior_cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr interior_cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
 
     for (const auto & entry : std::filesystem::directory_iterator(folder_path)) {
         
@@ -176,29 +165,89 @@ void Reconstruction::batchReconstructionFromTxt(std::string folder_path) {
 
         std::cout << "file_name: " << file_name_no_ext_no_num << std::endl;
 
-        float x, y, z;
-        int r, g, b;
-        while (file >> x >> y >> z >> r >> g >> b)
-        {   
-            pcl::PointXYZI point;
-            point.x = x;
-            point.y = y;
-            point.z = z;
-            auto item = ground_truth_map.find(file_name_no_ext_no_num);
-            if (item != ground_truth_map.end()) {
-                point.intensity = item->second[0];
-            } else {
-                point.intensity = 20;
+        if (file_name_no_ext_no_num == "wall" || file_name_no_ext_no_num == "floor" || file_name_no_ext_no_num == "ceiling") {
+            
+            float x_ext, y_ext, z_ext;
+            int r_ext, g_ext, b_ext;
+
+            while (file >> x_ext >> y_ext >> z_ext >> r_ext >> g_ext >> b_ext)
+            {   
+                pcl::PointXYZRGB point_ext;
+                point_ext.x = x_ext;
+                point_ext.y = y_ext;
+                point_ext.z = z_ext;
+                point_ext.r = r_ext;
+                point_ext.g = g_ext;
+                point_ext.b = b_ext;
+                exterior_cloud->points.push_back(point_ext);
+
+                pcl::PointXYZI point;
+                point.x = x_ext;
+                point.y = y_ext;
+                point.z = z_ext;
+
+                auto item = ground_truth_map.find(file_name_no_ext_no_num);
+                if (item != ground_truth_map.end()) {
+                    point.intensity = item->second[0];
+                } else {
+                    point.intensity = -1;
+                }
+                cloud->points.push_back(point);
             }
-            cloud->points.push_back(point);
+        } else {
+
+            float x_int, y_int, z_int;
+            int r_int, g_int, b_int;
+
+            while (file >> x_int >> y_int >> z_int >> r_int >> g_int >> b_int) 
+            {   
+                pcl::PointXYZRGB point_int;
+                point_int.x = x_int;
+                point_int.y = y_int;
+                point_int.z = z_int;
+                point_int.r = r_int;
+                point_int.g = g_int;
+                point_int.b = b_int;
+                interior_cloud->points.push_back(point_int);
+
+                pcl::PointXYZI point;
+                point.x = x_int;
+                point.y = y_int;
+                point.z = z_int;
+                
+                auto item = ground_truth_map.find(file_name_no_ext_no_num);
+                if (item != ground_truth_map.end()) {
+                    point.intensity = item->second[0];
+                } else {
+                    point.intensity = -1;
+                }
+                cloud->points.push_back(point);
+            }
+
         }
+
     }
 
     cloud->width = cloud->points.size();
     std::cout << "Loaded " << cloud->width << " points" << std::endl;
     cloud->height = 1;
 
-    pcl::io::savePCDFile("../files/recon_cloud.pcd", *cloud);
+    pcl::io::savePCDFile("../files/gt.pcd", *cloud);
+
+    exterior_cloud->width = exterior_cloud->points.size();
+    exterior_cloud->height = 1;
+
+    pcl::io::savePCDFile("../files/gt_ext.pcd", *exterior_cloud);
+
+    interior_cloud->width = interior_cloud->points.size();
+    interior_cloud->height = 1;
+
+    pcl::io::savePCDFile("../files/gt_int.pcd", *interior_cloud);
+
+    interior_ratio = (double)interior_cloud->points.size() / (double)cloud->points.size();
+
+    std::cout << "interior ratio: " << interior_ratio << std::endl;
+
 }
 
 

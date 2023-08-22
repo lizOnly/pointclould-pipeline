@@ -1,20 +1,11 @@
 {
     "occlusion": {
         "mesh": {
-            "path": "../files/conf_m.obj",
+            "path": "../files/cube.obj",
             "pattern": 0,
-            "octree_resolution": 32.0,
+            "octree_resolution": 4.0,
             "enable_acceleration": true,
-            "samples_per_unit_area": 0.0001
-        },
-
-        "point_cloud": {
-            "path": "../files/conf1_80000.pcd",
-            "num_rays_per_vp": 10000, 
-            "num_vp": 9, 
-            "point_radius": 0.025,
-            "polygon_path": "../files/polygon_conf.txt",
-            "octree_resolution": 0.5
+            "samples_per_unit_area": 10
         },
 
         "rg_mesh": {
@@ -31,16 +22,32 @@
             "octree_resolution": 1.0,
             "enable_acceleration": true,
             "samples_per_unit_area": 1
+        },  
+
+        "point_cloud": {
+            "path": "../files/conf1_80000.pcd",
+            "num_rays_per_vp": 10000, 
+            "num_vp": 9, 
+            "point_radius": 0.025,
+            "polygon_path": "../files/polygon_conf.txt",
+            "octree_resolution": 0.5
         }
     },
 
-    "scanner": {
+    "fixed_sphere_scanner": {
         "num_rays_per_vp": 20000,
         "pattern": 0,
         "pattern_v1": 1,
         "pattern_v2": 2,
         "path": "../files/conf1.pcd",
         "gt_path": "../files/conf1_gt.pcd",
+        "octree_resolution": 0.5,
+        "point_radius": 0.05
+    },
+
+    "random_scanner": {
+        "num_rays_per_vp": 20000,
+        "path": "../files/conf1.pcd",
         "octree_resolution": 0.5,
         "point_radius": 0.05
     },
@@ -52,8 +59,8 @@
     },
 
     "recon": {
-        "path": "/mnt/c/Users/51932/Desktop/s3d/Area_1/conferenceRoom_1/Annotations/",
-        "gt_path": "/mnt/c/Users/51932/Desktop/s3d/Area_1/conferenceRoom_1/Annotations/"
+        "path": "../files/conf1/conferenceRoom_1.txt",
+        "gt_path": "../files/conf1/anno/"
     },
 
     "transfer": {

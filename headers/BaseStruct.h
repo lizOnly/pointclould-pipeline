@@ -25,6 +25,7 @@ struct Intersection {
     size_t ray_index;
     Eigen::Vector3d point;
     double distance_to_look_at_point;
+    double distance_to_origin;
     bool is_first_hit;
 };
 
@@ -32,6 +33,7 @@ struct Ray {
     size_t index;
     size_t source_triangle_index;
     size_t source_sample_index;
+    size_t first_hit_intersection_idx;
     Eigen::Vector3d origin;
     Eigen::Vector3d look_at_point;
     Eigen::Vector3d direction;

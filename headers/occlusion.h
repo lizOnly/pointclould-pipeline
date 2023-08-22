@@ -112,6 +112,8 @@ class Occlusion {
 
         bool rayIntersectLeafBbox(Ray& ray, LeafBBox& bbox);
 
+        void computeFirstHitIntersection(Ray& ray);
+
         double triangleBasedOcclusionLevel(bool enable_acceleration);
 
         void generateCloudFromIntersection();
@@ -156,3 +158,62 @@ class Occlusion {
 
 };
 
+
+    // colored bounding box of each leaf node
+    // pcl::PointXYZRGB min_pt_rgb, min_x_rgb, min_y_rgb, min_diag_rgb, max_pt_rgb, max_x_rgb, max_y_rgb, max_diag_rgb;
+    // min_pt_rgb.x = min_pt.x(); 
+    // min_pt_rgb.y = min_pt.y(); 
+    // min_pt_rgb.z = min_pt.z();
+
+    // min_pt_rgb.r = r; min_pt_rgb.g = g; min_pt_rgb.b = b;
+
+    // min_x_rgb.x = max_pt.x(); 
+    // min_x_rgb.y = min_pt.y(); 
+    // min_x_rgb.z = min_pt.z();
+
+    // min_x_rgb.r = r; min_x_rgb.g = g; min_x_rgb.b = b;
+
+    // min_y_rgb.x = min_pt.x(); 
+    // min_y_rgb.y = max_pt.y(); 
+    // min_y_rgb.z = min_pt.z();
+
+    // min_y_rgb.r = r; min_y_rgb.g = g; min_y_rgb.b = b;
+
+    // min_diag_rgb.x = max_pt.x(); 
+    // min_diag_rgb.y = max_pt.y(); 
+    // min_diag_rgb.z = min_pt.z();
+
+    // min_diag_rgb.r = r; min_diag_rgb.g = g; min_diag_rgb.b = b;
+
+    // max_pt_rgb.x = max_pt.x();
+    // max_pt_rgb.y = max_pt.y();
+    // max_pt_rgb.z = max_pt.z();
+
+    // max_pt_rgb.r = r; max_pt_rgb.g = g; max_pt_rgb.b = b;
+
+    // max_x_rgb.x = min_pt.x();
+    // max_x_rgb.y = max_pt.y();
+    // max_x_rgb.z = max_pt.z();
+
+    // max_x_rgb.r = r; max_x_rgb.g = g; max_x_rgb.b = b;
+
+    // max_y_rgb.x = max_pt.x();
+    // max_y_rgb.y = min_pt.y();
+    // max_y_rgb.z = max_pt.z();
+
+    // max_y_rgb.r = r; max_y_rgb.g = g; max_y_rgb.b = b;
+
+    // max_diag_rgb.x = min_pt.x();
+    // max_diag_rgb.y = min_pt.y();
+    // max_diag_rgb.z = max_pt.z();
+
+    // max_diag_rgb.r = r; max_diag_rgb.g = g; max_diag_rgb.b = b;
+
+    // t_octree_cloud_rgb->points.push_back(min_pt_rgb);
+    // t_octree_cloud_rgb->points.push_back(max_pt_rgb);
+    // t_octree_cloud_rgb->points.push_back(min_x_rgb);
+    // t_octree_cloud_rgb->points.push_back(max_x_rgb);
+    // t_octree_cloud_rgb->points.push_back(min_y_rgb);
+    // t_octree_cloud_rgb->points.push_back(max_y_rgb);
+    // t_octree_cloud_rgb->points.push_back(min_diag_rgb);
+    // t_octree_cloud_rgb->points.push_back(max_diag_rgb);

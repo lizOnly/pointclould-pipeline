@@ -290,45 +290,6 @@ int main(int argc, char *argv[])
 
         helper.displayRunningTime(start);
 
-    } else if (arg1 == "-poc") {
-    
-        auto occlusion_point_cloud = j.at("occlusion").at("point_cloud");
-
-        std::string path = occlusion_point_cloud.at("path");
-        std::cout << "input cloud path is: " << path << std::endl;
-
-        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
-        pcl::io::loadPCDFile<pcl::PointXYZ>(path, *cloud);
-
-        pcl::PointXYZ min_pt, max_pt;
-        pcl::getMinMax3D(*cloud, min_pt, max_pt);
-
-        std::string polygon_path = occlusion_point_cloud.at("polygon_path");
-        std::cout << "polygon path is: " << polygon_path << std::endl;
-
-        size_t num_rays_per_vp = occlusion_point_cloud.at("num_rays_per_vp");
-        double point_radius = occlusion_point_cloud.at("point_radius");
-        float octree_resolution = occlusion_point_cloud.at("octree_resolution");
-
-        Occlusion occlusion;
-
-        occlusion.setOctreeResolution(octree_resolution);
-        occlusion.setPointRadius(point_radius);
-        std::vector<std::vector<pcl::PointXYZ>> polygons = occlusion.parsePolygonData(polygon_path);
-        std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds;
-        std::vector<pcl::ModelCoefficients::Ptr> allCoefficients;
-        
-        for (int i = 0; i < polygons.size(); i++) {
-            pcl::ModelCoefficients::Ptr coefficients = occlusion.computePlaneCoefficients(polygons[i]);
-            allCoefficients.push_back(coefficients);
-            pcl::PointCloud<pcl::PointXYZ>::Ptr polygon = occlusion.estimatePolygon(polygons[i], coefficients);
-            polygonClouds.push_back(polygon);
-        }
-
-        double rayOcclusionLevel = occlusion.rayBasedOcclusionLevel(min_pt, max_pt, num_rays_per_vp, cloud, polygonClouds, allCoefficients);  
-
-        helper.displayRunningTime(start);
-
     } else if (arg1 == "-rgoc") {
         
         auto occlusion_rg_mesh = j.at("occlusion").at("rg_mesh");
@@ -375,10 +336,49 @@ int main(int argc, char *argv[])
 
         helper.displayRunningTime(start);
 
-    } else if (arg1 == "-scan") {
+    } else if (arg1 == "-poc") {
+    
+        auto occlusion_point_cloud = j.at("occlusion").at("point_cloud");
+
+        std::string path = occlusion_point_cloud.at("path");
+        std::cout << "input cloud path is: " << path << std::endl;
+
+        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+        pcl::io::loadPCDFile<pcl::PointXYZ>(path, *cloud);
+
+        pcl::PointXYZ min_pt, max_pt;
+        pcl::getMinMax3D(*cloud, min_pt, max_pt);
+
+        std::string polygon_path = occlusion_point_cloud.at("polygon_path");
+        std::cout << "polygon path is: " << polygon_path << std::endl;
+
+        size_t num_rays_per_vp = occlusion_point_cloud.at("num_rays_per_vp");
+        double point_radius = occlusion_point_cloud.at("point_radius");
+        float octree_resolution = occlusion_point_cloud.at("octree_resolution");
+
+        Occlusion occlusion;
+
+        occlusion.setOctreeResolution(octree_resolution);
+        occlusion.setPointRadius(point_radius);
+        std::vector<std::vector<pcl::PointXYZ>> polygons = occlusion.parsePolygonData(polygon_path);
+        std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds;
+        std::vector<pcl::ModelCoefficients::Ptr> allCoefficients;
+        
+        for (int i = 0; i < polygons.size(); i++) {
+            pcl::ModelCoefficients::Ptr coefficients = occlusion.computePlaneCoefficients(polygons[i]);
+            allCoefficients.push_back(coefficients);
+            pcl::PointCloud<pcl::PointXYZ>::Ptr polygon = occlusion.estimatePolygon(polygons[i], coefficients);
+            polygonClouds.push_back(polygon);
+        }
+
+        double rayOcclusionLevel = occlusion.rayBasedOcclusionLevel(min_pt, max_pt, num_rays_per_vp, cloud, polygonClouds, allCoefficients);  
+
+        helper.displayRunningTime(start);
+
+    } else if (arg1 == "-fscan") {
         
         Scanner scanner;
-        auto scan = j.at("scanner");
+        auto scan = j.at("fixed_sphere_scanner");
         std::string path = scan.at("path");
 
         pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
@@ -407,15 +407,15 @@ int main(int argc, char *argv[])
 
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr sacnned_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
 
-        std::vector<pcl::PointXYZ> center_scanning = scanner.scanning_positions(min_pt, max_pt, pattern);
+        std::vector<pcl::PointXYZ> center_scanning = scanner.fixed_scanning_positions(min_pt, max_pt, pattern);
         sacnned_cloud = scanner.sphere_scanner(num_rays_per_vp, pattern, center_scanning, cloud, gt_cloud, colored_cloud, path);
 
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr sacnned_cloud_v1(new pcl::PointCloud<pcl::PointXYZRGB>);
-        std::vector<pcl::PointXYZ> v1_scanning = scanner.scanning_positions(min_pt, max_pt, pattern_v1);
+        std::vector<pcl::PointXYZ> v1_scanning = scanner.fixed_scanning_positions(min_pt, max_pt, pattern_v1);
         sacnned_cloud_v1 = scanner.sphere_scanner(num_rays_per_vp, pattern_v1, v1_scanning, cloud, gt_cloud, colored_cloud, path);
 
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr sacnned_cloud_v2(new pcl::PointCloud<pcl::PointXYZRGB>);
-        std::vector<pcl::PointXYZ> v2_scanning = scanner.scanning_positions(min_pt, max_pt, pattern_v2);
+        std::vector<pcl::PointXYZ> v2_scanning = scanner.fixed_scanning_positions(min_pt, max_pt, pattern_v2);
         sacnned_cloud_v2 = scanner.sphere_scanner(num_rays_per_vp, pattern_v2, v2_scanning, cloud, gt_cloud, colored_cloud, path);
 
         helper.displayRunningTime(start);
@@ -428,7 +428,10 @@ int main(int argc, char *argv[])
         std::string path = recon.at("path");
         std::string gt_path = recon.at("gt_path");
 
-        Reconstruction reconstruction;
+        Reconstruction reconstruct;
+
+        reconstruct.setGroundTruthMap();
+        reconstruct.buildGroundTruthCloud(gt_path);
 
         helper.displayRunningTime(start);
 

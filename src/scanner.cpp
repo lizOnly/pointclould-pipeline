@@ -76,11 +76,11 @@ void Scanner::traverseOctree() {
 }
 
 
-bool Scanner::rayBoxIntersection(const Ray3D& ray, const pcl::PointXYZ& minPt, const pcl::PointXYZ& maxPt) {
+bool Scanner::rayBoxIntersection(const Ray3D& ray, const pcl::PointXYZ& min_pt, const pcl::PointXYZ& max_pt) {
 
-    if(ray.origin.x >= minPt.x && ray.origin.x <= maxPt.x &&
-       ray.origin.y >= minPt.y && ray.origin.y <= maxPt.y &&
-       ray.origin.z >= minPt.z && ray.origin.z <= maxPt.z) {
+    if(ray.origin.x >= min_pt.x && ray.origin.x <= max_pt.x &&
+       ray.origin.y >= min_pt.y && ray.origin.y <= max_pt.y &&
+       ray.origin.z >= min_pt.z && ray.origin.z <= max_pt.z) {
         return true;
     }
     
@@ -88,14 +88,14 @@ bool Scanner::rayBoxIntersection(const Ray3D& ray, const pcl::PointXYZ& minPt, c
 
     if (ray.direction.x != 0) {
         if (ray.direction.x >= 0) {
-            tmin = (minPt.x - ray.origin.x) / ray.direction.x;
-            tmax = (maxPt.x - ray.origin.x) / ray.direction.x;
+            tmin = (min_pt.x - ray.origin.x) / ray.direction.x;
+            tmax = (max_pt.x - ray.origin.x) / ray.direction.x;
         } else {
-            tmin = (maxPt.x - ray.origin.x) / ray.direction.x;
-            tmax = (minPt.x - ray.origin.x) / ray.direction.x;
+            tmin = (max_pt.x - ray.origin.x) / ray.direction.x;
+            tmax = (min_pt.x - ray.origin.x) / ray.direction.x;
         }
     } else {
-        if (ray.origin.x < minPt.x || ray.origin.x > maxPt.x) {
+        if (ray.origin.x < min_pt.x || ray.origin.x > max_pt.x) {
             return false;
         }
         tmin = std::numeric_limits<double>::lowest();
@@ -104,14 +104,14 @@ bool Scanner::rayBoxIntersection(const Ray3D& ray, const pcl::PointXYZ& minPt, c
 
     if (ray.direction.y != 0) {
         if (ray.direction.y >= 0) {
-            tymin = (minPt.y - ray.origin.y) / ray.direction.y;
-            tymax = (maxPt.y - ray.origin.y) / ray.direction.y;
+            tymin = (min_pt.y - ray.origin.y) / ray.direction.y;
+            tymax = (max_pt.y - ray.origin.y) / ray.direction.y;
         } else {
-            tymin = (maxPt.y - ray.origin.y) / ray.direction.y;
-            tymax = (minPt.y - ray.origin.y) / ray.direction.y;
+            tymin = (max_pt.y - ray.origin.y) / ray.direction.y;
+            tymax = (min_pt.y - ray.origin.y) / ray.direction.y;
         }
     } else {
-        if (ray.origin.y < minPt.y || ray.origin.y > maxPt.y) {
+        if (ray.origin.y < min_pt.y || ray.origin.y > max_pt.y) {
             return false;
         }
         tymin = std::numeric_limits<double>::lowest();
@@ -123,19 +123,20 @@ bool Scanner::rayBoxIntersection(const Ray3D& ray, const pcl::PointXYZ& minPt, c
 
     if (tymin > tmin)
         tmin = tymin;
+        
     if (tymax < tmax)
         tmax = tymax;
 
     if (ray.direction.z != 0) {
         if (ray.direction.z >= 0) {
-            tzmin = (minPt.z - ray.origin.z) / ray.direction.z;
-            tzmax = (maxPt.z - ray.origin.z) / ray.direction.z;
+            tzmin = (min_pt.z - ray.origin.z) / ray.direction.z;
+            tzmax = (max_pt.z - ray.origin.z) / ray.direction.z;
         } else {
-            tzmin = (maxPt.z - ray.origin.z) / ray.direction.z;
-            tzmax = (minPt.z - ray.origin.z) / ray.direction.z;
+            tzmin = (max_pt.z - ray.origin.z) / ray.direction.z;
+            tzmax = (min_pt.z - ray.origin.z) / ray.direction.z;
         }
     } else {
-        if (ray.origin.z < minPt.z || ray.origin.z > maxPt.z) {
+        if (ray.origin.z < min_pt.z || ray.origin.z > max_pt.z) {
             return false;
         }
         tzmin = std::numeric_limits<double>::lowest();
@@ -324,7 +325,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::sphere_scanner(size_t num_rays_p
 }
 
 
-std::vector<pcl::PointXYZ> Scanner::scanning_positions(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, int pattern) {
+std::vector<pcl::PointXYZ> Scanner::fixed_scanning_positions(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, int pattern) {
 
     Occlusion occlusion;
 
@@ -451,7 +452,7 @@ std::vector<pcl::PointXYZ> Scanner::sample_square_points(const pcl::PointXYZ& sc
 }
 
 
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::multi_square_scanner(double step, double searchRadius, pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt,
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::multi_square_scanner(double step, double searchRadius, pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt,
                                                                     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud, std::string file_name)
 {
     Occlusion occlusion;
@@ -461,7 +462,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::multi_square_scanner(double step
 
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr scanned_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
 
-    std::vector<pcl::PointXYZ> scanner_positions = scanning_positions(minPt, maxPt, 0); // generate fixed scanners
+    std::vector<pcl::PointXYZ> scanner_positions = fixed_scanning_positions(min_pt, max_pt, 0); // generate fixed scanners
     std::cout << "total scanners: " << scanner_positions.size() << std::endl;
 
     std::unordered_set<int> addedPoints;
@@ -477,7 +478,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::multi_square_scanner(double step
                 pcl::PointXYZ point = points[j];
                 Ray3D ray = occlusion.generateRay(scanner_position, point);
                 
-                while ( point.x < maxPt.x && point.y < maxPt.y && point.z < maxPt.z && point.x > minPt.x && point.y > minPt.y && point.z > minPt.z) {
+                while ( point.x < max_pt.x && point.y < max_pt.y && point.z < max_pt.z && point.x > min_pt.x && point.y > min_pt.y && point.z > min_pt.z) {
                     
                     std::vector<int> pointIdxRadiusSearch;
                     std::vector<float> pointRadiusSquaredDistance;
@@ -526,16 +527,16 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::multi_square_scanner(double step
     return scanned_cloud;   
 }
 
-std::vector<pcl::PointXYZ> random_look_at_direction(int num_directions, pcl::PointXYZ& minPt, pcl::PointXYZ& maxPt) {
+std::vector<pcl::PointXYZ> random_look_at_direction(int num_directions, pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt) {
 
     std::vector<pcl::PointXYZ> points;
 
     for (int i = 0; i < num_directions; i++) {
 
         pcl::PointXYZ point;
-        point.x = minPt.x + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(maxPt.x-minPt.x)));
-        point.y = minPt.y + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(maxPt.y-minPt.y)));
-        point.z = minPt.z + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(maxPt.z-minPt.z)));
+        point.x = min_pt.x + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(max_pt.x-min_pt.x)));
+        point.y = min_pt.y + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(max_pt.y-min_pt.y)));
+        point.z = min_pt.z + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(max_pt.z-min_pt.z)));
 
         points.push_back(point);
 
@@ -545,30 +546,22 @@ std::vector<pcl::PointXYZ> random_look_at_direction(int num_directions, pcl::Poi
 }
 
 
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::random_scanner(double step,
-                                                                double searchRadius, // search radius
-                                                                size_t num_random_positions,
-                                                                pcl::PointXYZ& minPt, 
-                                                                pcl::PointXYZ& maxPt,
-                                                                pcl::PointCloud<pcl::PointXYZ>::Ptr cloud,
-                                                                pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud,
-                                                                std::string file_name)
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::random_scanner(double step, double searchRadius, size_t num_random_positions, pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud, std::string file_name)
 {
-
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
     kdtree.setInputCloud(cloud);
 
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr scanned_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
     Occlusion occlusion;
 
-    std::vector<pcl::PointXYZ> scanner_positions = scanning_positions(minPt, maxPt, 1); // generate random scanners
+    std::vector<pcl::PointXYZ> scanner_positions = fixed_scanning_positions(min_pt, max_pt, 1); // generate random scanners
 
     std::unordered_set<int> addedPoints;
 
     for (size_t i = 0; i < scanner_positions.size(); i++) {
         
         pcl::PointXYZ scanner_position = scanner_positions[i];
-        std::vector<pcl::PointXYZ> look_at_directions = random_look_at_direction(10, minPt, maxPt);
+        std::vector<pcl::PointXYZ> look_at_directions = random_look_at_direction(10, min_pt, max_pt);
 
         for (size_t j = 0; j < look_at_directions.size(); j++) {
 
@@ -576,7 +569,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::random_scanner(double step,
             Ray3D ray = occlusion.generateRay(scanner_position, look_at_direction);
 
             pcl::PointXYZ point = scanner_position;
-            while ( point.x < maxPt.x && point.y < maxPt.y && point.z < maxPt.z && point.x > minPt.x && point.y > minPt.y && point.z > minPt.z) {
+            while ( point.x < max_pt.x && point.y < max_pt.y && point.z < max_pt.z && point.x > min_pt.x && point.y > min_pt.y && point.z > min_pt.z) {
                 
                 std::vector<int> pointIdxRadiusSearch;
                 std::vector<float> pointRadiusSquaredDistance;
