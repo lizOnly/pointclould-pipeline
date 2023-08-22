@@ -4,6 +4,8 @@
 #include <string>
 #include <random>
 #include <unordered_map>
+#include <ctime>
+#include <cstdlib>
 
 #include <pcl/point_types.h>
 #include <pcl/kdtree/kdtree_flann.h>
@@ -769,6 +771,103 @@ double Occlusion::rayBasedOcclusionLevel(pcl::PointXYZ& min_pt, pcl::PointXYZ& m
     return occlusion_level;
 
 }
+
+
+void Occlusion::generateRandomRays(size_t num_rays, pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt) {
+
+    static bool seedSet = false;
+    if (!seedSet) {
+        std::srand(static_cast<unsigned int>(time(NULL)));
+        seedSet = true;
+    }
+
+    for (int i = 0; i < num_rays; i++) {
+
+        pcl::PointXYZ origin;
+        
+        origin.x = min_pt.x + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(max_pt.x-min_pt.x)));
+        origin.y = min_pt.y + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(max_pt.y-min_pt.y)));
+        origin.z = min_pt.z + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(max_pt.z-min_pt.z)));
+        
+        pcl::PointXYZ look_at;
+        do {
+            look_at.x = min_pt.x + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(max_pt.x-min_pt.x)));
+            look_at.y = min_pt.y + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(max_pt.y-min_pt.y)));
+            look_at.z = min_pt.z + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(max_pt.z-min_pt.z)));
+        } while (origin.x == look_at.x && origin.y == look_at.y && origin.z == look_at.z);
+
+        Ray3D ray;
+        ray.origin = origin;
+        ray.direction.x = look_at.x - origin.x;
+        ray.direction.y = look_at.y - origin.y;
+        ray.direction.z = look_at.z - origin.z;
+
+        random_rays.push_back(ray);
+
+    }
+
+    std::cout << "Number of random rays: " << random_rays.size() << std::endl;
+
+}
+
+
+double Occlusion::randomRayBasedOcclusionLevel(bool use_openings, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds, std::vector<pcl::ModelCoefficients::Ptr> allCoefficients) {
+    
+    input_cloud = cloud;
+
+    traverseOctree();
+
+    size_t cloud_intersec_rays = 0;
+    size_t polygon_intersec_rays = 0;
+    size_t occlusion_rays = 0;
+
+    size_t num_rays = random_rays.size();
+
+    for (auto& ray : random_rays) {
+        
+        if (rayIntersectPointCloud(ray)) {
+
+            cloud_intersec_rays++;
+
+        } else {
+
+            if (use_openings) {
+                
+                for (size_t k = 0; k < polygonClouds.size(); ++k) {
+
+                    if (Occlusion::rayIntersectPolygon(ray, polygonClouds[k], allCoefficients[k])) {
+
+                        polygon_intersec_rays++;
+                        break;
+
+                    } else if (k == (polygonClouds.size() - 1)) {
+
+                        occlusion_rays++;
+
+                    }
+                }
+
+            } else {
+
+                occlusion_rays++;
+
+            }
+            
+        }
+    }
+
+    std::cout << "Number of rays: " << num_rays << std::endl;
+    std::cout << "Number of cloud intersection rays: " << cloud_intersec_rays << std::endl;
+    std::cout << "Number of polygon intersection rays: " << polygon_intersec_rays << std::endl;
+    std::cout << "Number of occlusion rays: " << occlusion_rays << std::endl;
+
+    double occlusion_level = (double) occlusion_rays / (double) num_rays;
+
+    return occlusion_level;
+    
+}
+
+
 
 // read the .obj file and return a vector of triangles
 void Occlusion::parseTrianglesFromOBJ(const std::string& mesh_path) {

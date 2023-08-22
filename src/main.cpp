@@ -375,6 +375,50 @@ int main(int argc, char *argv[])
 
         helper.displayRunningTime(start);
 
+    } else if (arg1 == "-extoc") {
+        
+        auto occlusion_exterior = j.at("occlusion").at("exterior_cloud");
+
+        std::string path = occlusion_exterior.at("path");
+        std::cout << "input cloud path is: " << path << std::endl;
+
+        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+        pcl::io::loadPCDFile<pcl::PointXYZ>(path, *cloud);
+
+        pcl::PointXYZ min_pt, max_pt;
+        pcl::getMinMax3D(*cloud, min_pt, max_pt);
+
+        std::string polygon_path = occlusion_exterior.at("polygon_path");
+        std::cout << "polygon path is: " << polygon_path << std::endl;
+
+        size_t num_rays = occlusion_exterior.at("num_rays");
+        double point_radius = occlusion_exterior.at("point_radius");
+        float octree_resolution = occlusion_exterior.at("octree_resolution");
+        bool use_openings = occlusion_exterior.at("use_openings");
+
+        Occlusion occlusion;
+
+        occlusion.setPointRadius(point_radius);
+        occlusion.setOctreeResolution(octree_resolution);
+
+        std::vector<std::vector<pcl::PointXYZ>> polygons = occlusion.parsePolygonData(polygon_path);
+        std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds;
+        std::vector<pcl::ModelCoefficients::Ptr> allCoefficients;
+
+        for (int i = 0; i < polygons.size(); i++) {
+            pcl::ModelCoefficients::Ptr coefficients = occlusion.computePlaneCoefficients(polygons[i]);
+            allCoefficients.push_back(coefficients);
+            pcl::PointCloud<pcl::PointXYZ>::Ptr polygon = occlusion.estimatePolygon(polygons[i], coefficients);
+            polygonClouds.push_back(polygon);
+        }
+        
+        occlusion.generateRandomRays(num_rays, min_pt, max_pt);
+
+        double randomRayBasedOcclusionLevel = occlusion.randomRayBasedOcclusionLevel(use_openings, cloud, polygonClouds, allCoefficients);
+        std::cout << "Random ray based occlusion level is: " << randomRayBasedOcclusionLevel << std::endl;
+
+        helper.displayRunningTime(start);
+    
     } else if (arg1 == "-fscan") {
         
         Scanner scanner;

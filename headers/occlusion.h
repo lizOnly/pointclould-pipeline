@@ -25,13 +25,16 @@ class Occlusion {
             point_radius = radius;
         };
 
+
         void setOctreeResolution(float resolution) {
             octree_resolution = resolution;
         };
 
+
         void setOctreeResolutionTriangle(float resolution) {
             octree_resolution_triangle = resolution;
         };
+
 
         template <typename PointT>
 
@@ -91,7 +94,10 @@ class Occlusion {
 
         double rayBasedOcclusionLevel(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, size_t num_rays_per_vp, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds, std::vector<pcl::ModelCoefficients::Ptr> allCoefficients);
         /*-----------------------------------------------------------------------------------------------------------*/
+        void generateRandomRays(size_t num_rays, pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt);
 
+        double randomRayBasedOcclusionLevel(bool use_openings, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds, std::vector<pcl::ModelCoefficients::Ptr> allCoefficients);
+        /*-----------------------------------------------------------------------------------------------------------*/
         void parseTrianglesFromOBJ(const std::string& mesh_path);
 
         void uniformSampleTriangle(double samples_per_unit_area);
@@ -130,13 +136,19 @@ class Occlusion {
 
         private:
 
+            std::vector<Ray3D> random_rays;
+
             double point_radius;
+            // double point_radius_random;
+
             float octree_resolution;
+            // float octree_resolution_random;
             float octree_resolution_triangle;
 
             std::vector<pcl::PointIndices> rg_clusters;
             
             pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud;
+            pcl::PointCloud<pcl::PointXYZ>::Ptr input_exterior_cloud;
             std::vector<LeafBBox> octree_leaf_bbox;
 
 

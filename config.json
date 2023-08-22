@@ -25,12 +25,21 @@
         },  
 
         "point_cloud": {
-            "path": "../files/conf1_80000.pcd",
-            "num_rays_per_vp": 10000, 
+            "path": "../files/conf1.pcd",
+            "num_rays_per_vp": 30000, 
             "num_vp": 9, 
-            "point_radius": 0.025,
+            "point_radius": 0.01,
             "polygon_path": "../files/polygon_conf.txt",
             "octree_resolution": 0.5
+        },
+
+        "exterior_cloud": {
+            "path": "../files/gt_ext.pcd",
+            "num_rays": 20000,
+            "point_radius": 0.01,
+            "polygon_path": "../files/polygon_conf.txt",
+            "octree_resolution": 1.0,
+            "use_openings": false
         }
     },
 
@@ -59,8 +68,8 @@
     },
 
     "recon": {
-        "path": "../files/conf1/conferenceRoom_1.txt",
-        "gt_path": "../files/conf1/anno/"
+        "path": "../files/copy/copyRoom_1.txt",
+        "gt_path": "../files/copy/anno/"
     },
 
     "transfer": {

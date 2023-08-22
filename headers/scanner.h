@@ -32,7 +32,6 @@ class Scanner {
         
         std::vector<pcl::PointXYZ> sample_square_points(const pcl::PointXYZ& scanner_position, int sample_step, double distance, double angle);
 
-
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr multi_square_scanner(double step, double searchRadius, pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud, std::string file_name);
 
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr random_scanner(double step, double searchRadius, size_t num_random_positions, pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud, std::string file_name);
