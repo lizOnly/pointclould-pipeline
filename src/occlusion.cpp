@@ -31,7 +31,7 @@
 #include <Eigen/Core>
 #include <Eigen/Dense>
 
-#include <omp.h>
+// #include <omp.h>
 
 #include "../headers/occlusion.h"
 #include "../headers/BaseStruct.h"
@@ -944,6 +944,7 @@ void Occlusion::uniformSampleTriangle(double samples_per_unit_area) {
 
     size_t idx = 0;
     int tri_idx = 0;
+
     for (auto& tri : t_triangles) {
 
         double area = calculateTriangleArea(tri.second);
@@ -1334,7 +1335,7 @@ void Occlusion::checkRayOctreeIntersection(Ray& ray, OctreeNode& node, size_t& i
             }
 
         } else if (node.children.size() > 0) {
-
+            
             for (auto node_idx : node.children) {
                 // std::cout << "Checking child node " << node_idx << std::endl;
                 checkRayOctreeIntersection(ray, t_octree_nodes[node_idx], intersection_idx);
@@ -1351,44 +1352,51 @@ double Occlusion::triangleBasedOcclusionLevel(bool enable_acceleration) {
     size_t intersection_table_size = t_intersections.size();
     size_t intersection_idx = intersection_table_size;
 
-    if (enable_acceleration) {
+    double epsilon = 1e-4;
 
-        std::cout << "Using octree acceleration structure..." << std::endl;
+    std::cout << "Using octree acceleration structure..." << std::endl;
 
-        #pragma omp parallel for
-        for(auto& ray : t_rays) {
+    OctreeNode& root_node = t_octree_nodes[0];
 
-            OctreeNode& root_node = t_octree_nodes[0];
+    // #pragma omp parallel for
+    for (auto& sample : t_samples) {
+
+        for (auto& ray_idx : sample.second.ray_idx) {
+
+            checkRayOctreeIntersection(t_rays[ray_idx], root_node, intersection_idx);
+
+            if (t_rays[ray_idx].intersection_idx.size() == 1) {
+                
+                size_t first_hit_intersection_idx = t_rays[ray_idx].intersection_idx[0];
+                t_intersections[first_hit_intersection_idx].is_first_hit = true;
             
-            checkRayOctreeIntersection(ray.second, root_node, intersection_idx);
+            } else {
+                
+                computeFirstHitIntersection(t_rays[ray_idx]);
 
-            // std::cout << "traverse for this ray finished once" << std::endl;
-
-            computeFirstHitIntersection(ray.second);
-
-        }
-
-    } else {
-
-        for (auto& ray : t_rays) {
-
-            for (auto& triangle : t_triangles) {
-
-                if (triangle.second.index == ray.second.source_triangle_index) {
-                    continue;
-                }
-
-                Intersection intersection;
-
-                if (getRayTriangleIntersectionPt(triangle.second, ray.second, intersection_idx, intersection)) {
-
-                    t_intersections[intersection_idx] = intersection;
-                    intersection_idx++;
-
-                }
             }
 
-            computeFirstHitIntersection(ray.second);
+            if (t_rays[ray_idx].intersection_idx.size() == 0) {
+                
+                sample.second.is_visible = true;
+                break;
+            
+            }
+
+            double look_at_point_distance_to_origin = (t_rays[ray_idx].look_at_point - t_rays[ray_idx].origin).norm();
+            std::vector<size_t> intersection_idx = t_rays[ray_idx].intersection_idx;
+
+            size_t first_hit_intersection_idx = t_rays[ray_idx].first_hit_intersection_idx;
+            double first_hit_distance_to_origin =  (t_intersections[first_hit_intersection_idx].point - t_rays[ray_idx].origin).norm();
+            double distance_diff = first_hit_distance_to_origin - look_at_point_distance_to_origin;
+            // std::cout << "Distance difference: " << distance_diff << std::endl;
+
+            if (distance_diff > epsilon) {
+
+                sample.second.is_visible = true;
+                break;
+
+            } 
 
         }
 
@@ -1402,7 +1410,6 @@ double Occlusion::triangleBasedOcclusionLevel(bool enable_acceleration) {
 
     for (auto& tri : t_triangles) {
         
-        double epsilon = 1e-4;
         int total_samples = tri.second.sample_idx.size();
 
         if (total_samples == 0) {
@@ -1413,60 +1420,16 @@ double Occlusion::triangleBasedOcclusionLevel(bool enable_acceleration) {
         int visible_samples = 0;
         double visible_weight = 0.0;
 
-        // std::cout << "Triangle " << tri.second.index << " has " << total_samples << " samples" << std::endl;
 
         for (auto& sample_idx : tri.second.sample_idx) {
-            
-            std::vector<size_t> ray_idx = t_samples[sample_idx].ray_idx;
 
-            for (auto& r_idx : ray_idx) {
+            if (t_samples[sample_idx].is_visible) {
 
-                // std::cout << "Ray " << idx << " has " << t_rays[idx].intersection_idx.size() << " intersections" << std::endl;    
-                if (t_rays[r_idx].intersection_idx.size() == 0) {
-                    // std::cout << "Ray " << r_idx << " has no intersections except samplings on triangle" << std::endl;
-                    visible_samples++;
-                    t_samples[sample_idx].is_visible = true;
-                    break;
-                }
-
-                double look_at_point_distance_to_origin = (t_rays[r_idx].look_at_point - t_rays[r_idx].origin).norm();
-                std::vector<size_t> intersection_idx = t_rays[r_idx].intersection_idx;
-
-                size_t first_hit_intersection_idx = t_rays[r_idx].first_hit_intersection_idx;
-                double first_hit_distance_to_origin =  (t_intersections[first_hit_intersection_idx].point - t_rays[r_idx].origin).norm();
-                double distance_diff = first_hit_distance_to_origin - look_at_point_distance_to_origin;
-                // std::cout << "Distance difference: " << distance_diff << std::endl;
-
-                if (distance_diff > epsilon) {
-                    visible_samples++;
-                    t_samples[sample_idx].is_visible = true;
-                    break;
-                } 
-
-
-                // int further_intersection = 0;
-
-                // for (auto& i_idx : intersection_idx) {
-                    
-                //     double distance_to_sample =  (t_intersections[i_idx].point - t_rays[r_idx].origin).norm();
-
-                //     if (distance_to_sample > source_sample_distance_to_look_at_point) {
-                //         further_intersection++;
-                //     } 
-
-                // }
-
-                // if (further_intersection == intersection_idx.size()) {
-
-                //     visible_samples++;
-                //     t_samples[sample_idx].is_visible = true;
-                //     break;
-
-                // }
+                visible_samples++;
             
             }
-            
-        }        
+
+        }
 
         visible_weight = (double) visible_samples / (double) total_samples;
 
@@ -1689,6 +1652,10 @@ void Occlusion::buildCompleteOctreeNodes() {
 
                     for (int i = 0; i < depth_index_map[d+1].size(); ++i) {
 
+                        if (t_octree_nodes[depth_index_map[d+1][i]].parent_index != -1) {
+                            continue;
+                        }
+
                         t_octree_nodes[idx].children.push_back(depth_index_map[d+1][i]);
                         t_octree_nodes[depth_index_map[d+1][i]].parent_index = idx;
 
@@ -1706,6 +1673,10 @@ void Occlusion::buildCompleteOctreeNodes() {
                         
                         if (depth_index_map[d+1][i] < t_octree_nodes[idx].next) {
                             
+                            if (t_octree_nodes[depth_index_map[d+1][i]].parent_index != -1) {
+                                continue;
+                            }
+
                             t_octree_nodes[idx].children.push_back(depth_index_map[d+1][i]);
                             t_octree_nodes[depth_index_map[d+1][i]].parent_index = idx;
 
@@ -1725,6 +1696,10 @@ void Occlusion::buildCompleteOctreeNodes() {
                         
                     if (depth_index_map[d+1][i] > t_octree_nodes[idx].prev) {
                         
+                        if (t_octree_nodes[depth_index_map[d+1][i]].parent_index != -1) {
+                            continue;
+                        }
+
                         t_octree_nodes[idx].children.push_back(depth_index_map[d+1][i]);
                         t_octree_nodes[depth_index_map[d+1][i]].parent_index = idx;
 
@@ -1743,6 +1718,10 @@ void Occlusion::buildCompleteOctreeNodes() {
                         
                     if (depth_index_map[d+1][i] > t_octree_nodes[idx].prev && depth_index_map[d+1][i] < t_octree_nodes[idx].next) {
                         
+                        if (t_octree_nodes[depth_index_map[d+1][i]].parent_index != -1) {
+                            continue;
+                        }
+
                         t_octree_nodes[idx].children.push_back(depth_index_map[d+1][i]);
                         t_octree_nodes[depth_index_map[d+1][i]].parent_index = idx;
 
@@ -1778,6 +1757,19 @@ void Occlusion::buildCompleteOctreeNodes() {
     }
 
     std::cout << "Octree built! Number of octree nodes: " << t_octree_nodes.size() << std::endl;
+
+    for (int d = 0; d < max_depth; d++) {
+        
+        size_t num_children = 0;
+        
+        for (auto& idx : depth_index_map[d]) {
+            
+            num_children += t_octree_nodes[idx].children.size();
+        
+        }
+
+        std::cout << "Depth: " << d << " has " << depth_index_map[d].size() << " nodes and " << num_children << " children" <<std::endl;
+    }
 
 }
 

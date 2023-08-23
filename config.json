@@ -2,10 +2,10 @@
     "occlusion": {
         "mesh": {
             "path": "../files/conf_m.obj",
-            "pattern": 0,
+            "pattern": 4,
             "octree_resolution": 64.0,
             "enable_acceleration": true,
-            "samples_per_unit_area": 0.0005
+            "samples_per_unit_area": 0.01
         },
 
         "rg_mesh": {

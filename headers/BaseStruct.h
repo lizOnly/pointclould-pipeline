@@ -4,22 +4,24 @@
 #include <pcl/point_types.h>
 #include <Eigen/Core>
 
-struct Point3D {
-    double x, y, z;
-};
 
 struct Ray3D {
+
     pcl::PointXYZ origin;
     pcl::PointXYZ direction;
+
 };
 
 struct Disk3D {
+
     pcl::PointXYZ center;
     double radius;
     pcl::Normal normal;
+
 };
 
 struct Intersection {
+
     size_t index;
     size_t triangle_index;
     size_t ray_index;
@@ -27,9 +29,11 @@ struct Intersection {
     double distance_to_look_at_point;
     double distance_to_origin;
     bool is_first_hit;
+
 };
 
 struct Ray { 
+
     size_t index;
     size_t source_triangle_index;
     size_t source_sample_index;
@@ -39,17 +43,22 @@ struct Ray {
     Eigen::Vector3d direction;
     std::vector<size_t> intersection_idx;
     std::vector<size_t> triangle_idx;
+
 };
 
+
 struct Sample {
+
     size_t index;
     size_t triangle_index;
     Eigen::Vector3d point;
     bool is_visible = false;
     std::vector<size_t> ray_idx;
+
 };
 
 struct Triangle {
+
     size_t index;
     Eigen::Vector3d v1;
     Eigen::Vector3d v2;
@@ -61,13 +70,14 @@ struct Triangle {
     std::vector<size_t> sample_idx;
     std::vector<size_t> intersection_idx;
     std::vector<size_t> ray_idx;
+    
 };
 
 
 struct OctreeNode {
 
     size_t index;
-    size_t parent_index;
+    size_t parent_index = -1;
     size_t prev = -1;
     size_t next = -1;
     int depth;
