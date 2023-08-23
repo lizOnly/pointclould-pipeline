@@ -1309,6 +1309,42 @@ void Occlusion::computeFirstHitIntersection(Ray& ray) {
     t_intersections[min_idx].is_first_hit = true;
 }
 
+   
+
+void Occlusion::checkRayOctreeIntersection(Ray& ray, OctreeNode& node, size_t& intersection_idx) {
+    
+    if (rayIntersectOctreeNode(ray, node)) {
+
+        if (node.is_leaf) {
+            
+            for (auto& tri_idx : node.triangle_idx) {
+
+                if (tri_idx == ray.source_triangle_index) {
+                    continue;
+                }
+
+                Intersection intersection;
+
+                if (getRayTriangleIntersectionPt(t_triangles[tri_idx], ray, intersection_idx, intersection)) {
+
+                    t_intersections[intersection_idx] = intersection;
+                    intersection_idx++;
+
+                }
+            }
+
+        } else if (node.children.size() > 0) {
+
+            for (auto node_idx : node.children) {
+                // std::cout << "Checking child node " << node_idx << std::endl;
+                checkRayOctreeIntersection(ray, t_octree_nodes[node_idx], intersection_idx);
+                            
+            }
+        } 
+    }
+
+}
+
 
 double Occlusion::triangleBasedOcclusionLevel(bool enable_acceleration) {    
 
@@ -1322,34 +1358,11 @@ double Occlusion::triangleBasedOcclusionLevel(bool enable_acceleration) {
         #pragma omp parallel for
         for(auto& ray : t_rays) {
 
-            // std::cout << "Ray " << ray.second.index <<" is hitting now" << std::endl;
-            bool intersectBbox = false;
-            int current_idx = intersection_idx;
+            OctreeNode& root_node = t_octree_nodes[0];
+            
+            checkRayOctreeIntersection(ray.second, root_node, intersection_idx);
 
-            for (auto& bbox : t_octree_leaf_bbox_triangle) {
-
-                if(rayIntersectLeafBbox(ray.second, bbox)) {
-
-                    intersectBbox = true;
-
-                    for(auto& idx : bbox.triangle_idx) {
-
-                        if (idx == ray.second.source_triangle_index) {
-                            // std::cout << "Ray " << ray.second.index << " is hitting the source triangle" << std::endl;
-                            continue;
-                        }
-
-                        Intersection intersection;
-
-                        if(getRayTriangleIntersectionPt(t_triangles[idx], ray.second, intersection_idx, intersection)) {
-                            
-                            t_intersections[intersection_idx] = intersection;
-                            intersection_idx++;
-
-                        }
-                    }
-                }
-            }
+            // std::cout << "traverse for this ray finished once" << std::endl;
 
             computeFirstHitIntersection(ray.second);
 
@@ -1373,7 +1386,6 @@ double Occlusion::triangleBasedOcclusionLevel(bool enable_acceleration) {
                     intersection_idx++;
 
                 }
-
             }
 
             computeFirstHitIntersection(ray.second);
@@ -1480,7 +1492,7 @@ double Occlusion::triangleBasedOcclusionLevel(bool enable_acceleration) {
 }
 
 
-void Occlusion::traverseOctreeTriangle() {
+void Occlusion::buildLeafBBoxSet() {
 
     pcl::octree::OctreePointCloudSearch<pcl::PointXYZI> octree(octree_resolution_triangle);
     octree.setInputCloud(t_octree_cloud);
@@ -1493,34 +1505,6 @@ void Occlusion::traverseOctreeTriangle() {
     std::cout << "Total number of leaf nodes: " << num_leaf_nodes << std::endl;
 
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr t_octree_cloud_rgb(new pcl::PointCloud<pcl::PointXYZRGB>);
-
-    std::unordered_map<int, int> depth_map; // <diagonal distance of bounding box, depth of curren level>
-
-    // depth first traversal
-    
-    for (auto it = octree.begin(); it != octree.end(); ++it) {
-        Eigen::Vector3f min_pt, max_pt;
-        octree.getVoxelBounds(it, min_pt, max_pt);
-        float d = (max_pt-min_pt).norm();
-        int d_int = static_cast<int>(d);
-        depth_map[d_int] = 0;
-        if (it.isBranchNode()) {
-            // std::cout << "Distance: " << d << std::endl;
-        }
-    }
-
-    int depth = max_depth;
-    for (auto& d : depth_map) {
-        std::cout << "Distance: " << d.first << std::endl;
-        d.second = depth;
-        std::cout << "Depth: " << d.second << std::endl;
-        depth--; 
-    }
-
-    if (depth_map.size() != max_depth + 1) {
-        std::cout << "Wrong depth map created" << std::endl;
-        return;
-    }
 
     pcl::octree::OctreePointCloudSearch<pcl::PointXYZI>::LeafNodeIterator it;
     pcl::octree::OctreePointCloudSearch<pcl::PointXYZI>::LeafNodeIterator it_end = octree.leaf_depth_end();
@@ -1587,6 +1571,214 @@ void Occlusion::traverseOctreeTriangle() {
     // pcl::io::savePCDFileASCII("../files/octree_cloud_rgb.pcd", *t_octree_cloud_rgb);
 
     std::cout << "Number of leaf bbox: " << t_octree_leaf_bbox.size() << std::endl;
+}
+
+
+void Occlusion::buildCompleteOctreeNodes() {
+
+    pcl::octree::OctreePointCloudSearch<pcl::PointXYZI> octree(octree_resolution_triangle);
+    octree.setInputCloud(t_octree_cloud);
+    octree.addPointsFromInputCloud();
+
+    int max_depth = octree.getTreeDepth();
+    std::cout << "Max depth: " << max_depth << std::endl;
+
+    std::unordered_map<int, int> depth_map; // <diagonal distance of bounding box, depth of curren level>
+    std::unordered_map<int, std::vector<size_t>> depth_index_map; // <depth, index of nodes at current depth>
+    // depth first traversal
+    
+    size_t idx = 0;
+    for (auto it = octree.begin(); it != octree.end(); ++it) {
+        
+        OctreeNode node;
+        node.index = idx;
+
+        Eigen::Vector3f min_pt, max_pt;
+        octree.getVoxelBounds(it, min_pt, max_pt);
+
+        node.min_pt.x() = static_cast<double>(min_pt.x());
+        node.min_pt.y() = static_cast<double>(min_pt.y());
+        node.min_pt.z() = static_cast<double>(min_pt.z());
+
+        node.max_pt.x() = static_cast<double>(max_pt.x());
+        node.max_pt.y() = static_cast<double>(max_pt.y());
+        node.max_pt.z() = static_cast<double>(max_pt.z());
+
+        float d = (max_pt-min_pt).norm();
+        int d_int = static_cast<int>(d);
+        node.diagonal_distance = d_int;
+
+        depth_map[d_int] = 0;
+        
+        if (it.isBranchNode()) {
+            node.is_branch = true;
+            // std::cout << "Branch Distance: " << d << std::endl;
+        }
+
+        if (it.isLeafNode()) {
+            node.is_leaf = true;
+            // std::cout << "Leaf Distance: " << d << std::endl;
+            std::vector<int> point_idx = it.getLeafContainer().getPointIndicesVector();
+
+            // std::cout << "Number of points in leaf node: " << point_idx.size() << std::endl;
+
+            Eigen::Vector3d min_pt_triangle = std::numeric_limits<double>::max() * Eigen::Vector3d::Ones();
+            Eigen::Vector3d max_pt_triangle = std::numeric_limits<double>::lowest() * Eigen::Vector3d::Ones();
+
+            for (auto& idx : point_idx) {
+
+                size_t triangle_idx = (size_t) t_octree_cloud->points[idx].intensity;
+
+                if (triangle_idx == -1) {
+                    continue;
+                }
+
+                Triangle triangle = t_triangles[triangle_idx];
+
+                min_pt_triangle = min_pt_triangle.cwiseMin(triangle.v1);
+                min_pt_triangle = min_pt_triangle.cwiseMin(triangle.v2);
+                min_pt_triangle = min_pt_triangle.cwiseMin(triangle.v3);
+
+                max_pt_triangle = max_pt_triangle.cwiseMax(triangle.v1);
+                max_pt_triangle = max_pt_triangle.cwiseMax(triangle.v2);
+                max_pt_triangle = max_pt_triangle.cwiseMax(triangle.v3);
+
+                node.triangle_idx.push_back(triangle_idx);
+
+            }
+
+            node.min_pt_triangle = min_pt_triangle;
+            node.max_pt_triangle = max_pt_triangle;
+        }
+
+        t_octree_nodes[node.index] = node;
+        idx++;
+    }
+
+    std::cout << "Number of octree nodes: " << t_octree_nodes.size() << std::endl;
+
+    t_octree_nodes[0].is_root = true;
+
+    int depth = max_depth;
+    for (auto& d : depth_map) {
+        std::cout << "Diagonal distance: " << d.first << " in depth " << depth << std::endl;
+        d.second = depth;
+        depth--; 
+    }
+
+    if (depth_map.size() != max_depth + 1) {
+        std::cout << "Wrong depth map created" << std::endl;
+        return;
+    }
+
+    for (size_t i = 0; i < t_octree_nodes.size(); ++i) {
+
+        t_octree_nodes[i].depth = depth_map[t_octree_nodes[i].diagonal_distance];
+        depth_index_map[t_octree_nodes[i].depth].push_back(t_octree_nodes[i].index);
+
+    }
+
+    for (int d = 0; d < max_depth; d++) {
+        std::cout << "Depth: " << d << " has " << depth_index_map[d].size() << " nodes" <<std::endl;
+
+        for (auto& idx : depth_index_map[d]) {
+            
+            if (t_octree_nodes[idx].prev == -1) {
+                
+                if (t_octree_nodes[idx].next == -1) {
+
+                    for (int i = 0; i < depth_index_map[d+1].size(); ++i) {
+
+                        t_octree_nodes[idx].children.push_back(depth_index_map[d+1][i]);
+                        t_octree_nodes[depth_index_map[d+1][i]].parent_index = idx;
+
+                        if ((i + 1) < depth_index_map[d+1].size()) {
+
+                            t_octree_nodes[depth_index_map[d+1][i]].next = depth_index_map[d+1][i+1];
+                            t_octree_nodes[depth_index_map[d+1][i+1]].prev = depth_index_map[d+1][i];
+
+                        } 
+                    }
+
+                } else {
+
+                    for (int i = 0; i < depth_index_map[d+1].size(); ++i) {
+                        
+                        if (depth_index_map[d+1][i] < t_octree_nodes[idx].next) {
+                            
+                            t_octree_nodes[idx].children.push_back(depth_index_map[d+1][i]);
+                            t_octree_nodes[depth_index_map[d+1][i]].parent_index = idx;
+
+                            if ((i + 1) < depth_index_map[d+1].size()) {
+
+                                t_octree_nodes[depth_index_map[d+1][i]].next = depth_index_map[d+1][i+1];
+                                t_octree_nodes[depth_index_map[d+1][i+1]].prev = depth_index_map[d+1][i];
+
+                            } 
+                        }
+                    }
+
+                }
+            } else if (t_octree_nodes[idx].next == -1) {
+
+                for (int i = 0; i < depth_index_map[d+1].size(); ++i) {
+                        
+                    if (depth_index_map[d+1][i] > t_octree_nodes[idx].prev) {
+                        
+                        t_octree_nodes[idx].children.push_back(depth_index_map[d+1][i]);
+                        t_octree_nodes[depth_index_map[d+1][i]].parent_index = idx;
+
+                        if ((i + 1) < depth_index_map[d+1].size()) {
+
+                            t_octree_nodes[depth_index_map[d+1][i]].next = depth_index_map[d+1][i+1];
+                            t_octree_nodes[depth_index_map[d+1][i+1]].prev = depth_index_map[d+1][i];
+
+                        } 
+                    }
+                }
+
+            } else {
+
+                for (int i = 0; i < depth_index_map[d+1].size(); ++i) {
+                        
+                    if (depth_index_map[d+1][i] > t_octree_nodes[idx].prev && depth_index_map[d+1][i] < t_octree_nodes[idx].next) {
+                        
+                        t_octree_nodes[idx].children.push_back(depth_index_map[d+1][i]);
+                        t_octree_nodes[depth_index_map[d+1][i]].parent_index = idx;
+
+                        if ((i + 1) < depth_index_map[d+1].size()) {
+
+                            t_octree_nodes[depth_index_map[d+1][i]].next = depth_index_map[d+1][i+1];
+                            t_octree_nodes[depth_index_map[d+1][i+1]].prev = depth_index_map[d+1][i];
+
+                        } 
+                    }
+                }
+
+            }
+        }
+
+    }
+
+    std::cout << "Building bbox..." << std::endl;
+    for (int d = max_depth - 1; d >= 0; --d) {
+        for (auto& idx : depth_index_map[d]) {
+
+            t_octree_nodes[idx].min_pt_triangle = std::numeric_limits<double>::max() * Eigen::Vector3d::Ones();
+            t_octree_nodes[idx].max_pt_triangle = std::numeric_limits<double>::lowest() * Eigen::Vector3d::Ones();
+
+            for (auto& child_idx : t_octree_nodes[idx].children) {
+
+                t_octree_nodes[idx].min_pt_triangle = t_octree_nodes[idx].min_pt_triangle.cwiseMin(t_octree_nodes[child_idx].min_pt_triangle);
+                t_octree_nodes[idx].max_pt_triangle = t_octree_nodes[idx].max_pt_triangle.cwiseMax(t_octree_nodes[child_idx].max_pt_triangle);
+
+            }
+
+        }
+    }
+
+    std::cout << "Octree built! Number of octree nodes: " << t_octree_nodes.size() << std::endl;
+
 }
 
 
@@ -1694,13 +1886,17 @@ void Occlusion::buildOctreeCloud() {
 }
 
 
-bool Occlusion::rayIntersectLeafBbox(Ray& ray, LeafBBox& bbox) {
+bool Occlusion::rayIntersectOctreeNode(Ray& ray, OctreeNode& node) {
+
+    if (node.is_root) {
+        return true;
+    }
 
     Eigen::Vector3d origin = ray.origin;
     Eigen::Vector3d direction = ray.direction;
 
-    Eigen::Vector3d min_pt = bbox.min_pt;
-    Eigen::Vector3d max_pt = bbox.max_pt;
+    Eigen::Vector3d min_pt = node.min_pt_triangle;
+    Eigen::Vector3d max_pt = node.max_pt_triangle;
 
     if ((origin[0] >= min_pt[0] && origin[0] <= max_pt[0]) &&
         (origin[1] >= min_pt[1] && origin[1] <= max_pt[1]) &&
@@ -1767,7 +1963,9 @@ bool Occlusion::rayIntersectLeafBbox(Ray& ray, LeafBBox& bbox) {
     if ((tmin > tzmax) || (tzmin > tmax)) {
         return false;
     }
+ 
     return true;
+
 }
 
 

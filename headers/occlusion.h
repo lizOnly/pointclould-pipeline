@@ -116,9 +116,11 @@ class Occlusion {
 
         bool getRayTriangleIntersectionPt(Triangle& tr, Ray& ray, size_t idx, Intersection& intersection);
 
-        bool rayIntersectLeafBbox(Ray& ray, LeafBBox& bbox);
+        bool rayIntersectOctreeNode(Ray& ray, OctreeNode& node);
 
         void computeFirstHitIntersection(Ray& ray);
+
+        void checkRayOctreeIntersection(Ray& ray, OctreeNode& node, size_t& idx);
 
         double triangleBasedOcclusionLevel(bool enable_acceleration);
 
@@ -130,7 +132,9 @@ class Occlusion {
             return bbox;
         };
 
-        void traverseOctreeTriangle();
+        void buildLeafBBoxSet();
+
+        void buildCompleteOctreeNodes();
 
         void buildOctreeCloud();
 
@@ -156,7 +160,7 @@ class Occlusion {
             Eigen::AlignedBox3d bbox; // bounding box of mesh
             std::unordered_map<size_t, Intersection> t_intersections; // table of intersections
             std::unordered_map<size_t, Triangle> t_triangles; // table of triangles
-            std::unordered_map<size_t, Ray> t_rays; // table of rays
+            std::unordered_map<size_t, Ray> t_rays; // tables of rays
             std::unordered_map<size_t, Sample> t_samples; // table of samples
 
             pcl::PointCloud<pcl::PointXYZI>::Ptr t_octree_cloud; // octree cloud to store center of triangles
@@ -167,6 +171,8 @@ class Occlusion {
 
             Eigen::Vector3d oc_cloud_min_pt;
             Eigen::Vector3d oc_cloud_max_pt;
+
+            std::unordered_map<size_t, OctreeNode> t_octree_nodes; // table of octree nodes
 
 };
 

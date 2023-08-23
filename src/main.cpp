@@ -272,8 +272,8 @@ int main(int argc, char *argv[])
         occlusion.computeMeshBoundingBox();
 
         occlusion.buildOctreeCloud();
-        occlusion.traverseOctreeTriangle();
-        occlusion.generateCloudFromTriangle();
+        occlusion.buildCompleteOctreeNodes();
+        // occlusion.generateCloudFromTriangle();
         
         Eigen::AlignedBox3d bbox = occlusion.getBoundingBox();
         Eigen::Vector3d center = bbox.center();
@@ -328,7 +328,7 @@ int main(int argc, char *argv[])
         occlusion.generateTriangleFromCluster();
         occlusion.uniformSampleTriangle(samples_per_unit_area);
         occlusion.buildOctreeCloud();
-        occlusion.traverseOctreeTriangle();
+        occlusion.buildCompleteOctreeNodes();
         occlusion.generateRayFromTriangle(origins);
         double occlulsion_level = occlusion.triangleBasedOcclusionLevel(enable_acceleration);
         

@@ -1,11 +1,11 @@
 {
     "occlusion": {
         "mesh": {
-            "path": "../files/cube.obj",
+            "path": "../files/conf_m.obj",
             "pattern": 0,
-            "octree_resolution": 4.0,
+            "octree_resolution": 64.0,
             "enable_acceleration": true,
-            "samples_per_unit_area": 10
+            "samples_per_unit_area": 0.0005
         },
 
         "rg_mesh": {
