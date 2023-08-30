@@ -19,6 +19,7 @@ class Occlusion {
     public:
 
         Occlusion();
+        
         ~Occlusion();
         
         void setPointRadius(double radius) {
@@ -31,8 +32,20 @@ class Occlusion {
         };
 
 
-        void setOctreeResolutionTriangle(float resolution) {
-            octree_resolution_triangle = resolution;
+        void setInputCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud) {
+            input_cloud = cloud;
+        };
+
+        void setInputCloudBound(pcl::PointCloud<pcl::PointXYZI>::Ptr cloud) {
+            input_cloud_bound = cloud;
+        };
+
+        void setPolygonClouds(std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> clouds) {
+            polygonClouds = clouds;
+        };
+
+        void setAllCoefficients(std::vector<pcl::ModelCoefficients::Ptr> coefficients) {
+            allCoefficients = coefficients;
         };
 
 
@@ -92,11 +105,13 @@ class Occlusion {
 
         void traverseOctree();
 
-        double rayBasedOcclusionLevel(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, size_t num_rays_per_vp, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds, std::vector<pcl::ModelCoefficients::Ptr> allCoefficients);
+        double rayBasedOcclusionLevel(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, size_t num_rays_per_vp, std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds, std::vector<pcl::ModelCoefficients::Ptr> allCoefficients);
         /*-----------------------------------------------------------------------------------------------------------*/
         void generateRandomRays(size_t num_rays, pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt);
 
-        double randomRayBasedOcclusionLevel(bool use_openings, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds, std::vector<pcl::ModelCoefficients::Ptr> allCoefficients);
+        void checkRayOctreeIntersection(Ray3D& ray, pcl::PointXYZ& direction, OctreeNode& node);
+
+        double randomRayBasedOcclusionLevel(bool use_openings);
         /*-----------------------------------------------------------------------------------------------------------*/
         void parseTrianglesFromOBJ(const std::string& mesh_path);
 
@@ -120,7 +135,7 @@ class Occlusion {
 
         void computeFirstHitIntersection(Ray& ray);
 
-        void checkRayOctreeIntersection(Ray& ray, OctreeNode& node, size_t& idx);
+        void checkRayOctreeIntersectionTriangle(Ray& ray, OctreeNode& node, size_t& idx);
 
         double triangleBasedOcclusionLevel(bool enable_acceleration);
 
@@ -136,23 +151,26 @@ class Occlusion {
 
         void buildCompleteOctreeNodes();
 
+        void buildCompleteOctreeNodesTriangle();
+
         void buildOctreeCloud();
 
         private:
 
-            std::vector<Ray3D> random_rays;
+            std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds;
+            std::vector<pcl::ModelCoefficients::Ptr> allCoefficients;
 
+            std::unordered_map<size_t, Ray3D> t_random_rays; // table of random rays
             double point_radius;
             // double point_radius_random;
 
             float octree_resolution;
-            // float octree_resolution_random;
-            float octree_resolution_triangle;
 
             std::vector<pcl::PointIndices> rg_clusters;
             
             pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud;
             pcl::PointCloud<pcl::PointXYZ>::Ptr input_exterior_cloud;
+            pcl::PointCloud<pcl::PointXYZI>::Ptr input_cloud_bound;
             std::vector<LeafBBox> octree_leaf_bbox;
 
 
@@ -162,7 +180,7 @@ class Occlusion {
             std::unordered_map<size_t, Triangle> t_triangles; // table of triangles
             std::unordered_map<size_t, Ray> t_rays; // tables of rays
             std::unordered_map<size_t, Sample> t_samples; // table of samples
-
+        
             pcl::PointCloud<pcl::PointXYZI>::Ptr t_octree_cloud; // octree cloud to store center of triangles
             pcl::PointCloud<pcl::PointXYZ>::Ptr t_pure_octree_cloud; // pure octree cloud to store center of triangles
             
@@ -176,62 +194,3 @@ class Occlusion {
 
 };
 
-
-    // colored bounding box of each leaf node
-    // pcl::PointXYZRGB min_pt_rgb, min_x_rgb, min_y_rgb, min_diag_rgb, max_pt_rgb, max_x_rgb, max_y_rgb, max_diag_rgb;
-    // min_pt_rgb.x = min_pt.x(); 
-    // min_pt_rgb.y = min_pt.y(); 
-    // min_pt_rgb.z = min_pt.z();
-
-    // min_pt_rgb.r = r; min_pt_rgb.g = g; min_pt_rgb.b = b;
-
-    // min_x_rgb.x = max_pt.x(); 
-    // min_x_rgb.y = min_pt.y(); 
-    // min_x_rgb.z = min_pt.z();
-
-    // min_x_rgb.r = r; min_x_rgb.g = g; min_x_rgb.b = b;
-
-    // min_y_rgb.x = min_pt.x(); 
-    // min_y_rgb.y = max_pt.y(); 
-    // min_y_rgb.z = min_pt.z();
-
-    // min_y_rgb.r = r; min_y_rgb.g = g; min_y_rgb.b = b;
-
-    // min_diag_rgb.x = max_pt.x(); 
-    // min_diag_rgb.y = max_pt.y(); 
-    // min_diag_rgb.z = min_pt.z();
-
-    // min_diag_rgb.r = r; min_diag_rgb.g = g; min_diag_rgb.b = b;
-
-    // max_pt_rgb.x = max_pt.x();
-    // max_pt_rgb.y = max_pt.y();
-    // max_pt_rgb.z = max_pt.z();
-
-    // max_pt_rgb.r = r; max_pt_rgb.g = g; max_pt_rgb.b = b;
-
-    // max_x_rgb.x = min_pt.x();
-    // max_x_rgb.y = max_pt.y();
-    // max_x_rgb.z = max_pt.z();
-
-    // max_x_rgb.r = r; max_x_rgb.g = g; max_x_rgb.b = b;
-
-    // max_y_rgb.x = max_pt.x();
-    // max_y_rgb.y = min_pt.y();
-    // max_y_rgb.z = max_pt.z();
-
-    // max_y_rgb.r = r; max_y_rgb.g = g; max_y_rgb.b = b;
-
-    // max_diag_rgb.x = min_pt.x();
-    // max_diag_rgb.y = min_pt.y();
-    // max_diag_rgb.z = max_pt.z();
-
-    // max_diag_rgb.r = r; max_diag_rgb.g = g; max_diag_rgb.b = b;
-
-    // t_octree_cloud_rgb->points.push_back(min_pt_rgb);
-    // t_octree_cloud_rgb->points.push_back(max_pt_rgb);
-    // t_octree_cloud_rgb->points.push_back(min_x_rgb);
-    // t_octree_cloud_rgb->points.push_back(max_x_rgb);
-    // t_octree_cloud_rgb->points.push_back(min_y_rgb);
-    // t_octree_cloud_rgb->points.push_back(max_y_rgb);
-    // t_octree_cloud_rgb->points.push_back(min_diag_rgb);
-    // t_octree_cloud_rgb->points.push_back(max_diag_rgb);

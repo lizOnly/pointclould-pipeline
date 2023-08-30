@@ -232,10 +232,13 @@ std::vector<pcl::PointXYZ> Occlusion::UniformSamplingSphere(pcl::PointXYZ center
 
 
 pcl::ModelCoefficients::Ptr Occlusion::computePlaneCoefficients(std::vector<pcl::PointXYZ> points) {
+
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+
     for (auto& point : points){
         cloud->points.push_back(point);
     }
+
     pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
     pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
 
@@ -253,7 +256,9 @@ pcl::ModelCoefficients::Ptr Occlusion::computePlaneCoefficients(std::vector<pcl:
         PCL_ERROR("Could not estimate a planar model for the given dataset.");
         return nullptr;
     }
+    
     return coefficients;
+
 }
 
 
@@ -677,7 +682,6 @@ void Occlusion::traverseOctree() {
     pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>::LeafNodeIterator it_end = octree.leaf_depth_end();
 
     
-
     for (it = octree.leaf_depth_begin(max_depth); it != it_end; ++it) {
 
         Eigen::Vector3f min_pt, max_pt;
@@ -702,14 +706,12 @@ void Occlusion::traverseOctree() {
     }
 
     std::cout << "Number of leaf bbox: " << octree_leaf_bbox.size() << std::endl;
+
 }
 
 
-double Occlusion::rayBasedOcclusionLevel(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, size_t num_rays_per_vp, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds, std::vector<pcl::ModelCoefficients::Ptr> allCoefficients) {
-                                            
-    input_cloud = cloud;
-
-    traverseOctree();
+// with fixed light positions, 9 in in the scene
+double Occlusion::rayBasedOcclusionLevel(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, size_t num_rays_per_vp, std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds, std::vector<pcl::ModelCoefficients::Ptr> allCoefficients) {
 
     std::vector<pcl::PointXYZ> centers = Occlusion::getSphereLightSourceCenters(min_pt, max_pt);
     double occlusion_level = 0.0;
@@ -773,6 +775,204 @@ double Occlusion::rayBasedOcclusionLevel(pcl::PointXYZ& min_pt, pcl::PointXYZ& m
 }
 
 
+void Occlusion::buildCompleteOctreeNodes() {
+
+    pcl::octree::OctreePointCloudSearch<pcl::PointXYZI> octree(octree_resolution);
+    octree.setInputCloud(input_cloud_bound);
+    octree.addPointsFromInputCloud();
+
+    int max_depth = octree.getTreeDepth();
+    std::cout << "Max depth: " << max_depth << std::endl;
+
+    std::unordered_map<int, int> depth_map; // <diagonal distance of bounding box, depth of curren level>
+    std::unordered_map<int, std::vector<size_t>> depth_index_map; // <depth, index of nodes at current depth>
+    // depth first traversal
+
+    size_t idx = 0;
+
+    for (auto it = octree.begin(); it != octree.end(); ++it) {
+
+        OctreeNode node;
+        node.index = idx;
+
+        Eigen::Vector3f min_pt, max_pt;
+        octree.getVoxelBounds(it, min_pt, max_pt);
+
+        node.min_pt.x() = static_cast<double>(min_pt.x());
+        node.min_pt.y() = static_cast<double>(min_pt.y());
+        node.min_pt.z() = static_cast<double>(min_pt.z());
+
+        node.max_pt.x() = static_cast<double>(max_pt.x());
+        node.max_pt.y() = static_cast<double>(max_pt.y());
+        node.max_pt.z() = static_cast<double>(max_pt.z());
+
+        float d = (max_pt-min_pt).norm();
+        int d_int = static_cast<int>(d);
+        node.diagonal_distance = d_int;
+
+        depth_map[d_int] = 0;
+        
+        if (it.isBranchNode()) {
+            node.is_branch = true;
+            // std::cout << "Branch Distance: " << d << std::endl;
+        }
+
+        if (it.isLeafNode()) {
+            node.is_leaf = true;
+            // std::cout << "Leaf Distance: " << d << std::endl;
+
+            std::vector<int> point_idx = it.getLeafContainer().getPointIndicesVector();
+
+            for (auto& idx : point_idx) {
+                node.point_idx.push_back(idx);
+            }
+
+        }
+
+        t_octree_nodes[node.index] = node;
+        idx++;
+    }
+
+    std::cout << "Number of octree nodes: " << t_octree_nodes.size() << std::endl;
+
+    t_octree_nodes[0].is_root = true;
+
+    int depth = max_depth;
+    for (auto& d : depth_map) {
+        std::cout << "Diagonal distance: " << d.first << " in depth " << depth << std::endl;
+        d.second = depth;
+        depth--; 
+    }
+
+    if (depth_map.size() != max_depth + 1) {
+        std::cout << "Wrong depth map created" << std::endl;
+        return;
+    }
+
+    for (size_t i = 0; i < t_octree_nodes.size(); ++i) {
+
+        t_octree_nodes[i].depth = depth_map[t_octree_nodes[i].diagonal_distance];
+        depth_index_map[t_octree_nodes[i].depth].push_back(t_octree_nodes[i].index);
+
+    }
+
+    // build connections between nodes 
+    for (int d = 0; d < max_depth; d++) {
+        std::cout << "Depth: " << d << " has " << depth_index_map[d].size() << " nodes" <<std::endl;
+
+        for (auto& idx : depth_index_map[d]) {
+            
+            if (t_octree_nodes[idx].prev == -1) {
+                
+                if (t_octree_nodes[idx].next == -1) {
+
+                    for (int i = 0; i < depth_index_map[d+1].size(); ++i) {
+
+                        if (t_octree_nodes[depth_index_map[d+1][i]].parent_index != -1) {
+                            continue;
+                        }
+
+                        t_octree_nodes[idx].children.push_back(depth_index_map[d+1][i]);
+                        t_octree_nodes[depth_index_map[d+1][i]].parent_index = idx;
+
+                        if ((i + 1) < depth_index_map[d+1].size()) {
+
+                            t_octree_nodes[depth_index_map[d+1][i]].next = depth_index_map[d+1][i+1];
+                            t_octree_nodes[depth_index_map[d+1][i+1]].prev = depth_index_map[d+1][i];
+
+                        } 
+                    }
+
+                } else {
+
+                    for (int i = 0; i < depth_index_map[d+1].size(); ++i) {
+                        
+                        if (depth_index_map[d+1][i] < t_octree_nodes[idx].next) {
+                            
+                            if (t_octree_nodes[depth_index_map[d+1][i]].parent_index != -1) {
+                                continue;
+                            }
+
+                            t_octree_nodes[idx].children.push_back(depth_index_map[d+1][i]);
+                            t_octree_nodes[depth_index_map[d+1][i]].parent_index = idx;
+
+                            if ((i + 1) < depth_index_map[d+1].size()) {
+
+                                t_octree_nodes[depth_index_map[d+1][i]].next = depth_index_map[d+1][i+1];
+                                t_octree_nodes[depth_index_map[d+1][i+1]].prev = depth_index_map[d+1][i];
+
+                            } 
+                        }
+                    }
+
+                }
+            } else if (t_octree_nodes[idx].next == -1) {
+
+                for (int i = 0; i < depth_index_map[d+1].size(); ++i) {
+                        
+                    if (depth_index_map[d+1][i] > t_octree_nodes[idx].prev) {
+                        
+                        if (t_octree_nodes[depth_index_map[d+1][i]].parent_index != -1) {
+                            continue;
+                        }
+
+                        t_octree_nodes[idx].children.push_back(depth_index_map[d+1][i]);
+                        t_octree_nodes[depth_index_map[d+1][i]].parent_index = idx;
+
+                        if ((i + 1) < depth_index_map[d+1].size()) {
+
+                            t_octree_nodes[depth_index_map[d+1][i]].next = depth_index_map[d+1][i+1];
+                            t_octree_nodes[depth_index_map[d+1][i+1]].prev = depth_index_map[d+1][i];
+
+                        } 
+                    }
+                }
+
+            } else {
+
+                for (int i = 0; i < depth_index_map[d+1].size(); ++i) {
+                        
+                    if (depth_index_map[d+1][i] > t_octree_nodes[idx].prev && depth_index_map[d+1][i] < t_octree_nodes[idx].next) {
+                        
+                        if (t_octree_nodes[depth_index_map[d+1][i]].parent_index != -1) {
+                            continue;
+                        }
+
+                        t_octree_nodes[idx].children.push_back(depth_index_map[d+1][i]);
+                        t_octree_nodes[depth_index_map[d+1][i]].parent_index = idx;
+
+                        if ((i + 1) < depth_index_map[d+1].size()) {
+
+                            t_octree_nodes[depth_index_map[d+1][i]].next = depth_index_map[d+1][i+1];
+                            t_octree_nodes[depth_index_map[d+1][i+1]].prev = depth_index_map[d+1][i];
+
+                        } 
+                    }
+                }
+
+            }
+        }
+
+    }
+
+    std::cout << "Octree built! Number of octree nodes: " << t_octree_nodes.size() << std::endl;
+
+    for (int d = 0; d < max_depth; d++) {
+        
+        size_t num_children = 0;
+        
+        for (auto& idx : depth_index_map[d]) {
+            
+            num_children += t_octree_nodes[idx].children.size();
+        
+        }
+
+        std::cout << "Depth: " << d << " has " << depth_index_map[d].size() << " nodes and " << num_children << " children" <<std::endl;
+    }
+
+}
+
+
 void Occlusion::generateRandomRays(size_t num_rays, pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt) {
 
     static bool seedSet = false;
@@ -791,9 +991,11 @@ void Occlusion::generateRandomRays(size_t num_rays, pcl::PointXYZ& min_pt, pcl::
         
         pcl::PointXYZ look_at;
         do {
+
             look_at.x = min_pt.x + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(max_pt.x-min_pt.x)));
             look_at.y = min_pt.y + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(max_pt.y-min_pt.y)));
             look_at.z = min_pt.z + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(max_pt.z-min_pt.z)));
+        
         } while (origin.x == look_at.x && origin.y == look_at.y && origin.z == look_at.z);
 
         Ray3D ray;
@@ -802,66 +1004,100 @@ void Occlusion::generateRandomRays(size_t num_rays, pcl::PointXYZ& min_pt, pcl::
         ray.direction.y = look_at.y - origin.y;
         ray.direction.z = look_at.z - origin.z;
 
-        random_rays.push_back(ray);
-
+        t_random_rays[i] = ray;
     }
 
-    std::cout << "Number of random rays: " << random_rays.size() << std::endl;
+    std::cout << "Number of random rays: " << t_random_rays.size() << std::endl;
 
 }
 
 
-double Occlusion::randomRayBasedOcclusionLevel(bool use_openings, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds, std::vector<pcl::ModelCoefficients::Ptr> allCoefficients) {
-    
-    input_cloud = cloud;
+void Occlusion::checkRayOctreeIntersection(Ray3D& ray, pcl::PointXYZ& direction, OctreeNode& node) {
 
-    traverseOctree();
-
-    size_t cloud_intersec_rays = 0;
-    size_t polygon_intersec_rays = 0;
-    size_t occlusion_rays = 0;
-
-    size_t num_rays = random_rays.size();
-
-    for (auto& ray : random_rays) {
+    if (node.is_leaf) {
         
-        if (rayIntersectPointCloud(ray)) {
+        // a ray in 1 direction can only intersect a boundary point once, so at most 2 intersections
+        if (direction.x == ray.direction.x && direction.y == ray.direction.y && direction.z == ray.direction.z) {
 
-            cloud_intersec_rays++;
-
-        } else {
-
-            if (use_openings) {
-                
-                for (size_t k = 0; k < polygonClouds.size(); ++k) {
-
-                    if (Occlusion::rayIntersectPolygon(ray, polygonClouds[k], allCoefficients[k])) {
-
-                        polygon_intersec_rays++;
-                        break;
-
-                    } else if (k == (polygonClouds.size() - 1)) {
-
-                        occlusion_rays++;
-
-                    }
-                }
-
-            } else {
-
-                occlusion_rays++;
-
+            if (ray.bound_intersection_idx.size() == 1) {
+                return;
             }
+        } else {
+            if (ray.bound_intersection_idx.size() == 2) {
+                return;
+            }
+        }
+
+        for (auto& point_idx : node.point_idx) {
+
+            pcl::PointXYZI point = input_cloud_bound->points[point_idx];
+            pcl::PointXYZ point_xyz(point.x, point.y, point.z);
+
+            if (rayIntersectSpehre(ray.origin, direction, point_xyz, point_radius)) {
+                if (point.intensity == 1.0) {
+                    ray.bound_intersection_idx.push_back(point_idx);
+                    return;
+                } else {
+                    ray.clutter_intersection_idx.push_back(point_idx);
+                }
+            }
+        }
+
+    } else {
+
+        for (auto& child_idx : node.children) {
             
+            pcl::PointXYZ min_pt(node.min_pt.x(), node.min_pt.y(), node.min_pt.z());
+            pcl::PointXYZ max_pt(node.max_pt.x(), node.max_pt.y(), node.max_pt.z());
+
+            if (rayBoxIntersection(ray, min_pt, max_pt)) {
+                checkRayOctreeIntersection(ray, direction, t_octree_nodes[child_idx]);
+            }
+
+        }
+
+    }
+}
+
+
+double Occlusion::randomRayBasedOcclusionLevel(bool use_openings) {
+
+
+    size_t num_rays = t_random_rays.size();
+
+    for (auto& ray : t_random_rays) {
+
+        pcl::PointXYZ direction = ray.second.direction;
+        OctreeNode root = t_octree_nodes[0];
+        checkRayOctreeIntersection(ray.second, direction, root);
+        pcl::PointXYZ direction2(-direction.x, -direction.y, -direction.z);
+        checkRayOctreeIntersection(ray.second, direction2, root);
+       
+    }
+
+    size_t two_bounds_ray_count = 0;
+    size_t one_bound_ray_count = 0;
+    size_t no_bound_ray_count = 0;
+
+    for (auto& ray : t_random_rays) {
+
+        if (ray.second.bound_intersection_idx.size() == 0) {
+            no_bound_ray_count++;
+        } else if (ray.second.bound_intersection_idx.size() == 1) {
+            one_bound_ray_count++;
+        } else if (ray.second.bound_intersection_idx.size() == 2) {
+            two_bounds_ray_count++;
         }
     }
 
     std::cout << "Number of rays: " << num_rays << std::endl;
-    std::cout << "Number of cloud intersection rays: " << cloud_intersec_rays << std::endl;
-    std::cout << "Number of polygon intersection rays: " << polygon_intersec_rays << std::endl;
-    std::cout << "Number of occlusion rays: " << occlusion_rays << std::endl;
+    std::cout << "Number of rays with no bound intersection: " << no_bound_ray_count << std::endl;
+    std::cout << "Number of rays with one bound intersection: " << one_bound_ray_count << std::endl;
+    std::cout << "Number of rays with two bound intersections: " << two_bounds_ray_count << std::endl;
 
-    double occlusion_level = (double) occlusion_rays / (double) num_rays;
+    double occlusion_level = 0.0;
+
+    occlusion_level = (one_bound_ray_count * 1.0 + no_bound_ray_count * 2.0) / ((one_bound_ray_count + two_bounds_ray_count) * 1.0 + no_bound_ray_count * 2.0);
 
     return occlusion_level;
     
@@ -1312,7 +1548,7 @@ void Occlusion::computeFirstHitIntersection(Ray& ray) {
 
    
 
-void Occlusion::checkRayOctreeIntersection(Ray& ray, OctreeNode& node, size_t& intersection_idx) {
+void Occlusion::checkRayOctreeIntersectionTriangle(Ray& ray, OctreeNode& node, size_t& intersection_idx) {
     
     if (rayIntersectOctreeNode(ray, node)) {
 
@@ -1338,7 +1574,7 @@ void Occlusion::checkRayOctreeIntersection(Ray& ray, OctreeNode& node, size_t& i
             
             for (auto node_idx : node.children) {
                 // std::cout << "Checking child node " << node_idx << std::endl;
-                checkRayOctreeIntersection(ray, t_octree_nodes[node_idx], intersection_idx);
+                checkRayOctreeIntersectionTriangle(ray, t_octree_nodes[node_idx], intersection_idx);
                             
             }
         } 
@@ -1363,7 +1599,7 @@ double Occlusion::triangleBasedOcclusionLevel(bool enable_acceleration) {
 
         for (auto& ray_idx : sample.second.ray_idx) {
 
-            checkRayOctreeIntersection(t_rays[ray_idx], root_node, intersection_idx);
+            checkRayOctreeIntersectionTriangle(t_rays[ray_idx], root_node, intersection_idx);
 
             if (t_rays[ray_idx].intersection_idx.size() == 1) {
                 
@@ -1457,7 +1693,7 @@ double Occlusion::triangleBasedOcclusionLevel(bool enable_acceleration) {
 
 void Occlusion::buildLeafBBoxSet() {
 
-    pcl::octree::OctreePointCloudSearch<pcl::PointXYZI> octree(octree_resolution_triangle);
+    pcl::octree::OctreePointCloudSearch<pcl::PointXYZI> octree(octree_resolution);
     octree.setInputCloud(t_octree_cloud);
     octree.addPointsFromInputCloud();
 
@@ -1537,9 +1773,9 @@ void Occlusion::buildLeafBBoxSet() {
 }
 
 
-void Occlusion::buildCompleteOctreeNodes() {
+void Occlusion::buildCompleteOctreeNodesTriangle() {
 
-    pcl::octree::OctreePointCloudSearch<pcl::PointXYZI> octree(octree_resolution_triangle);
+    pcl::octree::OctreePointCloudSearch<pcl::PointXYZI> octree(octree_resolution);
     octree.setInputCloud(t_octree_cloud);
     octree.addPointsFromInputCloud();
 
@@ -1987,6 +2223,7 @@ void Occlusion::generateCloudFromIntersection() {
 
 }
 
+
 void Occlusion::generateCloudFromTriangle() {
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
@@ -2019,4 +2256,3 @@ void Occlusion::generateCloudFromTriangle() {
     std::cout << "Saved " << cloud->points.size() << " data points to cloud generated from triangle." << std::endl;
 
 }
-

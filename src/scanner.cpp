@@ -527,6 +527,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::multi_square_scanner(double step
     return scanned_cloud;   
 }
 
+
 std::vector<pcl::PointXYZ> random_look_at_direction(int num_directions, pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt) {
 
     std::vector<pcl::PointXYZ> points;

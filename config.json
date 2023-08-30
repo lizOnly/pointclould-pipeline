@@ -17,7 +17,7 @@
                 "smoothness_threshold": 4.0,
                 "curvature_threshold": 1.0
             },
-            "path": "../files/conf1.pcd",
+            "path": "../files/conf2.pcd",
             "pattern": 0,
             "octree_resolution": 1.0,
             "enable_acceleration": true,
@@ -33,9 +33,9 @@
             "octree_resolution": 0.5
         },
 
-        "exterior_cloud": {
-            "path": "../files/gt_ext.pcd",
-            "num_rays": 20000,
+        "boundary_cloud": {
+            "path": "../files/bound_cloud.pcd",
+            "num_rays": 2000,
             "point_radius": 0.01,
             "polygon_path": "../files/polygon_conf.txt",
             "octree_resolution": 1.0,
@@ -73,7 +73,7 @@
     },
 
     "transfer": {
-        "path_pcd": "../files/conf1.pcd"
+        "path_pcd": "../files/copy.pcd"
     }
 
 }

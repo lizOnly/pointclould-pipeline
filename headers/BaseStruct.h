@@ -5,18 +5,16 @@
 #include <Eigen/Core>
 
 
-struct Ray3D {
 
+struct Ray3D { // ray structure used for point cloud ray tracing
+
+    size_t index;
     pcl::PointXYZ origin;
     pcl::PointXYZ direction;
-
-};
-
-struct Disk3D {
-
-    pcl::PointXYZ center;
-    double radius;
-    pcl::Normal normal;
+    std::vector<size_t> bound_intersection_idx; // index in point cloud
+    std::vector<size_t> clutter_intersection_idx; // index in triangle vector
+    int type; // how many boundary points are hit by this ray
+    bool intersect_clutter = false;
 
 };
 
@@ -65,8 +63,6 @@ struct Triangle {
     Eigen::Vector3d v3;
     Eigen::Vector3d center;
     double area;
-    double weighted_area;
-    double occlusion_ratio;
     std::vector<size_t> sample_idx;
     std::vector<size_t> intersection_idx;
     std::vector<size_t> ray_idx;
@@ -83,6 +79,7 @@ struct OctreeNode {
     int depth;
     std::vector<size_t> children;
     std::vector<size_t> triangle_idx;
+    std::vector<size_t> point_idx;
 
     int diagonal_distance;
     

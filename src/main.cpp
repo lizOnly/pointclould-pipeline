@@ -163,7 +163,7 @@ void on_message(server& s, websocketpp::connection_hdl hdl, server::message_ptr 
                 polygonClouds.push_back(polygon);
             }
 
-            double rayOcclusionLevel = occlusion.rayBasedOcclusionLevel(minPt, maxPt, 10000, cloud, polygonClouds, allCoefficients);
+            double rayOcclusionLevel = occlusion.rayBasedOcclusionLevel(minPt, maxPt, 10000, polygonClouds, allCoefficients);
 
             std::cout << "rayOcclusionLevel: " << rayOcclusionLevel << std::endl;
 
@@ -266,13 +266,13 @@ int main(int argc, char *argv[])
 
         Occlusion occlusion;
 
-        occlusion.setOctreeResolutionTriangle(octree_resolution);
+        occlusion.setOctreeResolution(octree_resolution);
         occlusion.parseTrianglesFromOBJ(mesh_path);
         occlusion.uniformSampleTriangle(samples_per_unit_area);
         occlusion.computeMeshBoundingBox();
 
         occlusion.buildOctreeCloud();
-        occlusion.buildCompleteOctreeNodes();
+        occlusion.buildCompleteOctreeNodesTriangle();
         // occlusion.generateCloudFromTriangle();
         
         Eigen::AlignedBox3d bbox = occlusion.getBoundingBox();
@@ -315,7 +315,7 @@ int main(int argc, char *argv[])
 
         Occlusion occlusion;
 
-        occlusion.setOctreeResolutionTriangle(octree_resolution);
+        occlusion.setOctreeResolution(octree_resolution);
         pcl::PointXYZ min_pt, max_pt;
         pcl::getMinMax3D(*cloud, min_pt, max_pt);
         Eigen::Vector3d center = Eigen::Vector3d((min_pt.x + max_pt.x) / 2, (min_pt.y + max_pt.y) / 2, (min_pt.z + max_pt.z) / 2);
@@ -328,11 +328,69 @@ int main(int argc, char *argv[])
         occlusion.generateTriangleFromCluster();
         occlusion.uniformSampleTriangle(samples_per_unit_area);
         occlusion.buildOctreeCloud();
-        occlusion.buildCompleteOctreeNodes();
+        occlusion.buildCompleteOctreeNodesTriangle();
         occlusion.generateRayFromTriangle(origins);
         double occlulsion_level = occlusion.triangleBasedOcclusionLevel(enable_acceleration);
         
         std::cout << "Region growing generated mesh based occlulsion level is: " << occlulsion_level << std::endl;
+
+        helper.displayRunningTime(start);
+
+    } else if (arg1 == "-bounoc") {
+        // calculate based on how many intersections a ray has with the boundary of the point cloud
+
+        auto occlusion_boundary = j.at("occlusion").at("boundary_cloud");
+
+        std::string path = occlusion_boundary.at("path");
+        std::cout << "input cloud path is: " << path << std::endl;
+
+        pcl::PointCloud<pcl::PointXYZI>::Ptr bound_cloud(new pcl::PointCloud<pcl::PointXYZI>);
+        pcl::io::loadPCDFile<pcl::PointXYZI>(path, *bound_cloud);
+
+        pcl::PointXYZI min_pt, max_pt;
+        pcl::getMinMax3D(*bound_cloud, min_pt, max_pt);
+        pcl::PointXYZ min_pt_bound(min_pt.x, min_pt.y, min_pt.z);
+        pcl::PointXYZ max_pt_bound(max_pt.x, max_pt.y, max_pt.z);
+
+        std::string polygon_path = occlusion_boundary.at("polygon_path");
+        std::cout << "polygon path is: " << polygon_path << std::endl;
+
+        size_t num_rays = occlusion_boundary.at("num_rays");
+        double point_radius = occlusion_boundary.at("point_radius");
+        float octree_resolution = occlusion_boundary.at("octree_resolution");
+        bool use_openings = occlusion_boundary.at("use_openings");
+
+        Occlusion occlusion;
+
+        occlusion.setPointRadius(point_radius);
+        occlusion.setOctreeResolution(octree_resolution);
+        occlusion.setInputCloudBound(bound_cloud);
+        occlusion.buildCompleteOctreeNodes();
+
+        if (use_openings) {
+            std::cout << "Using openings" << std::endl;
+            std::vector<std::vector<pcl::PointXYZ>> polygons = occlusion.parsePolygonData(polygon_path);
+            std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds;
+            std::vector<pcl::ModelCoefficients::Ptr> allCoefficients;
+
+            for (int i = 0; i < polygons.size(); i++) {
+                pcl::ModelCoefficients::Ptr coefficients = occlusion.computePlaneCoefficients(polygons[i]);
+                allCoefficients.push_back(coefficients);
+                pcl::PointCloud<pcl::PointXYZ>::Ptr polygon = occlusion.estimatePolygon(polygons[i], coefficients);
+                polygonClouds.push_back(polygon);
+            }
+
+            occlusion.setPolygonClouds(polygonClouds);
+            occlusion.setAllCoefficients(allCoefficients);
+        } else {
+            std::cout << "Not using openings" << std::endl;
+        }
+
+        occlusion.generateRandomRays(num_rays, min_pt_bound, max_pt_bound);
+
+        double randomRayBasedOcclusionLevel = occlusion.randomRayBasedOcclusionLevel(use_openings);
+
+        std::cout << "Random ray based occlusion level is: " << randomRayBasedOcclusionLevel << std::endl;
 
         helper.displayRunningTime(start);
 
@@ -358,6 +416,7 @@ int main(int argc, char *argv[])
 
         Occlusion occlusion;
 
+        occlusion.setInputCloud(cloud);
         occlusion.setOctreeResolution(octree_resolution);
         occlusion.setPointRadius(point_radius);
         std::vector<std::vector<pcl::PointXYZ>> polygons = occlusion.parsePolygonData(polygon_path);
@@ -371,51 +430,7 @@ int main(int argc, char *argv[])
             polygonClouds.push_back(polygon);
         }
 
-        double rayOcclusionLevel = occlusion.rayBasedOcclusionLevel(min_pt, max_pt, num_rays_per_vp, cloud, polygonClouds, allCoefficients);  
-
-        helper.displayRunningTime(start);
-
-    } else if (arg1 == "-extoc") {
-        
-        auto occlusion_exterior = j.at("occlusion").at("exterior_cloud");
-
-        std::string path = occlusion_exterior.at("path");
-        std::cout << "input cloud path is: " << path << std::endl;
-
-        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
-        pcl::io::loadPCDFile<pcl::PointXYZ>(path, *cloud);
-
-        pcl::PointXYZ min_pt, max_pt;
-        pcl::getMinMax3D(*cloud, min_pt, max_pt);
-
-        std::string polygon_path = occlusion_exterior.at("polygon_path");
-        std::cout << "polygon path is: " << polygon_path << std::endl;
-
-        size_t num_rays = occlusion_exterior.at("num_rays");
-        double point_radius = occlusion_exterior.at("point_radius");
-        float octree_resolution = occlusion_exterior.at("octree_resolution");
-        bool use_openings = occlusion_exterior.at("use_openings");
-
-        Occlusion occlusion;
-
-        occlusion.setPointRadius(point_radius);
-        occlusion.setOctreeResolution(octree_resolution);
-
-        std::vector<std::vector<pcl::PointXYZ>> polygons = occlusion.parsePolygonData(polygon_path);
-        std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds;
-        std::vector<pcl::ModelCoefficients::Ptr> allCoefficients;
-
-        for (int i = 0; i < polygons.size(); i++) {
-            pcl::ModelCoefficients::Ptr coefficients = occlusion.computePlaneCoefficients(polygons[i]);
-            allCoefficients.push_back(coefficients);
-            pcl::PointCloud<pcl::PointXYZ>::Ptr polygon = occlusion.estimatePolygon(polygons[i], coefficients);
-            polygonClouds.push_back(polygon);
-        }
-        
-        occlusion.generateRandomRays(num_rays, min_pt, max_pt);
-
-        double randomRayBasedOcclusionLevel = occlusion.randomRayBasedOcclusionLevel(use_openings, cloud, polygonClouds, allCoefficients);
-        std::cout << "Random ray based occlusion level is: " << randomRayBasedOcclusionLevel << std::endl;
+        double rayOcclusionLevel = occlusion.rayBasedOcclusionLevel(min_pt, max_pt, num_rays_per_vp, polygonClouds, allCoefficients);  
 
         helper.displayRunningTime(start);
     
@@ -470,6 +485,18 @@ int main(int argc, char *argv[])
 
         auto recon = j.at("recon");
         std::string path = recon.at("path");
+
+        Reconstruction reconstruct;
+
+        reconstruct.pointCloudReconstructionFromTxt(path);
+
+        helper.displayRunningTime(start);
+
+    } else if (arg1 == "-recongt") {
+
+        // Since we use S3d as our dataset, we have to reconstruct the ground truth point cloud from .txt file
+
+        auto recon = j.at("recon");
         std::string gt_path = recon.at("gt_path");
 
         Reconstruction reconstruct;

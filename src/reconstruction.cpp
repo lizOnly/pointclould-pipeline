@@ -107,7 +107,7 @@ void Reconstruction::pointCloudReconstructionFromTxt(std::string path)
     int r, g, b;
     while (file >> x >> y >> z >> r >> g >> b)
     {   
-        std::cout << "x: " << x << " y: " << y << " z: " << z << " r: " << r << " g: " << g << " b: " << b << std::endl;
+        // std::cout << "x: " << x << " y: " << y << " z: " << z << " r: " << r << " g: " << g << " b: " << b << std::endl;
         pcl::PointXYZRGB point;
         point.x = x;
         point.y = y;
@@ -151,8 +151,9 @@ void Reconstruction::buildGroundTruthCloud(std::string folder_path) {
 
     // intensity is used to store the label
     pcl::PointCloud<pcl::PointXYZI>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZI>);
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr exterior_cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr interior_cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
+    pcl::PointCloud<pcl::PointXYZI>::Ptr bound_cloud (new pcl::PointCloud<pcl::PointXYZI>);
+    // pcl::PointCloud<pcl::PointXYZRGB>::Ptr exterior_cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
+    // pcl::PointCloud<pcl::PointXYZRGB>::Ptr interior_cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
 
     for (const auto & entry : std::filesystem::directory_iterator(folder_path)) {
         
@@ -172,14 +173,14 @@ void Reconstruction::buildGroundTruthCloud(std::string folder_path) {
 
             while (file >> x_ext >> y_ext >> z_ext >> r_ext >> g_ext >> b_ext)
             {   
-                pcl::PointXYZRGB point_ext;
-                point_ext.x = x_ext;
-                point_ext.y = y_ext;
-                point_ext.z = z_ext;
-                point_ext.r = r_ext;
-                point_ext.g = g_ext;
-                point_ext.b = b_ext;
-                exterior_cloud->points.push_back(point_ext);
+                // pcl::PointXYZRGB point_ext;
+                // point_ext.x = x_ext;
+                // point_ext.y = y_ext;
+                // point_ext.z = z_ext;
+                // point_ext.r = r_ext;
+                // point_ext.g = g_ext;
+                // point_ext.b = b_ext;
+                // exterior_cloud->points.push_back(point_ext);
 
                 pcl::PointXYZI point;
                 point.x = x_ext;
@@ -193,7 +194,18 @@ void Reconstruction::buildGroundTruthCloud(std::string folder_path) {
                     point.intensity = -1;
                 }
                 cloud->points.push_back(point);
+
+                pcl::PointXYZI point_bound;
+                point_bound.x = x_ext;
+                point_bound.y = y_ext;
+                point_bound.z = z_ext;
+
+                point_bound.intensity = 1.0;
+
+                bound_cloud->points.push_back(point_bound);
+
             }
+
         } else {
 
             float x_int, y_int, z_int;
@@ -201,14 +213,14 @@ void Reconstruction::buildGroundTruthCloud(std::string folder_path) {
 
             while (file >> x_int >> y_int >> z_int >> r_int >> g_int >> b_int) 
             {   
-                pcl::PointXYZRGB point_int;
-                point_int.x = x_int;
-                point_int.y = y_int;
-                point_int.z = z_int;
-                point_int.r = r_int;
-                point_int.g = g_int;
-                point_int.b = b_int;
-                interior_cloud->points.push_back(point_int);
+                // pcl::PointXYZRGB point_int;
+                // point_int.x = x_int;
+                // point_int.y = y_int;
+                // point_int.z = z_int;
+                // point_int.r = r_int;
+                // point_int.g = g_int;
+                // point_int.b = b_int;
+                // interior_cloud->points.push_back(point_int);
 
                 pcl::PointXYZI point;
                 point.x = x_int;
@@ -222,6 +234,16 @@ void Reconstruction::buildGroundTruthCloud(std::string folder_path) {
                     point.intensity = -1;
                 }
                 cloud->points.push_back(point);
+
+                pcl::PointXYZI point_bound;
+                point_bound.x = x_int;
+                point_bound.y = y_int;
+                point_bound.z = z_int;
+
+                point_bound.intensity = 0.0;
+
+                bound_cloud->points.push_back(point_bound);
+                
             }
 
         }
@@ -234,29 +256,35 @@ void Reconstruction::buildGroundTruthCloud(std::string folder_path) {
 
     pcl::io::savePCDFile("../files/gt.pcd", *cloud);
 
-    exterior_cloud->width = exterior_cloud->points.size();
-    exterior_cloud->height = 1;
+    bound_cloud->width = bound_cloud->points.size();
+    bound_cloud->height = 1;
 
-    pcl::io::savePCDFile("../files/gt_ext.pcd", *exterior_cloud);
+    pcl::io::savePCDFile("../files/bound_cloud.pcd", *bound_cloud);
 
-    interior_cloud->width = interior_cloud->points.size();
-    interior_cloud->height = 1;
+    // exterior_cloud->width = exterior_cloud->points.size();
+    // exterior_cloud->height = 1;
 
-    pcl::io::savePCDFile("../files/gt_int.pcd", *interior_cloud);
+    // pcl::io::savePCDFile("../files/gt_ext.pcd", *exterior_cloud);
 
-    interior_ratio = (double)interior_cloud->points.size() / (double)cloud->points.size();
+    // interior_cloud->width = interior_cloud->points.size();
+    // interior_cloud->height = 1;
 
-    std::cout << "interior ratio: " << interior_ratio << std::endl;
+    // pcl::io::savePCDFile("../files/gt_int.pcd", *interior_cloud);
+
+    // interior_ratio = (double)interior_cloud->points.size() / (double)cloud->points.size();
+
+    // std::cout << "interior ratio: " << interior_ratio << std::endl;
 
 }
 
 
 void Reconstruction::pcd2ply(std::string path) {
+
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
     pcl::io::loadPCDFile<pcl::PointXYZRGB>(path, *cloud);
 
     std::string output_path = path.substr(0, path.length() - 4) + ".ply";
-    pcl::io::savePLYFileASCII(path, *cloud);
+    pcl::io::savePLYFileASCII(output_path, *cloud);
 
 }
 
