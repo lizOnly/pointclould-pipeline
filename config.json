@@ -1,28 +1,14 @@
 {
     "occlusion": {
         "mesh": {
-            "path": "../files/conf_m.obj",
-            "pattern": 4,
-            "octree_resolution": 64.0,
-            "enable_acceleration": true,
-            "samples_per_unit_area": 0.01
-        },
-
-        "rg_mesh": {
-            "seg_config": {
-                "min_cluster_size": 100,
-                "max_cluster_size": 100000,
-                "num_neighbours": 40,
-                "k_search_neighbours": 50,
-                "smoothness_threshold": 4.0,
-                "curvature_threshold": 1.0
-            },
-            "path": "../files/conf2.pcd",
+            "path": "../files/simp_conf.obj",
+            "ply_path": "../files/copy_alpha_shape.ply",
             "pattern": 0,
             "octree_resolution": 1.0,
             "enable_acceleration": true,
-            "samples_per_unit_area": 1
-        },  
+            "samples_per_unit_area": 100,
+            "use_ply": true
+        },
 
         "point_cloud": {
             "path": "../files/conf1.pcd",
@@ -34,9 +20,9 @@
         },
 
         "boundary_cloud": {
-            "path": "../files/bound_cloud.pcd",
+            "path": "../files/copy_bound.pcd",
             "num_rays": 2000,
-            "point_radius": 0.01,
+            "point_radius": 0.04,
             "polygon_path": "../files/polygon_conf.txt",
             "octree_resolution": 1.0,
             "use_openings": false

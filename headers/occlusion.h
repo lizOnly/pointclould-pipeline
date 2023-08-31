@@ -21,6 +21,14 @@ class Occlusion {
         Occlusion();
         
         ~Occlusion();
+
+        Eigen::Vector3d getMeshMinVertex() {
+            return mesh_min_vertex;
+        };
+
+        Eigen::Vector3d getMeshMaxVertex() {
+            return mesh_max_vertex;
+        };
         
         void setPointRadius(double radius) {
             point_radius = radius;
@@ -68,8 +76,6 @@ class Occlusion {
             return cloud_filtered;
         };
 
-
-
         void regionGrowingSegmentation(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, size_t min_cluster_size, size_t max_cluster_size, int num_neighbours, int k_search_neighbours, double smoothness_threshold, double curvature_threshold);
 
         Eigen::Vector3d computeCentroid(pcl::PointCloud<pcl::PointXYZ>::Ptr polygon_cloud);
@@ -115,11 +121,13 @@ class Occlusion {
         /*-----------------------------------------------------------------------------------------------------------*/
         void parseTrianglesFromOBJ(const std::string& mesh_path);
 
+        void parseTrianglesFromPLY(const std::string& ply_path);
+
         void uniformSampleTriangle(double samples_per_unit_area);
 
-        double calculateTriangleArea(Triangle& tr);
+        void haltonSampleTriangle(double samples_per_unit_area);
 
-        void computeMeshBoundingBox();
+        double calculateTriangleArea(Triangle& tr);
 
         void generateRayFromTriangle(std::vector<Eigen::Vector3d>& origins);
 
@@ -140,8 +148,6 @@ class Occlusion {
         double triangleBasedOcclusionLevel(bool enable_acceleration);
 
         void generateCloudFromIntersection();
-
-        void generateCloudFromTriangle();
 
         Eigen::AlignedBox3d getBoundingBox() {
             return bbox;
@@ -176,6 +182,10 @@ class Occlusion {
 
             std::vector<Eigen::Vector3d> vertices; // all vertices of mesh
             Eigen::AlignedBox3d bbox; // bounding box of mesh
+            Eigen::Vector3d mesh_min_vertex; // min vertex of mesh
+            Eigen::Vector3d mesh_max_vertex; // max vertex of mesh
+
+
             std::unordered_map<size_t, Intersection> t_intersections; // table of intersections
             std::unordered_map<size_t, Triangle> t_triangles; // table of triangles
             std::unordered_map<size_t, Ray> t_rays; // tables of rays

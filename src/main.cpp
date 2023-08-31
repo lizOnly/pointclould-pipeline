@@ -256,29 +256,32 @@ int main(int argc, char *argv[])
     if (arg1 == "-moc") {
 
         auto occlusion_mesh = j.at("occlusion").at("mesh");
-        std::string mesh_path = occlusion_mesh.at("path");
-        std::cout << "mesh path is: " << mesh_path << std::endl;
 
         int pattern = occlusion_mesh.at("pattern");
         float octree_resolution = occlusion_mesh.at("octree_resolution");
         bool enable_acceleration = occlusion_mesh.at("enable_acceleration");
         double samples_per_unit_area = occlusion_mesh.at("samples_per_unit_area");
+        bool use_ply = occlusion_mesh.at("use_ply");
 
         Occlusion occlusion;
 
+        if (use_ply) {
+            std::string ply_path = occlusion_mesh.at("ply_path");
+            std::cout << "ply path is: " << ply_path << std::endl;
+            occlusion.parseTrianglesFromPLY(ply_path);
+        } else {
+            std::string mesh_path = occlusion_mesh.at("path");
+            std::cout << "mesh path is: " << mesh_path << std::endl;
+            occlusion.parseTrianglesFromOBJ(mesh_path);
+        }
         occlusion.setOctreeResolution(octree_resolution);
-        occlusion.parseTrianglesFromOBJ(mesh_path);
-        occlusion.uniformSampleTriangle(samples_per_unit_area);
-        occlusion.computeMeshBoundingBox();
-
+        occlusion.haltonSampleTriangle(samples_per_unit_area);
         occlusion.buildOctreeCloud();
         occlusion.buildCompleteOctreeNodesTriangle();
-        // occlusion.generateCloudFromTriangle();
         
-        Eigen::AlignedBox3d bbox = occlusion.getBoundingBox();
-        Eigen::Vector3d center = bbox.center();
-        Eigen::Vector3d min = bbox.min();
-        Eigen::Vector3d max = bbox.max();
+        Eigen::Vector3d min = occlusion.getMeshMinVertex();
+        Eigen::Vector3d max = occlusion.getMeshMaxVertex();
+        Eigen::Vector3d center = (min + max) / 2.0;
 
         std::vector<Eigen::Vector3d> origins = occlusion.viewPointPattern(pattern, min, max, center);
         
@@ -287,52 +290,6 @@ int main(int argc, char *argv[])
         
         std::cout << "Mesh based occlusion level is: " << occlusion_level << std::endl;
         occlusion.generateCloudFromIntersection();
-
-        helper.displayRunningTime(start);
-
-    } else if (arg1 == "-rgoc") {
-        
-        auto occlusion_rg_mesh = j.at("occlusion").at("rg_mesh");
-        
-        std::string path = occlusion_rg_mesh.at("path");
-        std::cout << "input cloud path is: " << path << std::endl;
-        int pattern = occlusion_rg_mesh.at("pattern");
-        float octree_resolution = occlusion_rg_mesh.at("octree_resolution");
-        double samples_per_unit_area = occlusion_rg_mesh.at("samples_per_unit_area");
-        bool enable_acceleration = occlusion_rg_mesh.at("enable_acceleration");
-
-        // region growing segmentation configuration
-        auto seg_config = occlusion_rg_mesh.at("seg_config");
-        size_t min_cluster_size = seg_config.at("min_cluster_size");
-        size_t max_cluster_size = seg_config.at("max_cluster_size");
-        int num_neighbours = seg_config.at("num_neighbours");
-        int k_search_neighbours = seg_config.at("k_search_neighbours");
-        double smoothness_threshold = seg_config.at("smoothness_threshold");
-        double curvature_threshold = seg_config.at("curvature_threshold");
-
-        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
-        pcl::io::loadPCDFile<pcl::PointXYZ>(path, *cloud);
-
-        Occlusion occlusion;
-
-        occlusion.setOctreeResolution(octree_resolution);
-        pcl::PointXYZ min_pt, max_pt;
-        pcl::getMinMax3D(*cloud, min_pt, max_pt);
-        Eigen::Vector3d center = Eigen::Vector3d((min_pt.x + max_pt.x) / 2, (min_pt.y + max_pt.y) / 2, (min_pt.z + max_pt.z) / 2);
-        Eigen::Vector3d max = Eigen::Vector3d(max_pt.x, max_pt.y, max_pt.z);
-        Eigen::Vector3d min = Eigen::Vector3d(min_pt.x, min_pt.y, min_pt.z);
-
-        std::vector<Eigen::Vector3d> origins = occlusion.viewPointPattern(pattern, min, max, center);
-        
-        occlusion.regionGrowingSegmentation(cloud, min_cluster_size, max_cluster_size, num_neighbours, k_search_neighbours, smoothness_threshold, curvature_threshold);
-        occlusion.generateTriangleFromCluster();
-        occlusion.uniformSampleTriangle(samples_per_unit_area);
-        occlusion.buildOctreeCloud();
-        occlusion.buildCompleteOctreeNodesTriangle();
-        occlusion.generateRayFromTriangle(origins);
-        double occlulsion_level = occlusion.triangleBasedOcclusionLevel(enable_acceleration);
-        
-        std::cout << "Region growing generated mesh based occlulsion level is: " << occlulsion_level << std::endl;
 
         helper.displayRunningTime(start);
 
@@ -382,6 +339,7 @@ int main(int argc, char *argv[])
 
             occlusion.setPolygonClouds(polygonClouds);
             occlusion.setAllCoefficients(allCoefficients);
+            
         } else {
             std::cout << "Not using openings" << std::endl;
         }

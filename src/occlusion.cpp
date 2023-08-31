@@ -1062,18 +1062,25 @@ void Occlusion::checkRayOctreeIntersection(Ray3D& ray, pcl::PointXYZ& direction,
 
 double Occlusion::randomRayBasedOcclusionLevel(bool use_openings) {
 
-
     size_t num_rays = t_random_rays.size();
 
-    for (auto& ray : t_random_rays) {
+    // if (use_openings) {
 
-        pcl::PointXYZ direction = ray.second.direction;
-        OctreeNode root = t_octree_nodes[0];
-        checkRayOctreeIntersection(ray.second, direction, root);
-        pcl::PointXYZ direction2(-direction.x, -direction.y, -direction.z);
-        checkRayOctreeIntersection(ray.second, direction2, root);
-       
-    }
+        for (auto& ray : t_random_rays) {
+
+            pcl::PointXYZ direction = ray.second.direction;
+            OctreeNode root = t_octree_nodes[0];
+            checkRayOctreeIntersection(ray.second, direction, root);
+            pcl::PointXYZ direction2(-direction.x, -direction.y, -direction.z);
+            checkRayOctreeIntersection(ray.second, direction2, root);
+        
+        }
+
+    // } else {
+
+
+
+    // }
 
     size_t two_bounds_ray_count = 0;
     size_t one_bound_ray_count = 0;
@@ -1097,12 +1104,11 @@ double Occlusion::randomRayBasedOcclusionLevel(bool use_openings) {
 
     double occlusion_level = 0.0;
 
-    occlusion_level = (one_bound_ray_count * 1.0 + no_bound_ray_count * 2.0) / ((one_bound_ray_count + two_bounds_ray_count) * 1.0 + no_bound_ray_count * 2.0);
+    occlusion_level = (one_bound_ray_count * 1.0 + no_bound_ray_count * 1.0) / ((one_bound_ray_count + two_bounds_ray_count) * 1.0 + no_bound_ray_count * 1.0);
 
     return occlusion_level;
     
 }
-
 
 
 // read the .obj file and return a vector of triangles
@@ -1172,11 +1178,87 @@ void Occlusion::parseTrianglesFromOBJ(const std::string& mesh_path) {
 }
 
 
+void Occlusion::parseTrianglesFromPLY(const std::string& ply_path) {
+    
+    std::ifstream file(ply_path);
+    if (!file.is_open()) {
+        std::cerr << "Cannot open file: " << ply_path << std::endl;
+        return;
+    }
+
+    std::string line;
+    int vertex_count = 0;
+    int face_count = 0;
+
+    while (std::getline(file, line)) {
+        if (line == "end_header") {
+            break;
+        }
+        if (line.substr(0, 14) == "element vertex") {
+            vertex_count = std::stoi(line.substr(15, line.size() - 15));
+            std::cout << "Number of vertices: " << vertex_count << std::endl;
+        } else if (line.substr(0, 12) == "element face") {
+            face_count = std::stoi(line.substr(13, line.size() - 13));
+            std::cout << "Number of faces: " << face_count << std::endl;
+        }
+    }
+
+    std::vector<Eigen::Vector3d> vertices;
+
+    Eigen::Vector3d min_vertex(std::numeric_limits<double>::max(), std::numeric_limits<double>::max(), std::numeric_limits<double>::max());
+    Eigen::Vector3d max_vertex(std::numeric_limits<double>::lowest(), std::numeric_limits<double>::lowest(), std::numeric_limits<double>::lowest());
+
+    for (int i = 0; i < vertex_count; ++i) {
+        std::getline(file, line);
+        std::istringstream ss(line);
+        Eigen::Vector3d vertex;
+        int r, g, b; 
+        ss >> vertex.x() >> vertex.y() >> vertex.z() >> r >> g >> b;
+        vertices.push_back(vertex);
+
+        min_vertex = min_vertex.cwiseMin(vertex);
+        max_vertex = max_vertex.cwiseMax(vertex);
+    }
+
+    mesh_min_vertex = min_vertex;
+    mesh_max_vertex = max_vertex;
+
+    for (int i = 0; i < face_count; ++i) {
+
+        std::getline(file, line);
+        std::istringstream ss(line);
+        int numVertices;
+        size_t v1, v2, v3;
+        ss >> numVertices >> v1 >> v2 >> v3;
+
+        if (numVertices != 3) {
+            std::cerr << "Only triangles are supported." << std::endl;
+            continue;
+        }
+
+        Triangle triangle;
+        triangle.v1 = vertices[v1];
+        triangle.v2 = vertices[v2];
+        triangle.v3 = vertices[v3];
+        triangle.center = (triangle.v1 + triangle.v2 + triangle.v3) / 3.0;
+        triangle.index = t_triangles.size(); 
+
+        double area = calculateTriangleArea(triangle);
+        triangle.area = area;
+        t_triangles[triangle.index] = triangle;
+    }
+
+    std::cout << "Number of triangles: " << t_triangles.size() << std::endl;
+    std::cout << "Minimum vertex: " << min_vertex.transpose() << std::endl;
+    std::cout << "Maximum vertex: " << max_vertex.transpose() << std::endl;
+    
+    file.close();
+}
+
+
 void Occlusion::uniformSampleTriangle(double samples_per_unit_area) {
 
     std::cout << "Uniformly sampling triangles..." << std::endl;
-
-    // pcl::PointCloud<pcl::PointXYZ>::Ptr triangle_cloud(new pcl::PointCloud<pcl::PointXYZ>);
 
     size_t idx = 0;
     int tri_idx = 0;
@@ -1225,20 +1307,11 @@ void Occlusion::uniformSampleTriangle(double samples_per_unit_area) {
             tri.second.sample_idx.push_back(sample.index);
             idx++;
 
-            // if (tri_idx == 0) {
-            //     triangle_cloud->points.push_back(pcl::PointXYZ(sample_point.x(), sample_point.y(), sample_point.z()));
-            // }
         }
 
         tri_idx++;
 
     }
-
-    // triangle_cloud->width = triangle_cloud->points.size();
-    // triangle_cloud->height = 1;
-    // triangle_cloud->is_dense = true;
-
-    // pcl::io::savePCDFileASCII("../files/triangle_sample_cloud.pcd", *triangle_cloud);
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr sample_cloud(new pcl::PointCloud<pcl::PointXYZ>);
     for (auto& s : t_samples) {
@@ -1263,15 +1336,79 @@ void Occlusion::uniformSampleTriangle(double samples_per_unit_area) {
 }
 
 
-void Occlusion::computeMeshBoundingBox() {
-
-    std::cout << "Computing mesh bounding box..." << std::endl;
-
-    for (const Eigen::Vector3d &vertex : vertices) {
-
-        bbox.extend(vertex); 
-
+double halton(int index, int base) {
+    double result = 0.0;
+    double f = 1.0 / base;
+    int i = index;
+    while (i > 0) {
+        result = result + f * (i % base);
+        i = i / base;
+        f = f / base;
     }
+    return result;
+}
+
+
+void Occlusion::haltonSampleTriangle(double samples_per_unit_area) {
+    std::cout << "Halton sampling triangles..." << std::endl;
+
+    size_t idx = 0;
+    int tri_idx = 0;
+
+    for (auto& tri : t_triangles) {
+        double area = calculateTriangleArea(tri.second);
+        size_t num_samples = static_cast<size_t>(area * samples_per_unit_area);
+
+        if (num_samples == 1) {
+            Sample sample;
+            sample.index = idx;
+            sample.point = tri.second.center;
+            sample.triangle_index = tri.second.index;
+            t_samples[sample.index] = sample;
+            tri.second.sample_idx.push_back(sample.index);
+            idx++;
+            continue;
+        }
+
+        for (size_t i = 0; i < num_samples; ++i) {
+            double r1 = halton(idx + 1, 2); // use 2 as base
+            double r2 = halton(idx + 1, 3); 
+
+            double sqrtR1 = std::sqrt(r1);
+            double alpha = 1 - sqrtR1;
+            double beta = r2 * sqrtR1;
+            double gamma = 1 - alpha - beta;
+
+            Eigen::Vector3d sample_point = alpha * tri.second.v1 + beta * tri.second.v2 + gamma * tri.second.v3;
+            Sample sample;
+            sample.index = idx;
+            sample.point = sample_point;
+            sample.triangle_index = tri.second.index;
+            t_samples[sample.index] = sample;
+            tri.second.sample_idx.push_back(sample.index);
+            idx++;
+        }
+
+        tri_idx++;
+    }
+
+    pcl::PointCloud<pcl::PointXYZ>::Ptr sample_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+    for (auto& s : t_samples) {
+        pcl::PointXYZ point;
+        point.x = s.second.point.x();
+        point.y = s.second.point.y();
+        point.z = s.second.point.z();
+
+        sample_cloud->points.push_back(point);
+    }
+
+    sample_cloud->width = sample_cloud->points.size();
+    sample_cloud->height = 1;
+    sample_cloud->is_dense = true;
+
+    pcl::io::savePCDFileASCII("../files/halton_sample_cloud.pcd", *sample_cloud);
+
+    std::cout << "Number of samples: " << t_samples.size() << std::endl;
 
 }
 
@@ -1490,6 +1627,10 @@ bool Occlusion::rayTriangleIntersect(Triangle& tr, Ray& ray, Eigen::Vector3d& in
 
     if (t > 1e-8) {
         intersection_point = ray.origin + ray.direction * t;
+        if (intersection_point.x() == 0.0 && intersection_point.y() == 0.0 && intersection_point.z() == 0.0) {
+            std::cout << "Intersection point is zero" << std::endl;
+            return false;
+        }
         return true;
     }
 
@@ -2013,16 +2154,16 @@ void Occlusion::buildCompleteOctreeNodesTriangle() {
 // build octree from center point of triangles
 void Occlusion::buildOctreeCloud() {
 
-    Eigen::Vector3d min = bbox.min();
-    Eigen::Vector3d max = bbox.max();
+    Eigen::Vector3d min = mesh_min_vertex;
+    Eigen::Vector3d max = mesh_max_vertex;
     
-    min.x() -= 1.0;
-    min.y() -= 1.0;
-    min.z() -= 1.0;
+    min.x() -= 0.1;
+    min.y() -= 0.1;
+    min.z() -= 0.1;
 
-    max.x() += 1.0;
-    max.y() += 1.0;
-    max.z() += 1.0;
+    max.x() += 0.1;
+    max.y() += 0.1;
+    max.z() += 0.1;
 
     // make sure the bounding box is slightly larger than the mesh 
     pcl::PointXYZI min_pt, min_x, min_y, min_diag, max_pt, max_x, max_y, max_diag;
@@ -2095,13 +2236,6 @@ void Occlusion::buildOctreeCloud() {
 
     pcl::PointXYZI min_pt_octree, max_pt_octree;
     pcl::getMinMax3D(*t_octree_cloud, min_pt_octree, max_pt_octree);
-
-    oc_cloud_min_pt = Eigen::Vector3d(min_pt_octree.x, min_pt_octree.y, min_pt_octree.z);
-    oc_cloud_max_pt = Eigen::Vector3d(max_pt_octree.x, max_pt_octree.y, max_pt_octree.z);
-
-    std::cout << "Octree cloud min point: " << oc_cloud_min_pt.x() << " " << oc_cloud_min_pt.y() << " " << oc_cloud_min_pt.z() << std::endl;
-    std::cout << "Octree cloud max point: " << oc_cloud_max_pt.x() << " " << oc_cloud_max_pt.y() << " " << oc_cloud_max_pt.z() << std::endl;
-    std::cout << "Max distance: " << (oc_cloud_max_pt - oc_cloud_min_pt).norm() << std::endl;
 
     std::cout << "Number of points in octree cloud: " << t_octree_cloud->points.size() << std::endl;
 
@@ -2208,6 +2342,10 @@ void Occlusion::generateCloudFromIntersection() {
 
         pcl::PointXYZ point;
         point.x = intersection.second.point(0);
+        if (point.x == 0.0) {
+            std::cout << "Intersection point is zero" << std::endl;
+            continue;
+        }
         point.y = intersection.second.point(1);
         point.z = intersection.second.point(2);
         cloud->points.push_back(point);
@@ -2223,36 +2361,3 @@ void Occlusion::generateCloudFromIntersection() {
 
 }
 
-
-void Occlusion::generateCloudFromTriangle() {
-
-    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
-
-    for(auto& tr : t_triangles) {
-
-        pcl::PointXYZ point;
-        point.x = tr.second.v1(0);
-        point.y = tr.second.v1(1);
-        point.z = tr.second.v1(2);
-        cloud->points.push_back(point);
-
-        point.x = tr.second.v2(0);
-        point.y = tr.second.v2(1);
-        point.z = tr.second.v2(2);
-        cloud->points.push_back(point);
-
-        point.x = tr.second.v3(0);
-        point.y = tr.second.v3(1);
-        point.z = tr.second.v3(2);
-        cloud->points.push_back(point);
-
-    }
-
-    cloud->width = cloud->points.size();
-    cloud->height = 1;
-    cloud->is_dense = true;
-
-    pcl::io::savePCDFileASCII("../files/triangle_cloud.pcd", *cloud);
-    std::cout << "Saved " << cloud->points.size() << " data points to cloud generated from triangle." << std::endl;
-
-}
