@@ -844,6 +844,8 @@ void Occlusion::buildCompleteOctreeNodes() {
         depth--; 
     }
 
+    std::cout << std::endl;
+
     if (depth_map.size() != max_depth + 1) {
         std::cout << "Wrong depth map created" << std::endl;
         return;
@@ -1008,6 +1010,7 @@ void Occlusion::generateRandomRays(size_t num_rays, pcl::PointXYZ& min_pt, pcl::
     }
 
     std::cout << "Number of random rays: " << t_random_rays.size() << std::endl;
+    std::cout << std::endl;
 
 }
 
@@ -1018,29 +1021,43 @@ void Occlusion::checkRayOctreeIntersection(Ray3D& ray, pcl::PointXYZ& direction,
         
         // a ray in 1 direction can only intersect a boundary point once, so at most 2 intersections
         if (direction.x == ray.direction.x && direction.y == ray.direction.y && direction.z == ray.direction.z) {
+            
+            for (auto& point_idx : node.point_idx) {
 
-            if (ray.bound_intersection_idx.size() == 1) {
-                return;
-            }
-        } else {
-            if (ray.bound_intersection_idx.size() == 2) {
-                return;
-            }
-        }
+                pcl::PointXYZI point = input_cloud_bound->points[point_idx];
+                pcl::PointXYZ point_xyz(point.x, point.y, point.z);
 
-        for (auto& point_idx : node.point_idx) {
-
-            pcl::PointXYZI point = input_cloud_bound->points[point_idx];
-            pcl::PointXYZ point_xyz(point.x, point.y, point.z);
-
-            if (rayIntersectSpehre(ray.origin, direction, point_xyz, point_radius)) {
-                if (point.intensity == 1.0) {
-                    ray.bound_intersection_idx.push_back(point_idx);
-                    return;
-                } else {
-                    ray.clutter_intersection_idx.push_back(point_idx);
+                if (rayIntersectSpehre(ray.origin, direction, point_xyz, point_radius)) {
+                    if (point.intensity == 1.0) {
+                        ray.first_dir_bound_intersection_idx.push_back(point_idx);
+                        ray.first_dir_intersect_bound = true;
+                    } else {
+                        ray.clutter_intersection_idx.push_back(point_idx);
+                        ray.intersect_clutter = true;
+                    }
                 }
+
             }
+
+        } else { // opposite direction
+
+            for (auto& point_idx : node.point_idx) {
+
+                pcl::PointXYZI point = input_cloud_bound->points[point_idx];
+                pcl::PointXYZ point_xyz(point.x, point.y, point.z);
+
+                if (rayIntersectSpehre(ray.origin, direction, point_xyz, point_radius)) {
+                    if (point.intensity == 1.0) {
+                        ray.second_dir_bound_intersection_idx.push_back(point_idx);
+                        ray.second_dir_intersect_bound = true;
+                    } else {
+                        ray.clutter_intersection_idx.push_back(point_idx);
+                        ray.intersect_clutter = true;
+                    }
+                }
+
+            }
+
         }
 
     } else {
@@ -1064,47 +1081,118 @@ double Occlusion::randomRayBasedOcclusionLevel(bool use_openings) {
 
     size_t num_rays = t_random_rays.size();
 
-    // if (use_openings) {
+    for (auto& ray : t_random_rays) {
 
-        for (auto& ray : t_random_rays) {
+        pcl::PointXYZ direction = ray.second.direction;
+        OctreeNode root = t_octree_nodes[0];
+        checkRayOctreeIntersection(ray.second, direction, root);
+        pcl::PointXYZ direction2(-direction.x, -direction.y, -direction.z);
+        checkRayOctreeIntersection(ray.second, direction2, root);
 
-            pcl::PointXYZ direction = ray.second.direction;
-            OctreeNode root = t_octree_nodes[0];
-            checkRayOctreeIntersection(ray.second, direction, root);
-            pcl::PointXYZ direction2(-direction.x, -direction.y, -direction.z);
-            checkRayOctreeIntersection(ray.second, direction2, root);
-        
+
+        if (use_openings) {
+
+            Ray3D fake_ray; // opposite direction
+            fake_ray.origin = ray.second.origin;
+            fake_ray.direction = direction2;
+
+            for (int i; i < polygonClouds.size(); ++i) {
+                
+                if (rayIntersectPolygon(ray.second, polygonClouds[i], allCoefficients[i])) {
+                    ray.second.first_dir_intersect_bound = true;
+                }
+
+                if (rayIntersectPolygon(fake_ray, polygonClouds[i], allCoefficients[i])) {
+                    ray.second.second_dir_intersect_bound = true;
+                }
+
+            }
+
         }
+    
+    }
 
-    // } else {
 
-
-
-    // }
 
     size_t two_bounds_ray_count = 0;
+    size_t two_bounds_ray_with_clutter_count = 0;
+    size_t two_bounds_ray_no_clutter_count = 0;
+
     size_t one_bound_ray_count = 0;
+    size_t one_bound_ray_with_clutter_count = 0;
+    size_t one_bound_ray_no_clutter_count = 0;
+    
     size_t no_bound_ray_count = 0;
+    size_t no_bound_ray_with_clutter_count = 0;
+    size_t no_bound_ray_no_clutter_count = 0;
+
+    size_t clutter_ray_count = 0;
 
     for (auto& ray : t_random_rays) {
 
-        if (ray.second.bound_intersection_idx.size() == 0) {
-            no_bound_ray_count++;
-        } else if (ray.second.bound_intersection_idx.size() == 1) {
-            one_bound_ray_count++;
-        } else if (ray.second.bound_intersection_idx.size() == 2) {
+        if (ray.second.first_dir_intersect_bound && ray.second.second_dir_intersect_bound) {
+
+            if (ray.second.intersect_clutter) {
+                two_bounds_ray_with_clutter_count++;
+            } else {
+                two_bounds_ray_no_clutter_count++;
+            }
+
             two_bounds_ray_count++;
+
+        } else if (ray.second.first_dir_intersect_bound || ray.second.second_dir_intersect_bound) {
+
+            if (ray.second.intersect_clutter) {
+                one_bound_ray_with_clutter_count++;
+            } else {
+                one_bound_ray_no_clutter_count++;
+            }
+
+            one_bound_ray_count++;
+
+        } else {
+
+            if (ray.second.intersect_clutter) {
+                no_bound_ray_with_clutter_count++;
+            } else {
+                no_bound_ray_no_clutter_count++;
+            }
+            
+            no_bound_ray_count++;
+
         }
+
+        if (ray.second.intersect_clutter) {
+            clutter_ray_count++;
+        }
+
     }
 
-    std::cout << "Number of rays: " << num_rays << std::endl;
-    std::cout << "Number of rays with no bound intersection: " << no_bound_ray_count << std::endl;
-    std::cout << "Number of rays with one bound intersection: " << one_bound_ray_count << std::endl;
     std::cout << "Number of rays with two bound intersections: " << two_bounds_ray_count << std::endl;
+    std::cout << "Number of rays with two bound intersections and clutter: " << two_bounds_ray_with_clutter_count << std::endl;
+    std::cout << "Number of rays with two bound intersections but no clutter: " << two_bounds_ray_no_clutter_count << std::endl;    
+    std::cout << std::endl;
+    std::cout << "Number of rays with one bound intersection: " << one_bound_ray_count << std::endl;
+    std::cout << "Number of rays with one bound intersection and clutter: " << one_bound_ray_with_clutter_count << std::endl;
+    std::cout << "Number of rays with one bound intersection but no clutter: " << one_bound_ray_no_clutter_count << std::endl;
+    std::cout << std::endl;
+    std::cout << "Number of rays with no bound intersection: " << no_bound_ray_count << std::endl;
+    std::cout << "Number of rays with no bound intersection and clutter: " << no_bound_ray_with_clutter_count << std::endl;
+    std::cout << "Number of rays with no bound intersection but no clutter: " << no_bound_ray_no_clutter_count << std::endl;
+    std::cout << std::endl;
+    std::cout << "Number of rays with clutter: " << clutter_ray_count << std::endl;
 
-    double occlusion_level = 0.0;
+    double occlusion = no_bound_ray_with_clutter_count * 2.0 + no_bound_ray_no_clutter_count * 1.5 + one_bound_ray_with_clutter_count + one_bound_ray_no_clutter_count * 0.5;
+    std::cout << "Occlusion: " << occlusion << std::endl;
+    std::cout << std::endl;
 
-    occlusion_level = (one_bound_ray_count * 1.0 + no_bound_ray_count * 1.0) / ((one_bound_ray_count + two_bounds_ray_count) * 1.0 + no_bound_ray_count * 1.0);
+    double visibility = one_bound_ray_with_clutter_count * 0.5 + one_bound_ray_no_clutter_count + two_bounds_ray_with_clutter_count * 1.5 + two_bounds_ray_no_clutter_count * 2;
+    std::cout << "Visibility: " << visibility << std::endl;
+    std::cout << std::endl;
+
+    double occlusion_level = occlusion / (occlusion + visibility);
+
+    std::cout << "Occlusion level: " << occlusion_level << std::endl;
 
     return occlusion_level;
     

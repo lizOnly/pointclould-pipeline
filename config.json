@@ -23,9 +23,9 @@
             "path": "../files/copy_bound.pcd",
             "num_rays": 2000,
             "point_radius": 0.04,
-            "polygon_path": "../files/polygon_conf.txt",
+            "polygon_path": "../files/copy_poly.txt",
             "octree_resolution": 1.0,
-            "use_openings": false
+            "use_openings": true
         }
     },
 
