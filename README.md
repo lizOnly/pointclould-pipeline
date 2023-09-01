@@ -3,8 +3,12 @@
 ### Dev Environment
 - WSL-Ubuntu_20.04
 - gcc=7.5.0
+
 ### Install Dependency
 - `sudo apt install libpcl-dev`
+- `sudo apt install libjsoncpp-dev `
+- `sudo apt install libwebsocketpp-dev`
+
 ###  Run program
 ```
 # configuration
@@ -12,27 +16,16 @@ cd pcd_pipeline
 mkdir build
 cd build
 cmake ..
-make -j6 # denpending on how many cores your cpu has
+make -j 6
 
 # below are examples about how to actually use this programm
-
-# if only input path specified, the cloud will be recentered to origin of coordinate system
-./pcd_pipeline ( -i=cloud.pcd | --input_path==cloud.pcd )
-
-# 200 rays downsample clouds, in case of -rsf, you get less points since we only consider the first point hit by the ray
-./pcd_pipeline -i=cloud.pcd ( -rs=200 | --raysample==200 | -rsf=200 )
-
-# compute occlusion level
-./pcd_pipeline -i=cloud.pcd ( -o | --occlusion )
-
-# reconstruct point cloud from .txt file
-./pcd_pipeline ( -rc=text.txt | --reconstruct==text.txt )
-
-# rotate cloud along x-axis 90 degress clockwise
-./pcd_pipeline ( -rt | --rotate )
 
 # running program as a backend service, this will be the main usage of this project
 ./pcd_pipeline -b
 
-```
+# compute occlusion level, you have to adjust parameters in config.json first
 
+./pcd_pipeline -moc # mesh visible area based occlusion level
+
+
+```
