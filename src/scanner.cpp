@@ -324,6 +324,27 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::sphere_scanner(size_t num_rays_p
 
 }
 
+// random scanning positions
+
+std::vector<pcl::PointXYZ> Scanner::random_scanning_positions(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, int num_scanners) {
+
+    std::vector<pcl::PointXYZ> positions;
+
+    for (int i = 0; i < num_scanners; i++) {
+
+        pcl::PointXYZ position;
+        position.x = min_pt.x + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(max_pt.x-min_pt.x)));
+        position.y = min_pt.y + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(max_pt.y-min_pt.y)));
+        position.z = min_pt.z + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(max_pt.z-min_pt.z)));
+
+        positions.push_back(position);
+
+    }
+
+    return positions;
+
+}
+
 
 std::vector<pcl::PointXYZ> Scanner::fixed_scanning_positions(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, int pattern) {
 

@@ -298,16 +298,12 @@ int main(int argc, char *argv[])
 
         auto occlusion_boundary = j.at("occlusion").at("boundary_cloud");
 
-        std::string path = occlusion_boundary.at("path");
+        bool use_estimated_cloud = occlusion_boundary.at("use_estimated_cloud");
+        std::string path = occlusion_boundary.at("path");   
         std::cout << "input cloud path is: " << path << std::endl;
-
+        
         pcl::PointCloud<pcl::PointXYZI>::Ptr bound_cloud(new pcl::PointCloud<pcl::PointXYZI>);
         pcl::io::loadPCDFile<pcl::PointXYZI>(path, *bound_cloud);
-
-        pcl::PointXYZI min_pt, max_pt;
-        pcl::getMinMax3D(*bound_cloud, min_pt, max_pt);
-        pcl::PointXYZ min_pt_bound(min_pt.x, min_pt.y, min_pt.z);
-        pcl::PointXYZ max_pt_bound(max_pt.x, max_pt.y, max_pt.z);
 
         std::string polygon_path = occlusion_boundary.at("polygon_path");
         std::cout << "polygon path is: " << polygon_path << std::endl;
@@ -316,13 +312,37 @@ int main(int argc, char *argv[])
         double point_radius = occlusion_boundary.at("point_radius");
         float octree_resolution = occlusion_boundary.at("octree_resolution");
         bool use_openings = occlusion_boundary.at("use_openings");
+        int K_nearest = occlusion_boundary.at("K_nearest");
 
         Occlusion occlusion;
-
         occlusion.setPointRadius(point_radius);
         occlusion.setOctreeResolution(octree_resolution);
         occlusion.setInputCloudBound(bound_cloud);
-        occlusion.buildCompleteOctreeNodes();
+
+        pcl::PointXYZI min_pt, max_pt;
+        
+
+        if (use_estimated_cloud) {
+            
+            std::string sample_cloud_path = occlusion_boundary.at("sample_cloud_path");
+            std::cout << "sample cloud path is: " << sample_cloud_path << std::endl;
+            pcl::PointCloud<pcl::PointXYZ>::Ptr sample_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+            pcl::io::loadPCDFile<pcl::PointXYZ>(sample_cloud_path, *sample_cloud);
+            occlusion.setInputSampleCloud(sample_cloud);
+            occlusion.estimateSemantics(K_nearest);
+
+            pcl::PointCloud<pcl::PointXYZI>::Ptr estimated_bound_cloud(new pcl::PointCloud<pcl::PointXYZI>);
+            estimated_bound_cloud = occlusion.getEstimatedBoundCloud();
+            pcl::getMinMax3D(*estimated_bound_cloud, min_pt, max_pt);
+
+        } else {
+            pcl::getMinMax3D(*bound_cloud, min_pt, max_pt);
+        }
+
+        pcl::PointXYZ min_pt_bound(min_pt.x, min_pt.y, min_pt.z);
+        pcl::PointXYZ max_pt_bound(max_pt.x, max_pt.y, max_pt.z);
+
+        occlusion.buildCompleteOctreeNodes(use_estimated_cloud);
 
         if (use_openings) {
             std::cout << "Using openings" << std::endl;
@@ -346,13 +366,13 @@ int main(int argc, char *argv[])
 
         occlusion.generateRandomRays(num_rays, min_pt_bound, max_pt_bound);
 
-        double randomRayBasedOcclusionLevel = occlusion.randomRayBasedOcclusionLevel(use_openings);
+        double randomRayBasedOcclusionLevel = occlusion.randomRayBasedOcclusionLevel(use_openings, use_estimated_cloud);
 
         std::cout << "Random ray based occlusion level is: " << randomRayBasedOcclusionLevel << std::endl;
 
         helper.displayRunningTime(start);
 
-    } else if (arg1 == "-poc") {
+    }  else if (arg1 == "-poc") {
     
         auto occlusion_point_cloud = j.at("occlusion").at("point_cloud");
 

@@ -775,10 +775,90 @@ double Occlusion::rayBasedOcclusionLevel(pcl::PointXYZ& min_pt, pcl::PointXYZ& m
 }
 
 
-void Occlusion::buildCompleteOctreeNodes() {
+void Occlusion::estimateSemantics(int K_nearest) {
+
+    std::cout << "Estimating semantics..." << std::endl;
+
+    estimated_bound_cloud = pcl::PointCloud<pcl::PointXYZI>::Ptr(new pcl::PointCloud<pcl::PointXYZI>);
+    pcl::KdTreeFLANN<pcl::PointXYZI> kdtree;
+    kdtree.setInputCloud(input_cloud_bound);
+
+    for (int i = 0; i < input_sample_cloud->points.size(); ++i) {
+
+        // std::cout << "start estimating semantics for point " << i << std::endl;
+
+        pcl::PointXYZI point;
+        point.x = input_sample_cloud->points[i].x;
+        point.y = input_sample_cloud->points[i].y;
+        point.z = input_sample_cloud->points[i].z;
+        point.intensity = -1.0;
+
+        std::vector<int> pointIdxNKNSearch(K_nearest);
+        std::vector<float> pointNKNSquaredDistance(K_nearest);
+
+        if (kdtree.nearestKSearch(point, K_nearest, pointIdxNKNSearch, pointNKNSquaredDistance) > 0) {
+            int boundary_count = 0;
+            int clutter_count = 0;
+
+            for (size_t j = 0; j < pointIdxNKNSearch.size(); ++j) {
+
+                if (input_cloud_bound->points[pointIdxNKNSearch[j]].intensity == 1.0) {
+                    boundary_count++;
+                } else {
+                    clutter_count++;
+                }
+                
+            }
+
+            if (boundary_count > clutter_count) {
+                point.intensity = 1.0;
+            } else {
+                point.intensity = 0.0;
+            }
+            
+            estimated_bound_cloud->points.push_back(point);
+
+        }
+
+    }
+
+    size_t exterior_count = 0;
+    size_t interior_count = 0;
+
+    for (auto& point : estimated_bound_cloud->points) {
+        if (point.intensity == 1.0) {
+            exterior_count++;
+        } else {
+            interior_count++;
+        }
+    }
+
+    std::cout << "Number of exterior points: " << exterior_count << std::endl;
+    std::cout << "Number of interior points: " << interior_count << std::endl;
+
+    double interior_ratio = (double) interior_count / (double) (interior_count + exterior_count);
+
+    std::cout << "Interior ratio of estimated boundary cloud: " << interior_ratio << std::endl;
+
+    std::cout << "Estimated bound cloud size: " << estimated_bound_cloud->points.size() << std::endl;
+    estimated_bound_cloud->width = estimated_bound_cloud->points.size();
+    estimated_bound_cloud->height = 1;
+    estimated_bound_cloud->is_dense = true;
+
+    pcl::io::savePCDFileASCII("../files/estimated_bound_cloud.pcd", *estimated_bound_cloud);
+
+}
+
+
+void Occlusion::buildCompleteOctreeNodes(bool use_estimated_cloud) {
 
     pcl::octree::OctreePointCloudSearch<pcl::PointXYZI> octree(octree_resolution);
-    octree.setInputCloud(input_cloud_bound);
+    if (use_estimated_cloud) {
+        std::cout << "Using estimated bound cloud to build octree" << std::endl;
+        octree.setInputCloud(estimated_bound_cloud);
+    } else {
+        octree.setInputCloud(input_cloud_bound);
+    }
     octree.addPointsFromInputCloud();
 
     int max_depth = octree.getTreeDepth();
@@ -1015,7 +1095,7 @@ void Occlusion::generateRandomRays(size_t num_rays, pcl::PointXYZ& min_pt, pcl::
 }
 
 
-void Occlusion::checkRayOctreeIntersection(Ray3D& ray, pcl::PointXYZ& direction, OctreeNode& node) {
+void Occlusion::checkRayOctreeIntersection(Ray3D& ray, pcl::PointXYZ& direction, OctreeNode& node, bool use_estimated_cloud) {
 
     if (node.is_leaf) {
         
@@ -1023,8 +1103,13 @@ void Occlusion::checkRayOctreeIntersection(Ray3D& ray, pcl::PointXYZ& direction,
         if (direction.x == ray.direction.x && direction.y == ray.direction.y && direction.z == ray.direction.z) {
             
             for (auto& point_idx : node.point_idx) {
-
-                pcl::PointXYZI point = input_cloud_bound->points[point_idx];
+                
+                pcl::PointXYZI point;
+                if (use_estimated_cloud) {
+                    point = estimated_bound_cloud->points[point_idx];
+                } else {
+                    point = input_cloud_bound->points[point_idx];
+                }
                 pcl::PointXYZ point_xyz(point.x, point.y, point.z);
 
                 if (rayIntersectSpehre(ray.origin, direction, point_xyz, point_radius)) {
@@ -1043,7 +1128,12 @@ void Occlusion::checkRayOctreeIntersection(Ray3D& ray, pcl::PointXYZ& direction,
 
             for (auto& point_idx : node.point_idx) {
 
-                pcl::PointXYZI point = input_cloud_bound->points[point_idx];
+                pcl::PointXYZI point;
+                if (use_estimated_cloud) {
+                    point = estimated_bound_cloud->points[point_idx];
+                } else {
+                    point = input_cloud_bound->points[point_idx];
+                }
                 pcl::PointXYZ point_xyz(point.x, point.y, point.z);
 
                 if (rayIntersectSpehre(ray.origin, direction, point_xyz, point_radius)) {
@@ -1068,7 +1158,7 @@ void Occlusion::checkRayOctreeIntersection(Ray3D& ray, pcl::PointXYZ& direction,
             pcl::PointXYZ max_pt(node.max_pt.x(), node.max_pt.y(), node.max_pt.z());
 
             if (rayBoxIntersection(ray, min_pt, max_pt)) {
-                checkRayOctreeIntersection(ray, direction, t_octree_nodes[child_idx]);
+                checkRayOctreeIntersection(ray, direction, t_octree_nodes[child_idx], use_estimated_cloud);
             }
 
         }
@@ -1077,7 +1167,7 @@ void Occlusion::checkRayOctreeIntersection(Ray3D& ray, pcl::PointXYZ& direction,
 }
 
 
-double Occlusion::randomRayBasedOcclusionLevel(bool use_openings) {
+double Occlusion::randomRayBasedOcclusionLevel(bool use_openings, bool use_estimated_cloud) {
 
     size_t num_rays = t_random_rays.size();
 
@@ -1085,9 +1175,9 @@ double Occlusion::randomRayBasedOcclusionLevel(bool use_openings) {
 
         pcl::PointXYZ direction = ray.second.direction;
         OctreeNode root = t_octree_nodes[0];
-        checkRayOctreeIntersection(ray.second, direction, root);
+        checkRayOctreeIntersection(ray.second, direction, root, use_estimated_cloud);
         pcl::PointXYZ direction2(-direction.x, -direction.y, -direction.z);
-        checkRayOctreeIntersection(ray.second, direction2, root);
+        checkRayOctreeIntersection(ray.second, direction2, root, use_estimated_cloud);
 
 
         if (use_openings) {
@@ -1111,8 +1201,6 @@ double Occlusion::randomRayBasedOcclusionLevel(bool use_openings) {
         }
     
     }
-
-
 
     size_t two_bounds_ray_count = 0;
     size_t two_bounds_ray_with_clutter_count = 0;
@@ -1402,6 +1490,7 @@ void Occlusion::uniformSampleTriangle(double samples_per_unit_area) {
     }
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr sample_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+
     for (auto& s : t_samples) {
 
         pcl::PointXYZ point;
@@ -1481,6 +1570,7 @@ void Occlusion::haltonSampleTriangle(double samples_per_unit_area) {
     }
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr sample_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+
     for (auto& s : t_samples) {
         pcl::PointXYZ point;
         point.x = s.second.point.x();

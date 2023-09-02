@@ -155,6 +155,9 @@ void Reconstruction::buildGroundTruthCloud(std::string folder_path) {
     // pcl::PointCloud<pcl::PointXYZRGB>::Ptr exterior_cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
     // pcl::PointCloud<pcl::PointXYZRGB>::Ptr interior_cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
 
+    size_t exterior_count = 0;
+    size_t interior_count = 0;
+
     for (const auto & entry : std::filesystem::directory_iterator(folder_path)) {
         
         std::cout << entry.path() << std::endl;
@@ -170,7 +173,8 @@ void Reconstruction::buildGroundTruthCloud(std::string folder_path) {
             
             float x_ext, y_ext, z_ext;
             int r_ext, g_ext, b_ext;
-
+            exterior_count++;
+            
             while (file >> x_ext >> y_ext >> z_ext >> r_ext >> g_ext >> b_ext)
             {   
                 // pcl::PointXYZRGB point_ext;
@@ -210,6 +214,8 @@ void Reconstruction::buildGroundTruthCloud(std::string folder_path) {
 
             float x_int, y_int, z_int;
             int r_int, g_int, b_int;
+
+            interior_count++;
 
             while (file >> x_int >> y_int >> z_int >> r_int >> g_int >> b_int) 
             {   
@@ -271,9 +277,9 @@ void Reconstruction::buildGroundTruthCloud(std::string folder_path) {
 
     // pcl::io::savePCDFile("../files/gt_int.pcd", *interior_cloud);
 
-    // interior_ratio = (double)interior_cloud->points.size() / (double)cloud->points.size();
+    double interior_ratio = (double)interior_count / (double)(interior_count + exterior_count);
 
-    // std::cout << "interior ratio: " << interior_ratio << std::endl;
+    std::cout << "interior ratio: " << interior_ratio << std::endl;
 
 }
 

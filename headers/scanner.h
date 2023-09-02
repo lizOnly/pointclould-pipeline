@@ -28,6 +28,8 @@ class Scanner {
 
         bool rayIntersectPointCloud(Ray3D& ray, pcl::PointXYZ& intersection, size_t& index);
 
+        std::vector<pcl::PointXYZ> random_scanning_positions(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, int num_scanners);
+
         std::vector<pcl::PointXYZ> fixed_scanning_positions(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, int pattern);
         
         std::vector<pcl::PointXYZ> sample_square_points(const pcl::PointXYZ& scanner_position, int sample_step, double distance, double angle);

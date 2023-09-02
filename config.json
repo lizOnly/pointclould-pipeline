@@ -20,12 +20,15 @@
         },
 
         "boundary_cloud": {
+            "use_estimated_cloud": true,
             "path": "../files/copy_bound.pcd",
-            "num_rays": 2000,
+            "sample_cloud_path": "../files/copy_halton_sample_cloud.pcd",
+            "num_rays": 20000,
             "point_radius": 0.04,
             "polygon_path": "../files/copy_poly.txt",
             "octree_resolution": 1.0,
-            "use_openings": true
+            "use_openings": true,
+            "K_nearest": 10
         }
     },
 

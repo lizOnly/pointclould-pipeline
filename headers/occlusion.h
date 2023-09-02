@@ -29,6 +29,10 @@ class Occlusion {
         Eigen::Vector3d getMeshMaxVertex() {
             return mesh_max_vertex;
         };
+
+        pcl::PointCloud<pcl::PointXYZI>::Ptr getEstimatedBoundCloud() {
+            return estimated_bound_cloud;
+        };
         
         void setPointRadius(double radius) {
             point_radius = radius;
@@ -46,6 +50,10 @@ class Occlusion {
 
         void setInputCloudBound(pcl::PointCloud<pcl::PointXYZI>::Ptr cloud) {
             input_cloud_bound = cloud;
+        };
+
+        void setInputSampleCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud) {
+            input_sample_cloud = cloud;
         };
 
         void setPolygonClouds(std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> clouds) {
@@ -115,9 +123,9 @@ class Occlusion {
         /*-----------------------------------------------------------------------------------------------------------*/
         void generateRandomRays(size_t num_rays, pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt);
 
-        void checkRayOctreeIntersection(Ray3D& ray, pcl::PointXYZ& direction, OctreeNode& node);
+        void checkRayOctreeIntersection(Ray3D& ray, pcl::PointXYZ& direction, OctreeNode& node, bool use_estimated_cloud);
 
-        double randomRayBasedOcclusionLevel(bool use_openings);
+        double randomRayBasedOcclusionLevel(bool use_openings, bool use_estimated_cloud);
         /*-----------------------------------------------------------------------------------------------------------*/
         void parseTrianglesFromOBJ(const std::string& mesh_path);
 
@@ -126,6 +134,8 @@ class Occlusion {
         void uniformSampleTriangle(double samples_per_unit_area);
 
         void haltonSampleTriangle(double samples_per_unit_area);
+
+        void estimateSemantics(int K_nearest);
 
         double calculateTriangleArea(Triangle& tr);
 
@@ -155,7 +165,7 @@ class Occlusion {
 
         void buildLeafBBoxSet();
 
-        void buildCompleteOctreeNodes();
+        void buildCompleteOctreeNodes(bool use_estimated_cloud);
 
         void buildCompleteOctreeNodesTriangle();
 
@@ -175,8 +185,9 @@ class Occlusion {
             std::vector<pcl::PointIndices> rg_clusters;
             
             pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud;
-            pcl::PointCloud<pcl::PointXYZ>::Ptr input_exterior_cloud;
             pcl::PointCloud<pcl::PointXYZI>::Ptr input_cloud_bound;
+            pcl::PointCloud<pcl::PointXYZ>::Ptr input_sample_cloud;
+            pcl::PointCloud<pcl::PointXYZI>::Ptr estimated_bound_cloud;
             std::vector<LeafBBox> octree_leaf_bbox;
 
 
