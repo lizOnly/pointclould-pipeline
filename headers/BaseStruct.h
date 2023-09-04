@@ -28,7 +28,7 @@ struct Intersection {
     Eigen::Vector3d point;
     double distance_to_look_at_point;
     double distance_to_origin;
-    bool is_first_hit;
+    bool is_first_hit = false;
 
 };
 

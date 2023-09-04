@@ -31,8 +31,6 @@
 #include <Eigen/Core>
 #include <Eigen/Dense>
 
-// #include <omp.h>
-
 #include "../headers/occlusion.h"
 #include "../headers/BaseStruct.h"
 
@@ -825,12 +823,32 @@ void Occlusion::estimateSemantics(int K_nearest) {
     size_t exterior_count = 0;
     size_t interior_count = 0;
 
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr estimated_rgb_bound_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+
     for (auto& point : estimated_bound_cloud->points) {
+ 
+        pcl::PointXYZRGB p;
+        p.x = point.x;
+        p.y = point.y;
+        p.z = point.z;
+
         if (point.intensity == 1.0) {
+ 
+            p.r = 255; // red
+            p.g = 0;
+            p.b = 0;
             exterior_count++;
+
         } else {
+            
+            p.r = 0;
+            p.g = 0;
+            p.b = 255;
             interior_count++;
+
         }
+
+        estimated_rgb_bound_cloud->points.push_back(p);
     }
 
     std::cout << "Number of exterior points: " << exterior_count << std::endl;
@@ -846,6 +864,12 @@ void Occlusion::estimateSemantics(int K_nearest) {
     estimated_bound_cloud->is_dense = true;
 
     pcl::io::savePCDFileASCII("../files/estimated_bound_cloud.pcd", *estimated_bound_cloud);
+
+    estimated_rgb_bound_cloud->width = estimated_rgb_bound_cloud->points.size();
+    estimated_rgb_bound_cloud->height = 1;
+    estimated_rgb_bound_cloud->is_dense = true;
+
+    pcl::io::savePCDFileASCII("../files/estimated_rgb_bound_cloud.pcd", *estimated_rgb_bound_cloud);
 
 }
 
@@ -1057,27 +1081,29 @@ void Occlusion::buildCompleteOctreeNodes(bool use_estimated_cloud) {
 
 void Occlusion::generateRandomRays(size_t num_rays, pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt) {
 
-    static bool seedSet = false;
-    if (!seedSet) {
-        std::srand(static_cast<unsigned int>(time(NULL)));
-        seedSet = true;
+    if (min_pt.x > max_pt.x || min_pt.y > max_pt.y || min_pt.z > max_pt.z) {
+        std::cerr << "Invalid min_pt and max_pt values." << std::endl;
+        return;
     }
 
-    for (int i = 0; i < num_rays; i++) {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<> dis_x(min_pt.x, max_pt.x);
+    std::uniform_real_distribution<> dis_y(min_pt.y, max_pt.y);
+    std::uniform_real_distribution<> dis_z(min_pt.z, max_pt.z);
 
+    for (size_t i = 0; i < num_rays; ++i) {
         pcl::PointXYZ origin;
-        
-        origin.x = min_pt.x + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(max_pt.x-min_pt.x)));
-        origin.y = min_pt.y + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(max_pt.y-min_pt.y)));
-        origin.z = min_pt.z + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(max_pt.z-min_pt.z)));
-        
         pcl::PointXYZ look_at;
-        do {
 
-            look_at.x = min_pt.x + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(max_pt.x-min_pt.x)));
-            look_at.y = min_pt.y + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(max_pt.y-min_pt.y)));
-            look_at.z = min_pt.z + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(max_pt.z-min_pt.z)));
-        
+        origin.x = dis_x(gen);
+        origin.y = dis_y(gen);
+        origin.z = dis_z(gen);
+
+        do {
+            look_at.x = dis_x(gen);
+            look_at.y = dis_y(gen);
+            look_at.z = dis_z(gen);
         } while (origin.x == look_at.x && origin.y == look_at.y && origin.z == look_at.z);
 
         Ray3D ray;
@@ -1085,6 +1111,12 @@ void Occlusion::generateRandomRays(size_t num_rays, pcl::PointXYZ& min_pt, pcl::
         ray.direction.x = look_at.x - origin.x;
         ray.direction.y = look_at.y - origin.y;
         ray.direction.z = look_at.z - origin.z;
+
+        // Normalize the direction vector
+        float length = std::sqrt(ray.direction.x * ray.direction.x + ray.direction.y * ray.direction.y + ray.direction.z * ray.direction.z);
+        ray.direction.x /= length;
+        ray.direction.y /= length;
+        ray.direction.z /= length;
 
         t_random_rays[i] = ray;
     }
@@ -1179,20 +1211,21 @@ double Occlusion::randomRayBasedOcclusionLevel(bool use_openings, bool use_estim
         pcl::PointXYZ direction2(-direction.x, -direction.y, -direction.z);
         checkRayOctreeIntersection(ray.second, direction2, root, use_estimated_cloud);
 
-
         if (use_openings) {
 
             Ray3D fake_ray; // opposite direction
             fake_ray.origin = ray.second.origin;
             fake_ray.direction = direction2;
 
-            for (int i; i < polygonClouds.size(); ++i) {
+            for (int i = 0; i < polygonClouds.size(); ++i) {
                 
                 if (rayIntersectPolygon(ray.second, polygonClouds[i], allCoefficients[i])) {
+                    // std::cout << "Ray hit polygon " << i << std::endl;
                     ray.second.first_dir_intersect_bound = true;
                 }
 
                 if (rayIntersectPolygon(fake_ray, polygonClouds[i], allCoefficients[i])) {
+                    // std::cout << "Fake ray hit polygon " << i << std::endl;
                     ray.second.second_dir_intersect_bound = true;
                 }
 
@@ -1270,11 +1303,13 @@ double Occlusion::randomRayBasedOcclusionLevel(bool use_openings, bool use_estim
     std::cout << std::endl;
     std::cout << "Number of rays with clutter: " << clutter_ray_count << std::endl;
 
-    double occlusion = no_bound_ray_with_clutter_count * 2.0 + no_bound_ray_no_clutter_count * 1.5 + one_bound_ray_with_clutter_count + one_bound_ray_no_clutter_count * 0.5;
+    // double occlusion = no_bound_ray_with_clutter_count * 2.0 + no_bound_ray_no_clutter_count * 1.5 + one_bound_ray_with_clutter_count + one_bound_ray_no_clutter_count * 0.5;
+    double occlusion = no_bound_ray_count;
     std::cout << "Occlusion: " << occlusion << std::endl;
     std::cout << std::endl;
 
-    double visibility = one_bound_ray_with_clutter_count * 0.5 + one_bound_ray_no_clutter_count + two_bounds_ray_with_clutter_count * 1.5 + two_bounds_ray_no_clutter_count * 2;
+    // double visibility = one_bound_ray_with_clutter_count * 0.5 + one_bound_ray_no_clutter_count + two_bounds_ray_with_clutter_count * 1.5 + two_bounds_ray_no_clutter_count * 2;
+    double visibility = one_bound_ray_count + two_bounds_ray_count * 2;
     std::cout << "Visibility: " << visibility << std::endl;
     std::cout << std::endl;
 
@@ -1847,6 +1882,9 @@ void Occlusion::computeFirstHitIntersection(Ray& ray) {
 
     if (ray.intersection_idx.size() == 0) {
         return;
+    } else if (ray.intersection_idx.size() == 1) {
+        t_intersections[ray.intersection_idx[0]].is_first_hit = true;
+        return;
     }
 
     double min_distance = std::numeric_limits<double>::max();
@@ -1904,8 +1942,7 @@ void Occlusion::checkRayOctreeIntersectionTriangle(Ray& ray, OctreeNode& node, s
 
 double Occlusion::triangleBasedOcclusionLevel(bool enable_acceleration) {    
 
-    size_t intersection_table_size = t_intersections.size();
-    size_t intersection_idx = intersection_table_size;
+    size_t intersection_idx = 0;
 
     double epsilon = 1e-4;
 
@@ -1913,29 +1950,26 @@ double Occlusion::triangleBasedOcclusionLevel(bool enable_acceleration) {
 
     OctreeNode& root_node = t_octree_nodes[0];
 
-    // #pragma omp parallel for
     for (auto& sample : t_samples) {
 
         for (auto& ray_idx : sample.second.ray_idx) {
 
             checkRayOctreeIntersectionTriangle(t_rays[ray_idx], root_node, intersection_idx);
 
-            if (t_rays[ray_idx].intersection_idx.size() == 1) {
+            if (t_rays[ray_idx].intersection_idx.size() == 0) {
+                
+                sample.second.is_visible = true;
+                // break;
+            
+            } else if (t_rays[ray_idx].intersection_idx.size() == 1) {
                 
                 size_t first_hit_intersection_idx = t_rays[ray_idx].intersection_idx[0];
                 t_intersections[first_hit_intersection_idx].is_first_hit = true;
             
-            } else {
+            } else if (t_rays[ray_idx].intersection_idx.size() > 1) {
                 
                 computeFirstHitIntersection(t_rays[ray_idx]);
 
-            }
-
-            if (t_rays[ray_idx].intersection_idx.size() == 0) {
-                
-                sample.second.is_visible = true;
-                break;
-            
             }
 
             double look_at_point_distance_to_origin = (t_rays[ray_idx].look_at_point - t_rays[ray_idx].origin).norm();
@@ -1949,7 +1983,7 @@ double Occlusion::triangleBasedOcclusionLevel(bool enable_acceleration) {
             if (distance_diff > epsilon) {
 
                 sample.second.is_visible = true;
-                break;
+                // break;
 
             } 
 
@@ -1962,6 +1996,8 @@ double Occlusion::triangleBasedOcclusionLevel(bool enable_acceleration) {
     double occlusion_level = 0.0;
     double total_area = 0.0;
     double total_visible_area = 0.0;
+
+    pcl::PointCloud<pcl::PointXYZ>::Ptr visible_sample_cloud(new pcl::PointCloud<pcl::PointXYZ>);
 
     for (auto& tri : t_triangles) {
         
@@ -1979,8 +2015,15 @@ double Occlusion::triangleBasedOcclusionLevel(bool enable_acceleration) {
         for (auto& sample_idx : tri.second.sample_idx) {
 
             if (t_samples[sample_idx].is_visible) {
-
+    
                 visible_samples++;
+
+                pcl::PointXYZ visible_point;
+                visible_point.x = t_samples[sample_idx].point.x();
+                visible_point.y = t_samples[sample_idx].point.y();
+                visible_point.z = t_samples[sample_idx].point.z();
+
+                visible_sample_cloud->points.push_back(visible_point);
             
             }
 
@@ -2005,6 +2048,13 @@ double Occlusion::triangleBasedOcclusionLevel(bool enable_acceleration) {
     std::cout << "Total area: " << total_area << std::endl;
     std::cout << "Total visible area: " << total_visible_area << std::endl;
     occlusion_level = 1.0 - total_visible_area / total_area;
+
+    visible_sample_cloud->width = visible_sample_cloud->points.size();
+    visible_sample_cloud->height = 1;
+    visible_sample_cloud->is_dense = true;
+
+    pcl::io::savePCDFileASCII("../files/visible_sample_cloud.pcd", *visible_sample_cloud);
+    std::cout << "Saved " << visible_sample_cloud->points.size() << " visible samples." << std::endl;
 
     return occlusion_level;
 }
@@ -2513,7 +2563,7 @@ bool Occlusion::rayIntersectOctreeNode(Ray& ray, OctreeNode& node) {
 void Occlusion::generateCloudFromIntersection() {
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
-    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_first_hit(new pcl::PointCloud<pcl::PointXYZ>); // sample points on the mesh
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_first_hit(new pcl::PointCloud<pcl::PointXYZ>);
 
     for (auto& intersection : t_intersections) {
         // std::cout << "Intersection index: " << intersection.second.index << std::endl;
@@ -2528,6 +2578,27 @@ void Occlusion::generateCloudFromIntersection() {
         point.z = intersection.second.point(2);
         cloud->points.push_back(point);
 
+        if (intersection.second.is_first_hit) {
+            cloud_first_hit->points.push_back(point);
+        }
+
+    }
+
+    for (auto& sample : t_samples) {
+
+        if (!sample.second.is_visible) {
+            continue;
+        }
+
+        pcl::PointXYZ point;
+        point.x = sample.second.point(0);
+        point.y = sample.second.point(1);
+        point.z = sample.second.point(2);
+        
+        cloud->points.push_back(point);
+
+        cloud_first_hit->points.push_back(point);
+
     }
 
     cloud->width = cloud->points.size();
@@ -2536,6 +2607,13 @@ void Occlusion::generateCloudFromIntersection() {
 
     pcl::io::savePCDFileASCII("../files/intersection_cloud.pcd", *cloud);
     std::cout << "Saved " << cloud->points.size() << " data points to cloud generated from mesh." << std::endl;
+
+    cloud_first_hit->width = cloud_first_hit->points.size();
+    cloud_first_hit->height = 1;
+    cloud_first_hit->is_dense = true;
+
+    pcl::io::savePCDFileASCII("../files/intersection_cloud_first_hit.pcd", *cloud_first_hit);
+    std::cout << "Saved " << cloud_first_hit->points.size() << " data points to first hit cloud generated from mesh." << std::endl;
 
 }
 

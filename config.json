@@ -2,8 +2,8 @@
     "occlusion": {
         "mesh": {
             "path": "../files/simp_conf.obj",
-            "ply_path": "../files/copy_alpha_shape.ply",
-            "pattern": 0,
+            "ply_path": "../files/conf2_alpha_shape.ply",
+            "pattern": 6,
             "octree_resolution": 1.0,
             "enable_acceleration": true,
             "samples_per_unit_area": 100,
@@ -21,11 +21,11 @@
 
         "boundary_cloud": {
             "use_estimated_cloud": true,
-            "path": "../files/copy_bound.pcd",
-            "sample_cloud_path": "../files/copy_halton_sample_cloud.pcd",
-            "num_rays": 20000,
-            "point_radius": 0.04,
-            "polygon_path": "../files/copy_poly.txt",
+            "path": "../files/conf2_bound.pcd",
+            "sample_cloud_path": "../files/intersection_cloud_first_hit.pcd",
+            "num_rays": 5000,
+            "point_radius": 0.2,
+            "polygon_path": "../files/conf2_poly.txt",
             "octree_resolution": 1.0,
             "use_openings": true,
             "K_nearest": 10

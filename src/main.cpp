@@ -347,18 +347,18 @@ int main(int argc, char *argv[])
         if (use_openings) {
             std::cout << "Using openings" << std::endl;
             std::vector<std::vector<pcl::PointXYZ>> polygons = occlusion.parsePolygonData(polygon_path);
-            std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds;
-            std::vector<pcl::ModelCoefficients::Ptr> allCoefficients;
+            std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygon_clouds;
+            std::vector<pcl::ModelCoefficients::Ptr> all_coefficients;
 
             for (int i = 0; i < polygons.size(); i++) {
                 pcl::ModelCoefficients::Ptr coefficients = occlusion.computePlaneCoefficients(polygons[i]);
-                allCoefficients.push_back(coefficients);
+                all_coefficients.push_back(coefficients);
                 pcl::PointCloud<pcl::PointXYZ>::Ptr polygon = occlusion.estimatePolygon(polygons[i], coefficients);
-                polygonClouds.push_back(polygon);
+                polygon_clouds.push_back(polygon);
             }
 
-            occlusion.setPolygonClouds(polygonClouds);
-            occlusion.setAllCoefficients(allCoefficients);
+            occlusion.setPolygonClouds(polygon_clouds);
+            occlusion.setAllCoefficients(all_coefficients);
             
         } else {
             std::cout << "Not using openings" << std::endl;
