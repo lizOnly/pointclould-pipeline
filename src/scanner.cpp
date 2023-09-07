@@ -229,7 +229,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::sphere_scanner(size_t num_rays_p
 
     for (int k = 0; k < scanning_positions.size(); k++) {
 
-        std::vector<pcl::PointXYZ> sampledPoints = occlusion.UniformSamplingSphere(scanning_positions[k], num_rays_per_vp);
+        std::vector<pcl::PointXYZ> sampledPoints = occlusion.UniformSampleSphere(scanning_positions[k], num_rays_per_vp);
         std::cout << "scanning position " << k << std::endl;
 
         // store all index of points that should be added to the sampled cloud

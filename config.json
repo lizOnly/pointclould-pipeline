@@ -3,11 +3,11 @@
         "mesh": {
             "path": "../files/simp_conf.obj",
             "ply_path": "../files/conf2_alpha_shape.ply",
-            "pattern": 6,
+            "pattern": 0,
             "octree_resolution": 1.0,
             "enable_acceleration": true,
-            "samples_per_unit_area": 100,
-            "use_ply": true
+            "samples_per_unit_area": 10,
+            "use_ply": false
         },
 
         "point_cloud": {
@@ -22,8 +22,8 @@
         "boundary_cloud": {
             "use_estimated_cloud": true,
             "path": "../files/conf2_bound.pcd",
-            "sample_cloud_path": "../files/intersection_cloud_first_hit.pcd",
-            "num_rays": 5000,
+            "sample_cloud_path": "../files/visible_sample_cloud.pcd",
+            "num_rays": 10000,
             "point_radius": 0.2,
             "polygon_path": "../files/conf2_poly.txt",
             "octree_resolution": 1.0,

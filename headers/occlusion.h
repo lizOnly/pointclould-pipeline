@@ -100,6 +100,8 @@ class Occlusion {
 
         std::vector<std::vector<pcl::PointXYZ>> parsePolygonData(const std::string& filename);
 
+        double halton(int index, int base);
+
         // occlusion level
         bool rayIntersectPolygon(const Ray3D& ray, const pcl::PointCloud<pcl::PointXYZ>::Ptr& polygonCloud, const pcl::ModelCoefficients::Ptr coefficients);
         
@@ -113,7 +115,9 @@ class Occlusion {
         
         std::vector<pcl::PointXYZ> getSphereLightSourceCenters(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt);
 
-        std::vector<pcl::PointXYZ> UniformSamplingSphere(pcl::PointXYZ center, size_t num_samples);
+        std::vector<pcl::PointXYZ> UniformSampleSphere(pcl::PointXYZ center, size_t num_samples);
+
+        std::vector<pcl::PointXYZ> HaltonSampleSphere(pcl::PointXYZ center, size_t num_samples);
         
         pcl::PointCloud<pcl::PointXYZI>::Ptr computeMedianDistance(double radius, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_density);
 

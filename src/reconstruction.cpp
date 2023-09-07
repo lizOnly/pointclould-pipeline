@@ -169,7 +169,7 @@ void Reconstruction::buildGroundTruthCloud(std::string folder_path) {
 
         std::cout << "file_name: " << file_name_no_ext_no_num << std::endl;
 
-        if (file_name_no_ext_no_num == "wall" || file_name_no_ext_no_num == "floor" || file_name_no_ext_no_num == "ceiling" || file_name_no_ext_no_num == "window" || file_name_no_ext_no_num == "column" || file_name_no_ext_no_num == "door" || file_name_no_ext_no_num == "beam") {
+        if (file_name_no_ext_no_num == "wall" || file_name_no_ext_no_num == "floor" || file_name_no_ext_no_num == "ceiling" || file_name_no_ext_no_num == "window" || file_name_no_ext_no_num == "column" || file_name_no_ext_no_num == "door" || file_name_no_ext_no_num == "beam" || file_name_no_ext_no_num == "board") {
             
             float x_ext, y_ext, z_ext;
             int r_ext, g_ext, b_ext;

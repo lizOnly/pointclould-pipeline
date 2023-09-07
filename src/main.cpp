@@ -250,6 +250,7 @@ int main(int argc, char *argv[])
 
     auto start = std::chrono::high_resolution_clock::now();
     std::cout << "Parsing arguments ... " << std::endl;
+    std::cout << "" << std::endl;
 
     Helper helper;
     // compute mesh based occlusion level
@@ -268,10 +269,12 @@ int main(int argc, char *argv[])
         if (use_ply) {
             std::string ply_path = occlusion_mesh.at("ply_path");
             std::cout << "ply path is: " << ply_path << std::endl;
+            std::cout << "" << std::endl;
             occlusion.parseTrianglesFromPLY(ply_path);
         } else {
             std::string mesh_path = occlusion_mesh.at("path");
             std::cout << "mesh path is: " << mesh_path << std::endl;
+            std::cout << "" << std::endl;
             occlusion.parseTrianglesFromOBJ(mesh_path);
         }
         occlusion.setOctreeResolution(octree_resolution);
@@ -288,7 +291,9 @@ int main(int argc, char *argv[])
         occlusion.generateRayFromTriangle(origins);
         double occlusion_level = occlusion.triangleBasedOcclusionLevel(enable_acceleration);
         
+        std::cout << "" << std::endl;
         std::cout << "Mesh based occlusion level is: " << occlusion_level << std::endl;
+        std::cout << "" << std::endl;
         occlusion.generateCloudFromIntersection();
 
         helper.displayRunningTime(start);
@@ -301,12 +306,14 @@ int main(int argc, char *argv[])
         bool use_estimated_cloud = occlusion_boundary.at("use_estimated_cloud");
         std::string path = occlusion_boundary.at("path");   
         std::cout << "input cloud path is: " << path << std::endl;
-        
+        std::cout << "" << std::endl;
+
         pcl::PointCloud<pcl::PointXYZI>::Ptr bound_cloud(new pcl::PointCloud<pcl::PointXYZI>);
         pcl::io::loadPCDFile<pcl::PointXYZI>(path, *bound_cloud);
 
         std::string polygon_path = occlusion_boundary.at("polygon_path");
         std::cout << "polygon path is: " << polygon_path << std::endl;
+        std::cout << "" << std::endl;
 
         size_t num_rays = occlusion_boundary.at("num_rays");
         double point_radius = occlusion_boundary.at("point_radius");
@@ -367,49 +374,9 @@ int main(int argc, char *argv[])
         occlusion.generateRandomRays(num_rays, min_pt_bound, max_pt_bound);
 
         double randomRayBasedOcclusionLevel = occlusion.randomRayBasedOcclusionLevel(use_openings, use_estimated_cloud);
-
+        std::cout << "" << std::endl;
         std::cout << "Random ray based occlusion level is: " << randomRayBasedOcclusionLevel << std::endl;
-
-        helper.displayRunningTime(start);
-
-    }  else if (arg1 == "-poc") {
-    
-        auto occlusion_point_cloud = j.at("occlusion").at("point_cloud");
-
-        std::string path = occlusion_point_cloud.at("path");
-        std::cout << "input cloud path is: " << path << std::endl;
-
-        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
-        pcl::io::loadPCDFile<pcl::PointXYZ>(path, *cloud);
-
-        pcl::PointXYZ min_pt, max_pt;
-        pcl::getMinMax3D(*cloud, min_pt, max_pt);
-
-        std::string polygon_path = occlusion_point_cloud.at("polygon_path");
-        std::cout << "polygon path is: " << polygon_path << std::endl;
-
-        size_t num_rays_per_vp = occlusion_point_cloud.at("num_rays_per_vp");
-        double point_radius = occlusion_point_cloud.at("point_radius");
-        float octree_resolution = occlusion_point_cloud.at("octree_resolution");
-
-        Occlusion occlusion;
-
-        occlusion.setInputCloud(cloud);
-        occlusion.setOctreeResolution(octree_resolution);
-        occlusion.setPointRadius(point_radius);
-        std::vector<std::vector<pcl::PointXYZ>> polygons = occlusion.parsePolygonData(polygon_path);
-        std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds;
-        std::vector<pcl::ModelCoefficients::Ptr> allCoefficients;
-        
-        for (int i = 0; i < polygons.size(); i++) {
-            pcl::ModelCoefficients::Ptr coefficients = occlusion.computePlaneCoefficients(polygons[i]);
-            allCoefficients.push_back(coefficients);
-            pcl::PointCloud<pcl::PointXYZ>::Ptr polygon = occlusion.estimatePolygon(polygons[i], coefficients);
-            polygonClouds.push_back(polygon);
-        }
-
-        double rayOcclusionLevel = occlusion.rayBasedOcclusionLevel(min_pt, max_pt, num_rays_per_vp, polygonClouds, allCoefficients);  
-
+        std::cout << "" << std::endl;
         helper.displayRunningTime(start);
     
     } else if (arg1 == "-fscan") {
@@ -527,6 +494,24 @@ int main(int argc, char *argv[])
             std::cout << x.first << ": " << x.second << std::endl;
         }
         
+    } else if (arg1 == "-ts") {
+        
+        std::string path = "../files/triangle.obj";
+        int samples_per_unit_area = 50;
+
+        Occlusion occlusion;
+        occlusion.parseTrianglesFromOBJ(path);
+        occlusion.uniformSampleTriangle(samples_per_unit_area);
+        occlusion.haltonSampleTriangle(samples_per_unit_area);
+
+        pcl::PointXYZ center;
+        center.x = 0.0;
+        center.y = 0.0;
+        center.z = 0.0;
+
+        occlusion.HaltonSampleSphere(center, 5000);
+
+
     } else {
             std::cout << "Invalid argument" << std::endl;
     }
