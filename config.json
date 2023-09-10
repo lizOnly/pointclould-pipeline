@@ -1,32 +1,26 @@
 {
     "occlusion": {
         "mesh": {
-            "path": "../files/simp_conf.obj",
-            "ply_path": "../files/conf2_alpha_shape.ply",
-            "pattern": 0,
-            "octree_resolution": 1.0,
+            "path": "../files/cube.obj",
+            "ply_path": "../files/conf1_alpha_shape.ply",
+            "pattern": 6,
+            "octree_resolution": 0.3,
             "enable_acceleration": true,
-            "samples_per_unit_area": 10,
-            "use_ply": false
-        },
-
-        "point_cloud": {
-            "path": "../files/conf1.pcd",
-            "num_rays_per_vp": 30000, 
-            "num_vp": 9, 
-            "point_radius": 0.01,
-            "polygon_path": "../files/polygon_conf.txt",
-            "octree_resolution": 0.5
+            "samples_per_unit_area": 50,
+            "use_ply": false,
+            "scene_name": "conf1"
         },
 
         "boundary_cloud": {
-            "use_estimated_cloud": true,
+            "scene_name": "conf1",
+            "use_estimated_cloud": false,
             "path": "../files/conf2_bound.pcd",
+            "original_path": "../files/conf2.pcd",
             "sample_cloud_path": "../files/visible_sample_cloud.pcd",
             "num_rays": 10000,
             "point_radius": 0.2,
             "polygon_path": "../files/conf2_poly.txt",
-            "octree_resolution": 1.0,
+            "octree_resolution": 0.5,
             "use_openings": true,
             "K_nearest": 10
         }
@@ -34,20 +28,19 @@
 
     "fixed_sphere_scanner": {
         "num_rays_per_vp": 20000,
-        "pattern": 0,
-        "pattern_v1": 1,
-        "pattern_v2": 2,
-        "path": "../files/conf1.pcd",
-        "gt_path": "../files/conf1_gt.pcd",
-        "octree_resolution": 0.5,
-        "point_radius": 0.05
+        "pattern": 6,
+        "scene_name": "conf2",
+        "path": "../files/conf2.pcd",
+        "gt_path": "../files/conf2_gt.pcd",
+        "octree_resolution": 0.3,
+        "point_radius": 0.01
     },
 
     "random_scanner": {
         "num_rays_per_vp": 20000,
         "path": "../files/conf1.pcd",
-        "octree_resolution": 0.5,
-        "point_radius": 0.05
+        "octree_resolution": 1.0,
+        "point_radius": 0.1
     },
 
     "evaluation": {
@@ -58,7 +51,7 @@
 
     "recon": {
         "path": "../files/copy/copyRoom_1.txt",
-        "gt_path": "../files/copy/anno/"
+        "gt_path": "../files/conf2/anno/"
     },
 
     "transfer": {

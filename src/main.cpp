@@ -258,6 +258,7 @@ int main(int argc, char *argv[])
 
         auto occlusion_mesh = j.at("occlusion").at("mesh");
 
+        std::string scene_name = occlusion_mesh.at("scene_name");
         int pattern = occlusion_mesh.at("pattern");
         float octree_resolution = occlusion_mesh.at("octree_resolution");
         bool enable_acceleration = occlusion_mesh.at("enable_acceleration");
@@ -267,7 +268,7 @@ int main(int argc, char *argv[])
         Occlusion occlusion;
 
         if (use_ply) {
-            std::string ply_path = occlusion_mesh.at("ply_path");
+            std::string ply_path = "../files/" + scene_name + "_alpha_shape.ply";
             std::cout << "ply path is: " << ply_path << std::endl;
             std::cout << "" << std::endl;
             occlusion.parseTrianglesFromPLY(ply_path);
@@ -281,12 +282,13 @@ int main(int argc, char *argv[])
         occlusion.haltonSampleTriangle(samples_per_unit_area);
         occlusion.buildOctreeCloud();
         occlusion.buildCompleteOctreeNodesTriangle();
+        occlusion.setConfigInfo(scene_name, samples_per_unit_area, pattern);
         
         Eigen::Vector3d min = occlusion.getMeshMinVertex();
         Eigen::Vector3d max = occlusion.getMeshMaxVertex();
         Eigen::Vector3d center = (min + max) / 2.0;
 
-        std::vector<Eigen::Vector3d> origins = occlusion.viewPointPattern(pattern, min, max, center);
+        std::vector<Eigen::Vector3d> origins = occlusion.viewPointPattern(min, max, center);
         
         occlusion.generateRayFromTriangle(origins);
         double occlusion_level = occlusion.triangleBasedOcclusionLevel(enable_acceleration);
@@ -294,17 +296,22 @@ int main(int argc, char *argv[])
         std::cout << "" << std::endl;
         std::cout << "Mesh based occlusion level is: " << occlusion_level << std::endl;
         std::cout << "" << std::endl;
-        occlusion.generateCloudFromIntersection();
+        // occlusion.generateCloudFromIntersection();
 
         helper.displayRunningTime(start);
 
     } else if (arg1 == "-bounoc") {
         // calculate based on how many intersections a ray has with the boundary of the point cloud
 
-        auto occlusion_boundary = j.at("occlusion").at("boundary_cloud");
+        auto occlusion_mesh = j.at("occlusion").at("mesh");
+        std::string scene_name = occlusion_mesh.at("scene_name");
+        int pattern = occlusion_mesh.at("pattern");
+        double samples_per_unit_area = occlusion_mesh.at("samples_per_unit_area");
 
+        auto occlusion_boundary = j.at("occlusion").at("boundary_cloud");
         bool use_estimated_cloud = occlusion_boundary.at("use_estimated_cloud");
-        std::string path = occlusion_boundary.at("path");   
+
+        std::string path = occlusion_boundary.at("path");
         std::cout << "input cloud path is: " << path << std::endl;
         std::cout << "" << std::endl;
 
@@ -325,6 +332,7 @@ int main(int argc, char *argv[])
         occlusion.setPointRadius(point_radius);
         occlusion.setOctreeResolution(octree_resolution);
         occlusion.setInputCloudBound(bound_cloud);
+        occlusion.setConfigInfo(scene_name, samples_per_unit_area, pattern);
 
         pcl::PointXYZI min_pt, max_pt;
         
@@ -335,9 +343,19 @@ int main(int argc, char *argv[])
             std::cout << "sample cloud path is: " << sample_cloud_path << std::endl;
             pcl::PointCloud<pcl::PointXYZ>::Ptr sample_cloud(new pcl::PointCloud<pcl::PointXYZ>);
             pcl::io::loadPCDFile<pcl::PointXYZ>(sample_cloud_path, *sample_cloud);
-            occlusion.setInputSampleCloud(sample_cloud);
-            occlusion.estimateSemantics(K_nearest);
 
+            std::string original_cloud_path = occlusion_boundary.at("original_path");
+            std::cout << "original cloud path is: " << original_cloud_path << std::endl;
+
+            pcl::PointCloud<pcl::PointXYZRGB>::Ptr original_cloud_rgb(new pcl::PointCloud<pcl::PointXYZRGB>);
+            pcl::io::loadPCDFile<pcl::PointXYZRGB>(original_cloud_path, *original_cloud_rgb);
+
+            occlusion.setInputSampleCloud(sample_cloud);
+            occlusion.setInputCloudRGB(original_cloud_rgb);
+
+            occlusion.estimateBoundary(K_nearest);
+            occlusion.estimateSemantics();
+            
             pcl::PointCloud<pcl::PointXYZI>::Ptr estimated_bound_cloud(new pcl::PointCloud<pcl::PointXYZI>);
             estimated_bound_cloud = occlusion.getEstimatedBoundCloud();
             pcl::getMinMax3D(*estimated_bound_cloud, min_pt, max_pt);
@@ -388,40 +406,49 @@ int main(int argc, char *argv[])
         pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
         pcl::io::loadPCDFile<pcl::PointXYZ>(path, *cloud);
 
+        scanner.setInputCloud(cloud);
+
+        std::cout << "input cloud path is: " << path << std::endl;
+        std::cout << "Loaded " << cloud->size() << " data points" << std::endl;
+        std::cout << "" << std::endl;
+
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr colored_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
         pcl::io::loadPCDFile<pcl::PointXYZRGB>(path, *colored_cloud);
+
+        scanner.setInputCloudColor(colored_cloud);
 
         pcl::PointXYZ min_pt, max_pt;
         pcl::getMinMax3D(*cloud, min_pt, max_pt);
 
+        std::cout << "min_pt: " << min_pt << std::endl;
+        std::cout << "max_pt: " << max_pt << std::endl;
+        std::cout << "" << std::endl;
+
         std::string gt_path = scan.at("gt_path");
-        std::cout << "input cloud path is: " << path << std::endl;
+
+
+        pcl::PointCloud<pcl::PointXYZI>::Ptr gt_cloud(new pcl::PointCloud<pcl::PointXYZI>);
+        pcl::io::loadPCDFile<pcl::PointXYZI>(gt_path, *gt_cloud);
+
+        scanner.setInputCloudGT(gt_cloud);
+
         size_t num_rays_per_vp = scan.at("num_rays_per_vp");
-        int pattern = scan.at("pattern");
-        int pattern_v1 = scan.at("pattern_v1");
-        int pattern_v2 = scan.at("pattern_v2");
+        std::string scene_name = scan.at("scene_name");
+
         float octree_resolution = scan.at("octree_resolution");
         double point_radius = scan.at("point_radius");
 
         scanner.setOctreeResolution(octree_resolution);
         scanner.setPointRadius(point_radius);
+        
+        int pattern = scan.at("pattern");
+        std::vector<pcl::PointXYZ> origins = scanner.fixed_scanning_positions(min_pt, max_pt, pattern);
+        scanner.generateRays(num_rays_per_vp, origins);
 
-        pcl::PointCloud<pcl::PointXYZI>::Ptr gt_cloud(new pcl::PointCloud<pcl::PointXYZI>);
-        pcl::io::loadPCDFile<pcl::PointXYZI>(gt_path, *gt_cloud);
+        scanner.buildCompleteOctreeNodes();
 
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr sacnned_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
-
-        std::vector<pcl::PointXYZ> center_scanning = scanner.fixed_scanning_positions(min_pt, max_pt, pattern);
-        sacnned_cloud = scanner.sphere_scanner(num_rays_per_vp, pattern, center_scanning, cloud, gt_cloud, colored_cloud, path);
-
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr sacnned_cloud_v1(new pcl::PointCloud<pcl::PointXYZRGB>);
-        std::vector<pcl::PointXYZ> v1_scanning = scanner.fixed_scanning_positions(min_pt, max_pt, pattern_v1);
-        sacnned_cloud_v1 = scanner.sphere_scanner(num_rays_per_vp, pattern_v1, v1_scanning, cloud, gt_cloud, colored_cloud, path);
-
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr sacnned_cloud_v2(new pcl::PointCloud<pcl::PointXYZRGB>);
-        std::vector<pcl::PointXYZ> v2_scanning = scanner.fixed_scanning_positions(min_pt, max_pt, pattern_v2);
-        sacnned_cloud_v2 = scanner.sphere_scanner(num_rays_per_vp, pattern_v2, v2_scanning, cloud, gt_cloud, colored_cloud, path);
-
+        scanner.sphere_scanner(pattern, scene_name);
+        
         helper.displayRunningTime(start);
 
     } else if (arg1 == "-recon") {
@@ -463,7 +490,11 @@ int main(int argc, char *argv[])
         pcl::PointCloud<pcl::PointXYZI>::Ptr ground_truth_cloud(new pcl::PointCloud<pcl::PointXYZI>);
         pcl::io::loadPCDFile<pcl::PointXYZI>(gt_path, *ground_truth_cloud);
 
+        eval.setColorLabelMap();
+        eval.setGroundTruthMap();
+
         eval.compareClouds(segmented_cloud, ground_truth_cloud);
+        
         eval.calculateIoU();
         eval.calculateAccuracy();
         eval.calculatePrecision();

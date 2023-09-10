@@ -36,6 +36,294 @@ Scanner::~Scanner()
     // empty destructor
 }
 
+
+void Scanner::buildCompleteOctreeNodes() {
+
+    pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> octree(octree_resolution);
+    octree.setInputCloud(input_cloud);
+    octree.addPointsFromInputCloud();
+
+    int max_depth = octree.getTreeDepth();
+    std::cout << "Max depth: " << max_depth << std::endl;
+
+    std::unordered_map<int, int> depth_map; // <diagonal distance of bounding box, depth of curren level>
+    std::unordered_map<int, std::vector<size_t>> depth_index_map; // <depth, index of nodes at current depth>
+    // depth first traversal
+
+    size_t idx = 0;
+
+    pcl::PointCloud<pcl::PointXYZ>::Ptr octree_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+
+    for (auto it = octree.begin(); it != octree.end(); ++it) {
+
+        OctreeNode node;
+        node.index = idx;
+
+        Eigen::Vector3f min_pt, max_pt;
+        octree.getVoxelBounds(it, min_pt, max_pt);
+
+        node.min_pt.x() = static_cast<double>(min_pt.x());
+        node.min_pt.y() = static_cast<double>(min_pt.y());
+        node.min_pt.z() = static_cast<double>(min_pt.z());
+
+        node.max_pt.x() = static_cast<double>(max_pt.x());
+        node.max_pt.y() = static_cast<double>(max_pt.y());
+        node.max_pt.z() = static_cast<double>(max_pt.z());
+
+        float d = (max_pt-min_pt).norm();
+        int d_int = static_cast<int>(d);
+        node.diagonal_distance = d_int;
+
+        depth_map[d_int] = 0;
+        
+        if (it.isBranchNode()) {
+            node.is_branch = true;
+            // std::cout << "Branch Distance: " << d << std::endl;
+        }
+
+        if (it.isLeafNode()) {
+            node.is_leaf = true;
+            // std::cout << "Leaf Distance: " << d << std::endl;
+
+            std::vector<int> point_idx = it.getLeafContainer().getPointIndicesVector();
+
+            for (auto& idx : point_idx) {
+                node.point_idx.push_back(idx);
+            }
+
+        }
+
+        t_octree_nodes[node.index] = node;
+        idx++;
+    }
+
+    std::cout << "Number of octree nodes: " << t_octree_nodes.size() << std::endl;
+    std::cout << "" << std::endl;
+    t_octree_nodes[0].is_root = true;
+
+    std::set<int> size_set;
+    for (auto& d : depth_map) {
+        size_set.insert(d.first);
+    }
+    
+    if (size_set.size() != depth_map.size()) {
+        std::cout << "Wrong depth map created !!!" << std::endl;
+        return;
+    } else {
+        for (auto& s : size_set) {
+            std::cout << "Diagonal distance: " << s << std::endl;
+        }
+    }
+
+    std::cout << "" << std::endl;
+
+    for (auto& d : depth_map) {
+        int i = max_depth;
+        for (auto& s : size_set) {
+            if (d.first == s) {
+                depth_map[d.first] = i;
+            }
+            i--;
+        }
+        std::cout << "Diagonal distance: " << d.first << " in depth: " << depth_map[d.first] << std::endl;
+    }
+
+    std::cout << "" << std::endl;
+
+    if (depth_map.size() != max_depth + 1) {
+        std::cout << "Wrong depth map created !!!" << std::endl;
+        return;
+    }
+
+    for (size_t i = 0; i < t_octree_nodes.size(); ++i) {
+
+        t_octree_nodes[i].depth = depth_map[t_octree_nodes[i].diagonal_distance];
+        depth_index_map[t_octree_nodes[i].depth].push_back(t_octree_nodes[i].index);
+
+    }
+
+    // build connections between nodes 
+    for (int d = 0; d < max_depth; d++) {
+        std::cout << "Depth: " << d << " has " << depth_index_map[d].size() << " nodes" <<std::endl;
+
+        for (auto& idx : depth_index_map[d]) {
+            
+            if (t_octree_nodes[idx].prev == -1) {
+                
+                if (t_octree_nodes[idx].next == -1) {
+
+                    for (int i = 0; i < depth_index_map[d+1].size(); ++i) {
+
+                        if (t_octree_nodes[depth_index_map[d+1][i]].parent_index != -1) {
+                            continue;
+                        }
+
+                        t_octree_nodes[idx].children.push_back(depth_index_map[d+1][i]);
+                        t_octree_nodes[depth_index_map[d+1][i]].parent_index = idx;
+
+                        if ((i + 1) < depth_index_map[d+1].size()) {
+
+                            t_octree_nodes[depth_index_map[d+1][i]].next = depth_index_map[d+1][i+1];
+                            t_octree_nodes[depth_index_map[d+1][i+1]].prev = depth_index_map[d+1][i];
+
+                        } 
+                    }
+
+                } else {
+
+                    for (int i = 0; i < depth_index_map[d+1].size(); ++i) {
+                        
+                        if (depth_index_map[d+1][i] < t_octree_nodes[idx].next) {
+                            
+                            if (t_octree_nodes[depth_index_map[d+1][i]].parent_index != -1) {
+                                continue;
+                            }
+
+                            t_octree_nodes[idx].children.push_back(depth_index_map[d+1][i]);
+                            t_octree_nodes[depth_index_map[d+1][i]].parent_index = idx;
+
+                            if ((i + 1) < depth_index_map[d+1].size()) {
+
+                                t_octree_nodes[depth_index_map[d+1][i]].next = depth_index_map[d+1][i+1];
+                                t_octree_nodes[depth_index_map[d+1][i+1]].prev = depth_index_map[d+1][i];
+
+                            } 
+                        }
+                    }
+
+                }
+            } else if (t_octree_nodes[idx].next == -1) {
+
+                for (int i = 0; i < depth_index_map[d+1].size(); ++i) {
+                        
+                    if (depth_index_map[d+1][i] > t_octree_nodes[idx].prev) {
+                        
+                        if (t_octree_nodes[depth_index_map[d+1][i]].parent_index != -1) {
+                            continue;
+                        }
+
+                        t_octree_nodes[idx].children.push_back(depth_index_map[d+1][i]);
+                        t_octree_nodes[depth_index_map[d+1][i]].parent_index = idx;
+
+                        if ((i + 1) < depth_index_map[d+1].size()) {
+
+                            t_octree_nodes[depth_index_map[d+1][i]].next = depth_index_map[d+1][i+1];
+                            t_octree_nodes[depth_index_map[d+1][i+1]].prev = depth_index_map[d+1][i];
+
+                        } 
+                    }
+                }
+
+            } else {
+
+                for (int i = 0; i < depth_index_map[d+1].size(); ++i) {
+                        
+                    if (depth_index_map[d+1][i] > t_octree_nodes[idx].prev && depth_index_map[d+1][i] < t_octree_nodes[idx].next) {
+                        
+                        if (t_octree_nodes[depth_index_map[d+1][i]].parent_index != -1) {
+                            continue;
+                        }
+
+                        t_octree_nodes[idx].children.push_back(depth_index_map[d+1][i]);
+                        t_octree_nodes[depth_index_map[d+1][i]].parent_index = idx;
+
+                        if ((i + 1) < depth_index_map[d+1].size()) {
+
+                            t_octree_nodes[depth_index_map[d+1][i]].next = depth_index_map[d+1][i+1];
+                            t_octree_nodes[depth_index_map[d+1][i+1]].prev = depth_index_map[d+1][i];
+
+                        } 
+                    }
+                }
+
+            }
+        }
+
+    }
+
+    std::cout << "" << std::endl;
+    std::cout << "Octree built! Number of octree nodes: " << t_octree_nodes.size() << std::endl;
+    std::cout << "" << std::endl;
+
+    for (int d = 0; d < max_depth; d++) {
+        
+        size_t num_children = 0;
+        
+        for (auto& idx : depth_index_map[d]) {
+            
+            num_children += t_octree_nodes[idx].children.size();
+        
+        }
+
+        std::cout << "Depth: " << d << " has " << depth_index_map[d].size() << " nodes and " << num_children << " children" <<std::endl;
+    }
+
+    std::cout << "" << std::endl;
+
+}
+
+
+std::vector<pcl::PointXYZ> Scanner::fixed_scanning_positions(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, int pattern) {
+
+    Occlusion occlusion;
+
+    std::vector<pcl::PointXYZ> positions;
+    
+    pcl::PointXYZ center;
+    center.x = (min_pt.x + max_pt.x) / 2;
+    center.y = (min_pt.y + max_pt.y) / 2;
+    center.z = (min_pt.z + max_pt.z) / 2;
+
+    pcl::PointXYZ max_position;
+    max_position.x = (center.x + max_pt.x) / 2;
+    max_position.y = (center.y + max_pt.y) / 2;
+    max_position.z = (center.z + max_pt.z) / 2;
+
+    pcl::PointXYZ min_position;
+    min_position.x = (center.x + min_pt.x) / 2;
+    min_position.y = (center.y + min_pt.y) / 2;
+    min_position.z = (center.z + min_pt.z) / 2;
+
+    if (pattern == 0) { // one center position
+
+        positions.push_back(center);
+        
+    } else if (pattern == 1) {
+
+        positions.push_back(min_position); 
+
+    } else if (pattern == 2) {
+
+        positions.push_back(max_position);
+
+    }  else if (pattern == 3) {
+
+        positions.push_back(min_position);
+        positions.push_back(max_position);
+
+    } else if (pattern == 4) {
+
+        positions.push_back(center);
+        positions.push_back(min_position);
+
+    } else if (pattern == 5) {
+
+        positions.push_back(center);
+        positions.push_back(max_position);
+
+    } else if (pattern == 6) {
+
+        positions.push_back(center);
+        positions.push_back(min_position);
+        positions.push_back(max_position);
+
+    } 
+
+    return positions;
+
+}
+
+
 void Scanner::traverseOctree() {
 
     pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> octree(octree_resolution);
@@ -150,9 +438,69 @@ bool Scanner::rayBoxIntersection(const Ray3D& ray, const pcl::PointXYZ& min_pt, 
 }
 
 
+void Scanner::checkFirstHitPoint(Ray3D& ray) {
+
+    double min_distance = std::numeric_limits<double>::max();
+    size_t min_idx = -1;
+
+    for (auto& idx : ray.intersection_idx) {
+
+        pcl::PointXYZ point = input_cloud->points[idx];
+
+        double distance = sqrt(pow(point.x - ray.origin.x, 2) + pow(point.y - ray.origin.y, 2) + pow(point.z - ray.origin.z, 2));
+        
+        if (distance < min_distance) {
+            min_distance = distance;
+            min_idx = idx;
+        }
+
+    }
+
+    ray.first_hit_point = min_idx;
+
+}
+
+void Scanner::checkRayOctreeIntersection(Ray3D& ray, OctreeNode& node) {
+
+    if (node.is_leaf) {
+
+        // std::cout << "Ray: " << ray.index << " intersects with leaf node: " << node.index << std::endl;
+        // std::cout << "Number of points in leaf node: " << node.point_idx.size() << std::endl;
+
+        for (auto& point_idx : node.point_idx) {
+            // std::cout << "Check hitting point: " << point_idx << std::endl;
+            pcl::PointXYZ point = input_cloud->points[point_idx];
+            
+            if (rayIntersectSpehre(ray.origin, ray.direction, point)) {
+                
+                // std::cout << "Ray: " << ray.index << " intersects with point: " << point_idx << std::endl;
+                ray.intersection_idx.push_back(point_idx);
+
+            }
+
+        }
+
+        
+    } else {
+
+        for (auto& child_idx : node.children) {
+            
+            pcl::PointXYZ min_pt(node.min_pt.x(), node.min_pt.y(), node.min_pt.z());
+            pcl::PointXYZ max_pt(node.max_pt.x(), node.max_pt.y(), node.max_pt.z());
+
+            if (rayBoxIntersection(ray, min_pt, max_pt)) {
+                checkRayOctreeIntersection(ray, t_octree_nodes[child_idx]);
+            }
+
+        }
+
+    }
+}
+
+
 bool Scanner::rayIntersectSpehre(pcl::PointXYZ& origin, pcl::PointXYZ& direction, pcl::PointXYZ& point) {
     
-    double dirMagnitude = sqrt(direction.x * direction.x + direction.y * direction.y + direction.z * direction.z);
+   double dirMagnitude = sqrt(direction.x * direction.x + direction.y * direction.y + direction.z * direction.z);
     direction.x /= dirMagnitude;
     direction.y /= dirMagnitude;
     direction.z /= dirMagnitude;
@@ -170,157 +518,165 @@ bool Scanner::rayIntersectSpehre(pcl::PointXYZ& origin, pcl::PointXYZ& direction
 
     if (d2 > point_radius * point_radius) return false;
 
+
     return true;
 
 }
 
 
-bool Scanner::rayIntersectPointCloud(Ray3D& ray, pcl::PointXYZ& intersection, size_t& index) {
+void Scanner::generateRays(size_t num_rays_per_vp, std::vector<pcl::PointXYZ> origins) {
 
-    pcl::PointXYZ origin = ray.origin;
-    pcl::PointXYZ direction = ray.direction;
+    std::cout << "Generating rays ..." << std::endl;
 
-    for(auto& bbox : octree_leaf_bbox) {
+    double radius = 0.2;
+    size_t ray_idx = 0;
 
-        pcl::PointXYZ min_pt(bbox.min_pt.x(), bbox.min_pt.y(), bbox.min_pt.z());
-        pcl::PointXYZ max_pt(bbox.max_pt.x(), bbox.max_pt.y(), bbox.max_pt.z());
+    Occlusion occlusion;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
 
-        if(rayBoxIntersection(ray, min_pt, max_pt)) {
+    for (size_t i = 0; i < origins.size(); i++) {
 
-            for(auto& point_idx : bbox.point_idx) {
+        pcl::PointXYZ origin = origins[i];
 
-                pcl::PointXYZ point = input_cloud->points[point_idx];
+        for (size_t j = 0; j < num_rays_per_vp; j++) {
 
-                if(rayIntersectSpehre(origin, direction, point)) {
+            double theta = 2 * M_PI * occlusion.halton(j, 2); 
+            double phi = acos(2 * occlusion.halton(j, 3) - 1);
 
-                    intersection = point;
-                    index = point_idx;
-                    return true;
+            double x = origin.x + radius * sin(phi) * cos(theta);
+            double y = origin.y + radius * sin(phi) * sin(theta);
+            double z = origin.z + radius * cos(phi);
 
-                }
+            pcl::PointXYZ look_at(x, y, z);
 
-            }
+            cloud->push_back(look_at);
 
+            Ray3D ray;
+            ray.origin = origin;
+            ray.direction.x = look_at.x - origin.x;
+            ray.direction.y = look_at.y - origin.y;
+            ray.direction.z = look_at.z - origin.z;
+            ray.index = ray_idx;
+            t_rays[ray.index] = ray;
+            ray_idx++;
         }
-        
+
     }
 
-    return false;
-}
+    cloud->width = cloud->size();
+    cloud->height = 1;
+    cloud->is_dense = true;
 
+    pcl::io::savePCDFileASCII ("../files/sphere_scanners.pcd", *cloud);
+
+    std::cout << "" << std::endl;
+    std::cout << "Number of rays: " << t_rays.size() << std::endl;
+    std::cout << "" << std::endl;
+}
 
 /*
     This method is used to generate a sampled cloud using ray sampling method. We cast a ray from a light source to a point on the sphere. 
     Then we sample points along the ray with given step, for each point we search for its nearest neighbor within a given search radius.
     The neighbor points are added to the sampled cloud.
 */
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::sphere_scanner(size_t num_rays_per_vp, int pattern, std::vector<pcl::PointXYZ> scanning_positions, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointCloud<pcl::PointXYZI>::Ptr gt_cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud, std::string path) {
+void Scanner::sphere_scanner(int pattern, std::string scene_name) {
 
     Occlusion occlusion;
-    input_cloud = cloud;
 
-    traverseOctree();
+    pcl::PointCloud<pcl::PointXYZI>::Ptr scanned_cloud_gt(new pcl::PointCloud<pcl::PointXYZI>);
+    pcl::PointCloud<pcl::PointXYZI>::Ptr scanned_cloud_bound(new pcl::PointCloud<pcl::PointXYZI>);
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr scanned_cloud_bound_color(new pcl::PointCloud<pcl::PointXYZRGB>);
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr scanned_cloud_color(new pcl::PointCloud<pcl::PointXYZRGB>);
 
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr sampledCloud(new pcl::PointCloud<pcl::PointXYZRGB>);
-    pcl::PointCloud<pcl::PointXYZI>::Ptr sampledCloudGT(new pcl::PointCloud<pcl::PointXYZI>);
-    std::cout << "total rays: " << num_rays_per_vp * scanning_positions.size() << std::endl;
+    for (auto& ray : t_rays) {
 
-    std::unordered_set<int> addedPoints;
+        OctreeNode root = t_octree_nodes[0];
+        checkRayOctreeIntersection(ray.second, root);
+        checkFirstHitPoint(ray.second);
 
-    for (int k = 0; k < scanning_positions.size(); k++) {
+        pcl::PointXYZI point_gt;
+        pcl::PointXYZI point_bound;
+        pcl::PointXYZRGB point_bound_color;
+        pcl::PointXYZRGB point_color;
 
-        std::vector<pcl::PointXYZ> sampledPoints = occlusion.UniformSampleSphere(scanning_positions[k], num_rays_per_vp);
-        std::cout << "scanning position " << k << std::endl;
+        if (ray.second.first_hit_point != -1) {
+            
+            // std::cout << "Ray: " << ray.second.index << " first hit on point " << ray.second.first_hit_point << std::endl;
+            size_t idx = ray.second.first_hit_point;
+            
+            point_gt.x = input_cloud->points[idx].x;
+            point_gt.y = input_cloud->points[idx].y;
+            point_gt.z = input_cloud->points[idx].z;
 
-        // store all index of points that should be added to the sampled cloud
-        for (int i = 0; i < sampledPoints.size(); i++) {
+            // std::cout << "Point: " << point_gt.x << " " << point_gt.y << " " << point_gt.z << std::endl;
+            point_gt.intensity = input_cloud_gt->points[idx].intensity;
 
-            pcl::PointXYZ sampledPoint = sampledPoints[i];
-            Ray3D ray = occlusion.generateRay(scanning_positions[k], sampledPoint);
+            point_bound.x = input_cloud->points[idx].x;
+            point_bound.y = input_cloud->points[idx].y;
+            point_bound.z = input_cloud->points[idx].z;
 
-            pcl::PointXYZ intersection;
-            std::vector<pcl::PointXYZ> intersections;
-            size_t index;
-            std::vector<size_t> indices;
-            if (rayIntersectPointCloud(ray, intersection, index)) {
-                intersections.push_back(intersection);
-                indices.push_back(index);
+            point_bound_color.x = input_cloud->points[idx].x;
+            point_bound_color.y = input_cloud->points[idx].y;
+            point_bound_color.z = input_cloud->points[idx].z;
+
+            if (point_gt.intensity == 0 || point_gt.intensity == 1 || point_gt.intensity == 7 || point_gt.intensity == 8 || point_gt.intensity == 20 || point_gt.intensity == 21 || point_gt.intensity == 26) {
+                point_bound.intensity = 1;
+                point_bound_color.r = 227;
+                point_bound_color.g = 221;
+                point_bound_color.b = 220;
+            } else {
+                point_bound.intensity = 0;
+                point_bound_color.r = 40;
+                point_bound_color.g = 126;
+                point_bound_color.b = 166;
             }
 
-            if (indices.size() == 0) {
-                continue;
-            }
+            point_color.x = input_cloud->points[idx].x;
+            point_color.y = input_cloud->points[idx].y;
+            point_color.z = input_cloud->points[idx].z;
 
-            double min_distance = std::numeric_limits<double>::max();
-            size_t min_idx = 0;
-            for (size_t j = 0; j < intersections.size(); j++) {
-                double distance = sqrt(pow(intersections[j].x - ray.origin.x, 2) + pow(intersections[j].y - ray.origin.y, 2) + pow(intersections[j].z - ray.origin.z, 2));
-                if (distance < min_distance) {
-                    min_distance = distance;
-                    min_idx = indices[j];
-                }
-            }
-            addedPoints.insert(min_idx);
+            point_color.r = input_cloud_color->points[idx].r;
+            point_color.g = input_cloud_color->points[idx].g;
+            point_color.b = input_cloud_color->points[idx].b;
+
+            scanned_cloud_gt->push_back(point_gt);
+            scanned_cloud_color->push_back(point_color);
+
+            scanned_cloud_bound->push_back(point_bound);
+            scanned_cloud_bound_color->push_back(point_bound_color);
+
         }
-        
     }
 
-    std::cout << "total points after scanning: " << addedPoints.size() << std::endl;
-    pcl::KdTreeFLANN<pcl::PointXYZI> kdtree_gt;
-    kdtree_gt.setInputCloud(gt_cloud);
+    scanned_cloud_gt->width = scanned_cloud_gt->size();
+    scanned_cloud_gt->height = 1;
+    scanned_cloud_gt->is_dense = true;
 
-    for (const auto& ptIdx : addedPoints) {
+    scanned_cloud_color->width = scanned_cloud_color->size();
+    scanned_cloud_color->height = 1;
+    scanned_cloud_color->is_dense = true;
 
-        pcl::PointXYZI search_point;
-        search_point.x = cloud->points[ptIdx].x;
-        search_point.y = cloud->points[ptIdx].y;
-        search_point.z = cloud->points[ptIdx].z;
-        search_point.intensity = 0.0;
+    scanned_cloud_bound->width = scanned_cloud_bound->size();
+    scanned_cloud_bound->height = 1;
+    scanned_cloud_bound->is_dense = true;
 
-        std::vector<int> indices;
-        std::vector<float> distances;
+    scanned_cloud_bound_color->width = scanned_cloud_bound_color->size();
+    scanned_cloud_bound_color->height = 1;
+    scanned_cloud_bound_color->is_dense = true;
 
-        kdtree_gt.nearestKSearch(search_point, 1, indices, distances);
-        pcl::PointXYZI gt_point = gt_cloud->points[indices[0]];
-        sampledCloudGT->push_back(gt_point);
+    pcl::io::savePCDFileASCII ("../files/" + scene_name + "_gt_" + std::to_string(pattern) + ".pcd", *scanned_cloud_gt);
+    std::cout << "Saved " << scanned_cloud_gt->size() << " data points to gt cloud" << std::endl;
 
-        pcl::PointXYZRGB point;
+    pcl::io::savePCDFileASCII ("../files/" + scene_name + "_color_" + std::to_string(pattern) + ".pcd", *scanned_cloud_color);
+    std::cout << "Saved " << scanned_cloud_color->size() << " data points to color cloud" << std::endl;
 
-        point.x = cloud->points[ptIdx].x;
-        point.y = cloud->points[ptIdx].y;
-        point.z = cloud->points[ptIdx].z;
+    pcl::io::savePCDFileASCII ("../files/" + scene_name + "_bound_" + std::to_string(pattern) + ".pcd", *scanned_cloud_bound);
+    std::cout << "Saved " << scanned_cloud_bound->size() << " data points to bound cloud" << std::endl;
 
-        point.r = coloredCloud->points[ptIdx].r;
-        point.g = coloredCloud->points[ptIdx].g;
-        point.b = coloredCloud->points[ptIdx].b;
+    pcl::io::savePCDFileASCII ("../files/" + scene_name + "_bound_color_" + std::to_string(pattern) + ".pcd", *scanned_cloud_bound_color);
+    std::cout << "Saved " << scanned_cloud_bound_color->size() << " data points to bound color cloud" << std::endl;
 
-        sampledCloud->push_back(point);
-
-    }
-
-    sampledCloud->width = sampledCloud->size();
-    sampledCloud->height = 1;
-    sampledCloud->is_dense = true;
-    std::cout << "scanned cloud size: " << sampledCloud->size() << std::endl;
-
-    sampledCloudGT->width = sampledCloudGT->size();
-    sampledCloudGT->height = 1;
-    sampledCloudGT->is_dense = true;
-    std::cout << "scanned cloud ground truth size: " << sampledCloudGT->size() << std::endl;
-
-    std::string output_path = path.substr(0, path.length() - 4) + "_" + std::to_string(num_rays_per_vp) + ".pcd";
-    std::string gt_output_path = path.substr(0, path.length() - 4) + "_" + std::to_string(num_rays_per_vp) + "_gt.pcd";
-    if(pattern == 1) {
-        output_path = path.substr(0, path.length() - 4) + "_" + std::to_string(num_rays_per_vp) + "_v1.pcd";
-        gt_output_path = path.substr(0, path.length() - 4) + "_" + std::to_string(num_rays_per_vp) + "_v1_gt.pcd";
-    } else if (pattern == 2) {
-        output_path = path.substr(0, path.length() - 4) + "_" + std::to_string(num_rays_per_vp) + "_v2.pcd";
-        gt_output_path = path.substr(0, path.length() - 4) + "_" + std::to_string(num_rays_per_vp) + "_v2_gt.pcd";
-    }
-    pcl::io::savePCDFileASCII (output_path, *sampledCloud);
-    pcl::io::savePCDFileASCII (gt_output_path, *sampledCloudGT);
-
-    return sampledCloud;
+    std::cout << "" << std::endl;
 
 }
 
@@ -339,45 +695,6 @@ std::vector<pcl::PointXYZ> Scanner::random_scanning_positions(pcl::PointXYZ& min
 
         positions.push_back(position);
 
-    }
-
-    return positions;
-
-}
-
-
-std::vector<pcl::PointXYZ> Scanner::fixed_scanning_positions(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, int pattern) {
-
-    Occlusion occlusion;
-
-    std::vector<pcl::PointXYZ> positions;
-    
-    pcl::PointXYZ center;
-    center.x = (min_pt.x + max_pt.x) / 2;
-    center.y = (min_pt.y + max_pt.y) / 2;
-    center.z = (min_pt.z + max_pt.z) / 2;
-
-    if (pattern == 0) { // one center position
-
-        positions.push_back(center);
-        
-    } else if (pattern == 1) {
-        pcl::PointXYZ max_position;
-        max_position.x = (center.x + max_pt.x) / 2;
-        max_position.y = (center.y + max_pt.y) / 2;
-        max_position.z = (center.z + max_pt.z) / 2;
-
-        positions.push_back(max_position); 
-
-    } else if (pattern == 2) {
-        pcl::PointXYZ min_position;
-        min_position.x = (center.x + min_pt.x) / 2;
-        min_position.y = (center.y + min_pt.y) / 2;
-        min_position.z = (center.z + min_pt.z) / 2;
-
-        positions.push_back(min_position);
-    }  else if (pattern == 3) {
-        positions = occlusion.getSphereLightSourceCenters(min_pt, max_pt);
     }
 
     return positions;

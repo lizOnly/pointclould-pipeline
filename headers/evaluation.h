@@ -70,6 +70,6 @@ class Evaluation {
         std::map<std::string, std::vector<int>> color_label_map;
         std::map<std::string, std::vector<int>> ground_truth_map;
 
-        void updateProperties(size_t& tp, size_t& fp, size_t& fn, size_t& tn);
+        void updateProperties();
 
 };

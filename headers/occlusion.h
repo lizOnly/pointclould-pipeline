@@ -48,6 +48,12 @@ class Occlusion {
             input_cloud = cloud;
         };
 
+        void setInputCloudRGB(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud) {
+
+            input_cloud_rgb = cloud;
+
+        }
+
         void setInputCloudBound(pcl::PointCloud<pcl::PointXYZI>::Ptr cloud) {
             input_cloud_bound = cloud;
         };
@@ -62,6 +68,12 @@ class Occlusion {
 
         void setAllCoefficients(std::vector<pcl::ModelCoefficients::Ptr> coefficients) {
             allCoefficients = coefficients;
+        };
+
+        void setConfigInfo(std::string scene_name, int samples_per_unit_area, int pattern) {
+            this->scene_name = scene_name;
+            this->samples_per_unit_area = samples_per_unit_area;
+            this->pattern = pattern;
         };
 
 
@@ -139,7 +151,9 @@ class Occlusion {
 
         void haltonSampleTriangle(double samples_per_unit_area);
 
-        void estimateSemantics(int K_nearest);
+        void estimateBoundary(int K_nearest);
+
+        void estimateSemantics();
 
         double calculateTriangleArea(Triangle& tr);
 
@@ -147,7 +161,7 @@ class Occlusion {
 
         void generateRaysWithIdx(std::vector<Eigen::Vector3d>& origins, size_t num_rays_per_vp);
 
-        std::vector<Eigen::Vector3d> viewPointPattern(const int& pattern, Eigen::Vector3d& min, Eigen::Vector3d& max, Eigen::Vector3d& center);
+        std::vector<Eigen::Vector3d> viewPointPattern(Eigen::Vector3d& min, Eigen::Vector3d& max, Eigen::Vector3d& center);
 
         bool rayTriangleIntersect(Triangle& tr, Ray& ray, Eigen::Vector3d& intersection_point);
 
@@ -177,6 +191,10 @@ class Occlusion {
 
         private:
 
+            std::string scene_name;
+            int samples_per_unit_area;
+            int pattern;
+
             std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds;
             std::vector<pcl::ModelCoefficients::Ptr> allCoefficients;
 
@@ -189,6 +207,7 @@ class Occlusion {
             std::vector<pcl::PointIndices> rg_clusters;
             
             pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud;
+            pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_cloud_rgb;
             pcl::PointCloud<pcl::PointXYZI>::Ptr input_cloud_bound;
             pcl::PointCloud<pcl::PointXYZ>::Ptr input_sample_cloud;
             pcl::PointCloud<pcl::PointXYZI>::Ptr estimated_bound_cloud;

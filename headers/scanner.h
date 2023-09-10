@@ -18,15 +18,33 @@ class Scanner {
             octree_resolution = resolution;
         }
 
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr sphere_scanner(size_t num_rays_per_vp, int pattern, std::vector<pcl::PointXYZ> scanning_positions, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointCloud<pcl::PointXYZI>::Ptr gt_cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud, std::string path);
+        void setInputCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud) {
+            input_cloud = cloud;
+        }
+
+        void setInputCloudGT(pcl::PointCloud<pcl::PointXYZI>::Ptr cloud) {
+            input_cloud_gt = cloud;
+        }
+
+        void setInputCloudColor(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud) {
+            input_cloud_color = cloud;
+        }
+
+        void sphere_scanner(int pattern, std::string path);
         
         void traverseOctree();
+
+        void buildCompleteOctreeNodes();
 
         bool rayBoxIntersection(const Ray3D& ray, const pcl::PointXYZ& min_pt, const pcl::PointXYZ& max_pt);
 
         bool rayIntersectSpehre(pcl::PointXYZ& origin, pcl::PointXYZ& direction, pcl::PointXYZ& point);
 
-        bool rayIntersectPointCloud(Ray3D& ray, pcl::PointXYZ& intersection, size_t& index);
+        void checkRayOctreeIntersection(Ray3D& ray, OctreeNode& node);
+        
+        void checkFirstHitPoint(Ray3D& ray);
+
+        void generateRays(size_t num_rays_per_vp, std::vector<pcl::PointXYZ> origins);
 
         std::vector<pcl::PointXYZ> random_scanning_positions(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, int num_scanners);
 
@@ -41,7 +59,14 @@ class Scanner {
     private:
 
         pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud;
+        pcl::PointCloud<pcl::PointXYZI>::Ptr input_cloud_gt;
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_cloud_color;
+
         pcl::PointCloud<pcl::PointXYZ>::Ptr octree_cloud;
+        
+
+        std::unordered_map<size_t, OctreeNode> t_octree_nodes;
+        std::unordered_map<size_t, Ray3D> t_rays;
 
         std::vector<LeafBBox> octree_leaf_bbox;
 

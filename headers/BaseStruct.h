@@ -11,13 +11,14 @@ struct Ray3D { // ray structure used for point cloud ray tracing
     size_t index;
     pcl::PointXYZ origin;
     pcl::PointXYZ direction;
+    std::vector<size_t> intersection_idx;
     std::vector<size_t> first_dir_bound_intersection_idx; // first direction bound intersection index
     std::vector<size_t> second_dir_bound_intersection_idx; // second direction bound intersection index
     std::vector<size_t> clutter_intersection_idx; // index in triangle vector
     bool first_dir_intersect_bound = false;
     bool second_dir_intersect_bound = false;
     bool intersect_clutter = false;
-
+    size_t first_hit_point = -1;
 };
 
 struct Intersection {

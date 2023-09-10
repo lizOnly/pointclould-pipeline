@@ -85,11 +85,13 @@ void Evaluation::compareClouds(pcl::PointCloud<pcl::PointXYZRGB>::Ptr segmented_
     labels.push_back(ground_truth_labels);
     labels.push_back(predicted_labels);
 
+    std::cout << "Updating properties... " << std::endl;
+    updateProperties();
+    std::cout << std::endl;
 }
 
-void Evaluation::updateProperties(size_t& tp, size_t& fp, size_t& fn, size_t& tn) {
+void Evaluation::updateProperties() {
 
-    std::cout << "Updating properties... " << std::endl;
     tp = fp = fn = tn = 0;
 
     for (size_t i = 0; i < ground_truth_labels.size(); ++i) {
@@ -103,13 +105,17 @@ void Evaluation::updateProperties(size_t& tp, size_t& fp, size_t& fn, size_t& tn
             ++tn;
         }
     }
+
+    std::cout << "True positives: " << tp << std::endl;
+    std::cout << "False positives: " << fp << std::endl;
+    std::cout << "False negatives: " << fn << std::endl;
+    std::cout << "True negatives: " << tn << std::endl;
+    std::cout << std::endl;
 }
 
 float Evaluation::calculateIoU() {
 
     std::cout << "Calculating IoU... " << std::endl;
-    size_t tp, fp, fn, tn;
-    updateProperties(tp, fp, fn, tn);
     double iou = static_cast<double>(tp) / (tp + fp + fn);
     std::cout << "IoU: " << iou << std::endl;
     std::cout << std::endl;
@@ -120,8 +126,6 @@ float Evaluation::calculateIoU() {
 float Evaluation::calculateAccuracy() {
 
     std::cout << "Calculating accuracy... " << std::endl;
-    size_t tp, fp, fn, tn;
-    updateProperties(tp, fp, fn, tn);
     double accuracy = static_cast<double>(tp + tn) / (tp + fp + fn + tn);
     std::cout << "Accuracy: " << accuracy << std::endl;
     std::cout << std::endl;
@@ -132,8 +136,6 @@ float Evaluation::calculateAccuracy() {
 float Evaluation::calculatePrecision() {
 
     std::cout << "Calculating precision... " << std::endl;
-    size_t tp, fp, fn, tn;
-    updateProperties(tp, fp, fn, tn);
     double precision = static_cast<double>(tp) / (tp + fp);
     std::cout << "Precision: " << precision << std::endl;
     std::cout << std::endl;
@@ -144,8 +146,6 @@ float Evaluation::calculatePrecision() {
 float Evaluation::calculateRecall() {
 
     std::cout << "Calculating recall... " << std::endl;
-    size_t tp, fp, fn, tn;
-    updateProperties(tp, fp, fn, tn);
     double recall = static_cast<double>(tp) / (tp + fn);
     std::cout << "Recall: " << recall << std::endl;
     std::cout << std::endl;
@@ -156,8 +156,6 @@ float Evaluation::calculateRecall() {
 float Evaluation::calculateF1Score() {
 
     std::cout << "Calculating F1 score... " << std::endl;
-    size_t tp, fp, fn, tn;
-    updateProperties(tp, fp, fn, tn);
     double f1_score = 2 * static_cast<double>(tp) / (2 * tp + fp + fn);
     std::cout << "F1 score: " << f1_score << std::endl;
     std::cout << std::endl;

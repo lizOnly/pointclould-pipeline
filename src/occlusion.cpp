@@ -555,6 +555,7 @@ bool Occlusion::rayBoxIntersection(const Ray3D& ray, const pcl::PointXYZ& min_pt
 
     if (tymin > tmin)
         tmin = tymin;
+        
     if (tymax < tmax)
         tmax = tymax;
 
@@ -808,17 +809,15 @@ double Occlusion::rayBasedOcclusionLevel(pcl::PointXYZ& min_pt, pcl::PointXYZ& m
 }
 
 
-void Occlusion::estimateSemantics(int K_nearest) {
+void Occlusion::estimateBoundary(int K_nearest) {
     std::cout << "" << std::endl;
-    std::cout << "Estimating semantics..." << std::endl;
+    std::cout << "Estimating boundary..." << std::endl;
 
     estimated_bound_cloud = pcl::PointCloud<pcl::PointXYZI>::Ptr(new pcl::PointCloud<pcl::PointXYZI>);
     pcl::KdTreeFLANN<pcl::PointXYZI> kdtree;
     kdtree.setInputCloud(input_cloud_bound);
 
     for (int i = 0; i < input_sample_cloud->points.size(); ++i) {
-
-        // std::cout << "start estimating semantics for point " << i << std::endl;
 
         pcl::PointXYZI point;
         point.x = input_sample_cloud->points[i].x;
@@ -869,16 +868,16 @@ void Occlusion::estimateSemantics(int K_nearest) {
 
         if (point.intensity == 1.0) {
  
-            p.r = 255; // red
-            p.g = 0;
-            p.b = 0;
+            p.r = 227; // red
+            p.g = 221;
+            p.b = 220;
             exterior_count++;
 
         } else {
             
-            p.r = 0;
-            p.g = 0;
-            p.b = 255;
+            p.r = 40;
+            p.g = 126;
+            p.b = 166;
             interior_count++;
 
         }
@@ -899,13 +898,57 @@ void Occlusion::estimateSemantics(int K_nearest) {
     estimated_bound_cloud->height = 1;
     estimated_bound_cloud->is_dense = true;
 
-    pcl::io::savePCDFileASCII("../files/estimated_bound_cloud.pcd", *estimated_bound_cloud);
+    pcl::io::savePCDFileASCII("../files/" + scene_name + "_" + std::to_string(samples_per_unit_area) + "_" + std::to_string(pattern) + "_estimated_bound.pcd", *estimated_bound_cloud);
 
     estimated_rgb_bound_cloud->width = estimated_rgb_bound_cloud->points.size();
     estimated_rgb_bound_cloud->height = 1;
     estimated_rgb_bound_cloud->is_dense = true;
 
-    pcl::io::savePCDFileASCII("../files/estimated_rgb_bound_cloud.pcd", *estimated_rgb_bound_cloud);
+    pcl::io::savePCDFileASCII("../files/" + scene_name + "_" + std::to_string(samples_per_unit_area) + "_" + std::to_string(pattern) + "_estimated_rgb_bound.pcd", *estimated_rgb_bound_cloud);
+
+}
+
+
+void Occlusion::estimateSemantics() {
+    
+    std::cout << "" << std::endl;
+    std::cout << "Estimating boundary..." << std::endl;
+    
+    pcl::KdTreeFLANN<pcl::PointXYZRGB> kdtree;
+    kdtree.setInputCloud(input_cloud_rgb);
+
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr estimated_semantics_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+
+    for (int i = 0; i < estimated_bound_cloud->points.size(); i++) {
+
+        pcl::PointXYZRGB point;
+        point.x = estimated_bound_cloud->points[i].x;
+        point.y = estimated_bound_cloud->points[i].y;
+        point.z = estimated_bound_cloud->points[i].z;
+
+        std::vector<int> pointIdxNKNSearch(1);
+        std::vector<float> pointNKNSquaredDistance(1);
+
+        if (kdtree.nearestKSearch(point, 1, pointIdxNKNSearch, pointNKNSquaredDistance) > 0) {
+            point.r = input_cloud_rgb->points[pointIdxNKNSearch[0]].r;
+            point.g = input_cloud_rgb->points[pointIdxNKNSearch[0]].g;
+            point.b = input_cloud_rgb->points[pointIdxNKNSearch[0]].b;
+        } else {
+            point.r = 0;
+            point.g = 0;
+            point.b = 0;
+        }
+        
+        estimated_semantics_cloud->points.push_back(point);
+    }
+
+    std::cout << "Estimated semantics cloud size: " << estimated_semantics_cloud->points.size() << std::endl;
+    std::cout << "" << std::endl;
+    estimated_semantics_cloud->width = estimated_semantics_cloud->points.size();
+    estimated_semantics_cloud->height = 1;
+    estimated_semantics_cloud->is_dense = true;
+
+    pcl::io::savePCDFileASCII("../files/" + scene_name + "_" + std::to_string(samples_per_unit_area) + "_" + std::to_string(pattern) + "_estimated_semantics.pcd", *estimated_semantics_cloud);
 
 }
 
@@ -1367,6 +1410,9 @@ double Occlusion::randomRayBasedOcclusionLevel(bool use_openings, bool use_estim
     std::cout << std::endl;
     std::cout << "Number of rays with clutter: " << clutter_ray_count << std::endl;
 
+    double clutter_ratio = double(clutter_ray_count) / double(num_rays);
+    std::cout << "Clutter ratio: " << clutter_ratio << std::endl;
+
     double occlusion_level = ((2.0 / 3.0) * no_bound_ray_count + (1.0 / 3.0) * (one_bound_ray_count)) / num_rays;
 
     occlusion_level = sqrt(occlusion_level);
@@ -1436,6 +1482,9 @@ void Occlusion::parseTrianglesFromOBJ(const std::string& mesh_path) {
         }
 
     }
+
+    mesh_min_vertex = min_vertex;
+    mesh_max_vertex = max_vertex;
 
     std::cout << "" << std::endl;
     std::cout << "Number of triangles: " << t_triangles.size() << std::endl;
@@ -1706,7 +1755,7 @@ double Occlusion::calculateTriangleArea(Triangle& tr) {
 }
 
 
-std::vector<Eigen::Vector3d> Occlusion::viewPointPattern(const int& pattern, Eigen::Vector3d& min, Eigen::Vector3d& max, Eigen::Vector3d& center) {
+std::vector<Eigen::Vector3d> Occlusion::viewPointPattern(Eigen::Vector3d& min, Eigen::Vector3d& max, Eigen::Vector3d& center) {
 
     std::vector<Eigen::Vector3d> origins;
 
@@ -1748,6 +1797,11 @@ std::vector<Eigen::Vector3d> Occlusion::viewPointPattern(const int& pattern, Eig
         origins.push_back(min_mid);
         origins.push_back(max_mid);
         origins.push_back(center);
+
+    } else if (pattern == 7) { // edge case 1 for the ground truth mesh, under the table
+
+        Eigen::Vector3d under_table(center.x(), center.y(), min.z());
+        origins.push_back(under_table);
 
     }
 
@@ -2021,7 +2075,7 @@ double Occlusion::triangleBasedOcclusionLevel(bool enable_acceleration) {
             if (t_rays[ray_idx].intersection_idx.size() == 0) {
                 
                 sample.second.is_visible = true;
-                // break;
+                break; // with this break enabled, we are not computing all the intersections for each ray
             
             } else if (t_rays[ray_idx].intersection_idx.size() == 1) {
                 
@@ -2045,7 +2099,7 @@ double Occlusion::triangleBasedOcclusionLevel(bool enable_acceleration) {
             if (distance_diff > epsilon) {
 
                 sample.second.is_visible = true;
-                // break;
+                break;
 
             } 
 
@@ -2106,6 +2160,7 @@ double Occlusion::triangleBasedOcclusionLevel(bool enable_acceleration) {
         total_visible_area += visible_area;
 
     }
+
     std::cout << "" << std::endl;
     std::cout << "Total area: " << total_area << std::endl;
     std::cout << "Total visible area: " << total_visible_area << std::endl;
