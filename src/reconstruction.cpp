@@ -152,11 +152,10 @@ void Reconstruction::buildGroundTruthCloud(std::string folder_path) {
     // intensity is used to store the label
     pcl::PointCloud<pcl::PointXYZI>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZI>);
     pcl::PointCloud<pcl::PointXYZI>::Ptr bound_cloud (new pcl::PointCloud<pcl::PointXYZI>);
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr exterior_cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr interior_cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
+    // pcl::PointCloud<pcl::PointXYZRGB>::Ptr exterior_cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
+    // pcl::PointCloud<pcl::PointXYZRGB>::Ptr interior_cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
 
-    size_t exterior_count = 0;
-    size_t interior_count = 0;
+    size_t clutter_count = 0;
 
     for (const auto & entry : std::filesystem::directory_iterator(folder_path)) {
         
@@ -173,18 +172,17 @@ void Reconstruction::buildGroundTruthCloud(std::string folder_path) {
             
             float x_ext, y_ext, z_ext;
             int r_ext, g_ext, b_ext;
-            exterior_count++;
             
             while (file >> x_ext >> y_ext >> z_ext >> r_ext >> g_ext >> b_ext)
             {   
-                pcl::PointXYZRGB point_ext;
-                point_ext.x = x_ext;
-                point_ext.y = y_ext;
-                point_ext.z = z_ext;
-                point_ext.r = r_ext;
-                point_ext.g = g_ext;
-                point_ext.b = b_ext;
-                exterior_cloud->points.push_back(point_ext);
+                // pcl::PointXYZRGB point_ext;
+                // point_ext.x = x_ext;
+                // point_ext.y = y_ext;
+                // point_ext.z = z_ext;
+                // point_ext.r = r_ext;
+                // point_ext.g = g_ext;
+                // point_ext.b = b_ext;
+                // exterior_cloud->points.push_back(point_ext);
 
                 pcl::PointXYZI point;
                 point.x = x_ext;
@@ -215,18 +213,17 @@ void Reconstruction::buildGroundTruthCloud(std::string folder_path) {
             float x_int, y_int, z_int;
             int r_int, g_int, b_int;
 
-            interior_count++;
-
             while (file >> x_int >> y_int >> z_int >> r_int >> g_int >> b_int) 
             {   
-                pcl::PointXYZRGB point_int;
-                point_int.x = x_int;
-                point_int.y = y_int;
-                point_int.z = z_int;
-                point_int.r = r_int;
-                point_int.g = g_int;
-                point_int.b = b_int;
-                interior_cloud->points.push_back(point_int);
+                clutter_count++;
+                // pcl::PointXYZRGB point_int;
+                // point_int.x = x_int;
+                // point_int.y = y_int;
+                // point_int.z = z_int;
+                // point_int.r = r_int;
+                // point_int.g = g_int;
+                // point_int.b = b_int;
+                // interior_cloud->points.push_back(point_int);
 
                 pcl::PointXYZI point;
                 point.x = x_int;
@@ -257,29 +254,24 @@ void Reconstruction::buildGroundTruthCloud(std::string folder_path) {
     }
 
     cloud->width = cloud->points.size();
-    std::cout << "Loaded " << cloud->width << " points" << std::endl;
     cloud->height = 1;
+    cloud->is_dense = true;
 
     pcl::io::savePCDFile("../files/gt.pcd", *cloud);
+
+    std::cout << "Saved " << cloud->points.size() << " points" << std::endl;
+    std::cout << "" << std::endl;
 
     bound_cloud->width = bound_cloud->points.size();
     bound_cloud->height = 1;
 
     pcl::io::savePCDFile("../files/bound_cloud.pcd", *bound_cloud);
 
-    exterior_cloud->width = exterior_cloud->points.size();
-    exterior_cloud->height = 1;
+    std::cout << "clutter count: " << clutter_count << std::endl;
+    double clutter_ratio = (double)clutter_count / (double)cloud->width;
+    std::cout << "clutter ratio: " << clutter_ratio << std::endl;
+    std::cout << "" << std::endl;
 
-    pcl::io::savePCDFile("../files/gt_ext.pcd", *exterior_cloud);
-
-    interior_cloud->width = interior_cloud->points.size();
-    interior_cloud->height = 1;
-
-    pcl::io::savePCDFile("../files/gt_int.pcd", *interior_cloud);
-
-    double interior_ratio = (double)interior_count / (double)(interior_count + exterior_count);
-
-    std::cout << "interior ratio: " << interior_ratio << std::endl;
 
 }
 

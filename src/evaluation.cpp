@@ -17,17 +17,44 @@ Evaluation::~Evaluation() {
 }
 
 
-void Evaluation::compareClouds(pcl::PointCloud<pcl::PointXYZRGB>::Ptr segmented_cloud, pcl::PointCloud<pcl::PointXYZI>::Ptr ground_truth_cloud) {
+void Evaluation::compareClouds(pcl::PointCloud<pcl::PointXYZRGB>::Ptr segmented_cloud, pcl::PointCloud<pcl::PointXYZI>::Ptr ground_truth_cloud, bool compare_bound) {
 
     std::vector<std::vector<bool>> labels;
 
+    size_t segmented_cloud_size = segmented_cloud->size();
+    size_t ground_truth_cloud_size = ground_truth_cloud->size();
+
+    std::cout << "Segmented cloud size: " << segmented_cloud_size << std::endl;
+    std::cout << "Ground truth cloud size: " << ground_truth_cloud_size << std::endl;
+    std::cout << std::endl;
+
+    if (segmented_cloud_size != ground_truth_cloud_size) {
+        std::cout << "Segmented cloud and ground truth cloud sizes are not equal!" << std::endl;
+        return;
+    }
+
     std::cout << "Comparing clouds... " << std::endl;
+    std::cout << std::endl;
     pcl::KdTreeFLANN<pcl::PointXYZI> kdtree;
     kdtree.setInputCloud(ground_truth_cloud);
     
+    if (compare_bound) {
+        std::cout << "Comparing only boundary points... " << std::endl;
+    } else {
+        std::cout << "Comparing all points... " << std::endl;
+    }
+
+    std::cout << std::endl;
+
     for (auto it = ground_truth_map.begin(); it != ground_truth_map.end(); ++it) {
 
         int ground_truth = it->second[0];
+
+        if (compare_bound) {
+            if (ground_truth == 4 || ground_truth == 5 || ground_truth == 6 || ground_truth == 9 || ground_truth == 25) {
+                continue;
+            }
+        }
     
         for (size_t i = 0; i < segmented_cloud->size(); ++i) {
 
@@ -38,7 +65,17 @@ void Evaluation::compareClouds(pcl::PointCloud<pcl::PointXYZRGB>::Ptr segmented_
             for (auto it = color_label_map.begin(); it != color_label_map.end(); ++it) {
 
                 if (it->second[0] == segmented_point_color[0] && it->second[1] == segmented_point_color[1] && it->second[2] == segmented_point_color[2]) {
-                    segmented_point_label = it->second[3];
+                    
+                    if (compare_bound) {
+                        if (it->second[3] == 4 || it->second[3] == 5 || it->second[3] == 6 || it->second[3] == 9 || it->second[3] == 25) {
+                            continue;
+                        } else {
+                            segmented_point_label = it->second[3];
+                        }
+                    } else {
+                        segmented_point_label = it->second[3];
+                    }
+
                 }
 
             }

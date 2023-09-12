@@ -8,18 +8,18 @@
             "enable_acceleration": true,
             "samples_per_unit_area": 50,
             "use_ply": false,
-            "scene_name": "conf1"
+            "scene_name": "copy"
         },
 
         "boundary_cloud": {
-            "scene_name": "conf1",
+            "scene_name": "copy",
             "use_estimated_cloud": false,
-            "path": "../files/conf2_bound.pcd",
-            "original_path": "../files/conf2.pcd",
+            "path": "../files/copy_bound_6.pcd",
+            "original_path": "../files/copy.pcd",
             "sample_cloud_path": "../files/visible_sample_cloud.pcd",
             "num_rays": 10000,
             "point_radius": 0.2,
-            "polygon_path": "../files/conf2_poly.txt",
+            "polygon_path": "../files/copy_poly.txt",
             "octree_resolution": 0.5,
             "use_openings": true,
             "K_nearest": 10
@@ -29,29 +29,23 @@
     "fixed_sphere_scanner": {
         "num_rays_per_vp": 20000,
         "pattern": 6,
-        "scene_name": "conf2",
-        "path": "../files/conf2.pcd",
-        "gt_path": "../files/conf2_gt.pcd",
+        "scene_name": "copy",
+        "path": "../files/copy.pcd",
+        "gt_path": "../files/copy_gt.pcd",
         "octree_resolution": 0.3,
         "point_radius": 0.01
     },
 
-    "random_scanner": {
-        "num_rays_per_vp": 20000,
-        "path": "../files/conf1.pcd",
-        "octree_resolution": 1.0,
-        "point_radius": 0.1
-    },
-
     "evaluation": {
         "path": "../files/conf1.pcd",
-        "seg_path": "../files/conf1_seg.pcd",
-        "gt_path": "../files/conf1_gt.pcd"
+        "seg_path": "../files/copy_color_6_seg.pcd",
+        "gt_path": "../files/copy_gt_6.pcd",
+        "compare_bound": false
     },
 
     "recon": {
         "path": "../files/copy/copyRoom_1.txt",
-        "gt_path": "../files/conf2/anno/"
+        "gt_path": "../files/copy/anno/"
     },
 
     "transfer": {

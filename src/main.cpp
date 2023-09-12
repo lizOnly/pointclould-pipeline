@@ -190,7 +190,7 @@ void on_message(server& s, websocketpp::connection_hdl hdl, server::message_ptr 
             std::cout << "segmented_cloud loaded " << segmented_cloud->size() << std::endl;
 
             Evaluation eval;
-            eval.compareClouds(segmented_cloud, ground_truth_cloud);
+            eval.compareClouds(segmented_cloud, ground_truth_cloud, false);
             
             float iou = eval.calculateIoU();
             std::string iou_str = "-iou=" + std::to_string(iou);
@@ -483,6 +483,7 @@ int main(int argc, char *argv[])
         auto evaluation = j.at("evaluation");
         std::string seg_path = evaluation.at("seg_path");
         std::string gt_path = evaluation.at("gt_path");
+        bool compare_bound = evaluation.at("compare_bound");
 
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr segmented_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
         pcl::io::loadPCDFile<pcl::PointXYZRGB>(seg_path, *segmented_cloud);
@@ -493,10 +494,10 @@ int main(int argc, char *argv[])
         eval.setColorLabelMap();
         eval.setGroundTruthMap();
 
-        eval.compareClouds(segmented_cloud, ground_truth_cloud);
+        eval.compareClouds(segmented_cloud, ground_truth_cloud, compare_bound);
         
-        eval.calculateIoU();
         eval.calculateAccuracy();
+        eval.calculateIoU();
         eval.calculatePrecision();
         eval.calculateRecall();
         eval.calculateF1Score();

@@ -555,7 +555,7 @@ bool Occlusion::rayBoxIntersection(const Ray3D& ray, const pcl::PointXYZ& min_pt
 
     if (tymin > tmin)
         tmin = tymin;
-        
+
     if (tymax < tmax)
         tmax = tymax;
 
@@ -868,7 +868,7 @@ void Occlusion::estimateBoundary(int K_nearest) {
 
         if (point.intensity == 1.0) {
  
-            p.r = 227; // red
+            p.r = 227;
             p.g = 221;
             p.b = 220;
             exterior_count++;

@@ -317,7 +317,19 @@ std::vector<pcl::PointXYZ> Scanner::fixed_scanning_positions(pcl::PointXYZ& min_
         positions.push_back(min_position);
         positions.push_back(max_position);
 
-    } 
+    } else if (pattern == 7) { // extreme case
+
+        positions.push_back(min_pt);
+
+    } else if (pattern == 8) { // extreme case
+
+        positions.push_back(max_pt);
+
+    } else if (pattern == 9) {
+
+
+    }
+
 
     return positions;
 
@@ -588,6 +600,8 @@ void Scanner::sphere_scanner(int pattern, std::string scene_name) {
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr scanned_cloud_bound_color(new pcl::PointCloud<pcl::PointXYZRGB>);
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr scanned_cloud_color(new pcl::PointCloud<pcl::PointXYZRGB>);
 
+    size_t clutter_count = 0;
+
     for (auto& ray : t_rays) {
 
         OctreeNode root = t_octree_nodes[0];
@@ -619,16 +633,22 @@ void Scanner::sphere_scanner(int pattern, std::string scene_name) {
             point_bound_color.y = input_cloud->points[idx].y;
             point_bound_color.z = input_cloud->points[idx].z;
 
-            if (point_gt.intensity == 0 || point_gt.intensity == 1 || point_gt.intensity == 7 || point_gt.intensity == 8 || point_gt.intensity == 20 || point_gt.intensity == 21 || point_gt.intensity == 26) {
+            if (point_gt.intensity == 0 || point_gt.intensity == 1 || point_gt.intensity == 7 ) {
+                
                 point_bound.intensity = 1;
                 point_bound_color.r = 227;
                 point_bound_color.g = 221;
                 point_bound_color.b = 220;
+
             } else {
+
                 point_bound.intensity = 0;
                 point_bound_color.r = 40;
                 point_bound_color.g = 126;
                 point_bound_color.b = 166;
+
+                clutter_count++;
+            
             }
 
             point_color.x = input_cloud->points[idx].x;
@@ -666,16 +686,20 @@ void Scanner::sphere_scanner(int pattern, std::string scene_name) {
 
     pcl::io::savePCDFileASCII ("../files/" + scene_name + "_gt_" + std::to_string(pattern) + ".pcd", *scanned_cloud_gt);
     std::cout << "Saved " << scanned_cloud_gt->size() << " data points to gt cloud" << std::endl;
+    std::cout << "" << std::endl;
 
     pcl::io::savePCDFileASCII ("../files/" + scene_name + "_color_" + std::to_string(pattern) + ".pcd", *scanned_cloud_color);
     std::cout << "Saved " << scanned_cloud_color->size() << " data points to color cloud" << std::endl;
+    std::cout << "" << std::endl;
 
     pcl::io::savePCDFileASCII ("../files/" + scene_name + "_bound_" + std::to_string(pattern) + ".pcd", *scanned_cloud_bound);
     std::cout << "Saved " << scanned_cloud_bound->size() << " data points to bound cloud" << std::endl;
+    std::cout << "Number of clutter points: " << clutter_count << std::endl;
+    std::cout << "Clutter ratio is: " << (double)clutter_count / (double)scanned_cloud_bound->size() << std::endl;
+    std::cout << "" << std::endl;
 
     pcl::io::savePCDFileASCII ("../files/" + scene_name + "_bound_color_" + std::to_string(pattern) + ".pcd", *scanned_cloud_bound_color);
     std::cout << "Saved " << scanned_cloud_bound_color->size() << " data points to bound color cloud" << std::endl;
-
     std::cout << "" << std::endl;
 
 }
