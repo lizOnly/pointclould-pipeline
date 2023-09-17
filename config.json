@@ -1,25 +1,25 @@
 {
     "occlusion": {
         "mesh": {
-            "path": "../files/cube.obj",
+            "path": "../files/simp_conf.obj",
             "ply_path": "../files/conf1_alpha_shape.ply",
-            "pattern": 6,
+            "pattern": 2,
             "octree_resolution": 0.3,
             "enable_acceleration": true,
-            "samples_per_unit_area": 50,
+            "samples_per_unit_area": 10,
             "use_ply": false,
-            "scene_name": "copy"
+            "scene_name": "conf2"
         },
 
         "boundary_cloud": {
-            "scene_name": "copy",
+            "scene_name": "conf1",
             "use_estimated_cloud": false,
-            "path": "../files/copy_bound_6.pcd",
-            "original_path": "../files/copy.pcd",
+            "path": "../files/conf1_bound_6.pcd",
+            "original_path": "../files/conf1.pcd",
             "sample_cloud_path": "../files/visible_sample_cloud.pcd",
             "num_rays": 10000,
             "point_radius": 0.2,
-            "polygon_path": "../files/copy_poly.txt",
+            "polygon_path": "../files/conf1_poly.txt",
             "octree_resolution": 0.5,
             "use_openings": true,
             "K_nearest": 10
@@ -28,18 +28,20 @@
 
     "fixed_sphere_scanner": {
         "num_rays_per_vp": 20000,
-        "pattern": 6,
-        "scene_name": "copy",
-        "path": "../files/copy.pcd",
-        "gt_path": "../files/copy_gt.pcd",
+        "sampling_hor": 200,
+        "sampling_ver": 200,
+        "pattern": 0,
+        "scene_name": "conf1",
+        "path": "../files/conf1.pcd",
+        "gt_path": "../files/conf1_gt.pcd",
         "octree_resolution": 0.3,
         "point_radius": 0.01
     },
 
     "evaluation": {
-        "path": "../files/conf1.pcd",
-        "seg_path": "../files/copy_color_6_seg.pcd",
-        "gt_path": "../files/copy_gt_6.pcd",
+        "path": "../files/conf2.pcd",
+        "seg_path": "../files/conf2_color_0_seg.pcd",
+        "gt_path": "../files/conf2_gt_0.pcd",
         "compare_bound": false
     },
 

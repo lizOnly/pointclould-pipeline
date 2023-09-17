@@ -2046,6 +2046,7 @@ void Occlusion::checkRayOctreeIntersectionTriangle(Ray& ray, OctreeNode& node, s
         } else if (node.children.size() > 0) {
             
             for (auto node_idx : node.children) {
+                
                 // std::cout << "Checking child node " << node_idx << std::endl;
                 checkRayOctreeIntersectionTriangle(ray, t_octree_nodes[node_idx], intersection_idx);
                             
@@ -2056,7 +2057,7 @@ void Occlusion::checkRayOctreeIntersectionTriangle(Ray& ray, OctreeNode& node, s
 }
 
 
-double Occlusion::triangleBasedOcclusionLevel(bool enable_acceleration) {    
+double Occlusion::triangleBasedOcclusionLevel() {    
 
     size_t intersection_idx = 0;
 

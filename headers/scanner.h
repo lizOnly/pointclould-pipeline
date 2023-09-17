@@ -30,6 +30,14 @@ class Scanner {
             input_cloud_color = cloud;
         }
 
+        void setSamplingHor(size_t hor) {
+            sampling_hor = hor;
+        }
+
+        void setSamplingVer(size_t ver) {
+            sampling_ver = ver;
+        }
+
         void sphere_scanner(int pattern, std::string path);
         
         void traverseOctree();
@@ -44,7 +52,11 @@ class Scanner {
         
         void checkFirstHitPoint(Ray3D& ray);
 
-        void generateRays(size_t num_rays_per_vp, std::vector<pcl::PointXYZ> origins);
+        std::vector<Eigen::Vector3d> create_scanning_pattern();
+
+        void generateRays(std::vector<pcl::PointXYZ> origins);
+
+        void generateRaysHalton(size_t num_rays_per_vp, std::vector<pcl::PointXYZ> origins);
 
         std::vector<pcl::PointXYZ> random_scanning_positions(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, int num_scanners);
 
@@ -63,6 +75,9 @@ class Scanner {
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_cloud_color;
 
         pcl::PointCloud<pcl::PointXYZ>::Ptr octree_cloud;
+
+        size_t sampling_hor;
+        size_t sampling_ver;
         
 
         std::unordered_map<size_t, OctreeNode> t_octree_nodes;

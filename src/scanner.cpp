@@ -536,11 +536,88 @@ bool Scanner::rayIntersectSpehre(pcl::PointXYZ& origin, pcl::PointXYZ& direction
 }
 
 
-void Scanner::generateRays(size_t num_rays_per_vp, std::vector<pcl::PointXYZ> origins) {
+std::vector<Eigen::Vector3d> Scanner::create_scanning_pattern() {
+
+    std::vector<Eigen::Vector3d> pattern;
+
+    pattern.resize(sampling_hor * sampling_ver);
+
+    double hor = static_cast<double>(sampling_hor);
+    double ver = static_cast<double>(sampling_ver);
+
+    for(size_t i = 0; i < sampling_hor; i++){
+
+        const double cos_i = cos(i / hor * 2 * M_PI);
+        const double sin_i = sin(i / hor * 2 * M_PI);
+
+        for(size_t j = 0; j < sampling_ver; j++){
+
+            double sin_j = sin(j / ver * 2 * M_PI);
+            double cos_j = cos(j / ver * 2 * M_PI);
+            Eigen::Vector3d dir(cos_i * sin_j, sin_j * sin_i, cos_j);
+            pattern[j + i * sampling_ver] = dir;
+
+        }
+
+    }
+
+    return pattern;
+
+}
+
+
+void Scanner::generateRays(std::vector<pcl::PointXYZ> origins) {
+
+    std::vector<Eigen::Vector3d> pattern = create_scanning_pattern();
 
     std::cout << "Generating rays ..." << std::endl;
 
-    double radius = 0.2;
+    double radius = 1;
+    size_t ray_idx = 0;
+
+    Occlusion occlusion;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+
+    for (size_t i = 0; i < origins.size(); i++) {
+
+        pcl::PointXYZ origin = origins[i];
+
+        for (size_t j = 0; j < pattern.size(); j++) {
+
+            Eigen::Vector3d dir = pattern[j];
+
+            pcl::PointXYZ look_at(origin.x + radius * dir.x(), origin.y + radius * dir.y(), origin.z + radius * dir.z());
+
+            cloud->push_back(look_at);
+
+            Ray3D ray;
+            ray.origin = origin;
+            ray.direction.x = look_at.x - origin.x;
+            ray.direction.y = look_at.y - origin.y;
+            ray.direction.z = look_at.z - origin.z;
+            ray.index = ray_idx;
+            t_rays[ray.index] = ray;
+            ray_idx++;
+        }
+    
+    }
+
+    std::cout << "Generated "<< t_rays.size() << " rays." << std::endl;
+
+    cloud->width = cloud->size();
+    cloud->height = 1;
+    cloud->is_dense = true;
+
+    pcl::io::savePCDFileASCII ("../files/regular_scanner_cloud.pcd", *cloud);
+
+}
+
+
+void Scanner::generateRaysHalton(size_t num_rays_per_vp, std::vector<pcl::PointXYZ> origins) {
+
+    std::cout << "Generating rays ..." << std::endl;
+
+    double radius = 1;
     size_t ray_idx = 0;
 
     Occlusion occlusion;

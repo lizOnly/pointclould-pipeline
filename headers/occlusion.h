@@ -136,13 +136,13 @@ class Occlusion {
         void traverseOctree();
 
         double rayBasedOcclusionLevel(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, size_t num_rays_per_vp, std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds, std::vector<pcl::ModelCoefficients::Ptr> allCoefficients);
-        /*-----------------------------------------------------------------------------------------------------------*/
+
         void generateRandomRays(size_t num_rays, pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt);
 
         void checkRayOctreeIntersection(Ray3D& ray, pcl::PointXYZ& direction, OctreeNode& node, bool use_estimated_cloud);
 
         double randomRayBasedOcclusionLevel(bool use_openings, bool use_estimated_cloud);
-        /*-----------------------------------------------------------------------------------------------------------*/
+
         void parseTrianglesFromOBJ(const std::string& mesh_path);
 
         void parseTrianglesFromPLY(const std::string& ply_path);
@@ -173,7 +173,7 @@ class Occlusion {
 
         void checkRayOctreeIntersectionTriangle(Ray& ray, OctreeNode& node, size_t& idx);
 
-        double triangleBasedOcclusionLevel(bool enable_acceleration);
+        double triangleBasedOcclusionLevel();
 
         void generateCloudFromIntersection();
 

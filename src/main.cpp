@@ -163,11 +163,6 @@ void on_message(server& s, websocketpp::connection_hdl hdl, server::message_ptr 
                 polygonClouds.push_back(polygon);
             }
 
-            double rayOcclusionLevel = occlusion.rayBasedOcclusionLevel(minPt, maxPt, 10000, polygonClouds, allCoefficients);
-
-            std::cout << "rayOcclusionLevel: " << rayOcclusionLevel << std::endl;
-
-            std::string ray_occlusion_level = "-o=" + std::to_string(rayOcclusionLevel);
             s.send(hdl, ray_occlusion_level, msg->get_opcode());
 
         }
@@ -432,7 +427,14 @@ int main(int argc, char *argv[])
 
         scanner.setInputCloudGT(gt_cloud);
 
-        size_t num_rays_per_vp = scan.at("num_rays_per_vp");
+        // size_t num_rays_per_vp = scan.at("num_rays_per_vp");
+
+        size_t sampling_hor = scan.at("sampling_hor");
+        scanner.setSamplingHor(sampling_hor);
+
+        size_t sampling_ver = scan.at("sampling_ver");
+        scanner.setSamplingVer(sampling_ver);
+
         std::string scene_name = scan.at("scene_name");
 
         float octree_resolution = scan.at("octree_resolution");
@@ -443,7 +445,7 @@ int main(int argc, char *argv[])
         
         int pattern = scan.at("pattern");
         std::vector<pcl::PointXYZ> origins = scanner.fixed_scanning_positions(min_pt, max_pt, pattern);
-        scanner.generateRays(num_rays_per_vp, origins);
+        scanner.generateRays(origins);
 
         scanner.buildCompleteOctreeNodes();
 
@@ -517,33 +519,18 @@ int main(int argc, char *argv[])
         
         std::map<std::string, std::string> instructions;
         instructions["-moc"] = "Compute occlusion level of a mesh";
-        instructions["-poc"] = "Compute occlusion level of a point cloud";
-        instructions["-rgoc"] = "Compute occlusion level of region growing segmentation generated mesh";
+        instructions["-bounoc"] = "Compute occlusion level of a point cloud";
+        instructions["-fscan"] = "Compute occlusion level of a point cloud using fixed sphere scanning";
+        instructions["-recon"] = "Reconstruct point cloud from .txt file";
+        instructions["-recongt"] = "Reconstruct ground truth point cloud from .txt file";
+        instructions["-eval"] = "Evaluate segmentation results";
+        instructions["-t2ply"] = "Convert .pcd file to .ply file";
         instructions["-h"] = "help";
-        instructions["-scan="] = "Scan a point cloud from a certain viewpoint";
 
         for (auto const& x : instructions) {
             std::cout << x.first << ": " << x.second << std::endl;
         }
         
-    } else if (arg1 == "-ts") {
-        
-        std::string path = "../files/triangle.obj";
-        int samples_per_unit_area = 50;
-
-        Occlusion occlusion;
-        occlusion.parseTrianglesFromOBJ(path);
-        occlusion.uniformSampleTriangle(samples_per_unit_area);
-        occlusion.haltonSampleTriangle(samples_per_unit_area);
-
-        pcl::PointXYZ center;
-        center.x = 0.0;
-        center.y = 0.0;
-        center.z = 0.0;
-
-        occlusion.HaltonSampleSphere(center, 5000);
-
-
     } else {
             std::cout << "Invalid argument" << std::endl;
     }
