@@ -5,18 +5,14 @@
             "ply_path": "../files/conf1_alpha_shape.ply",
             "pattern": 2,
             "octree_resolution": 0.3,
-            "enable_acceleration": true,
             "samples_per_unit_area": 10,
-            "use_ply": false,
-            "scene_name": "conf2"
+            "use_ply": false
         },
 
         "boundary_cloud": {
             "scene_name": "conf1",
-            "use_estimated_cloud": false,
             "path": "../files/conf1_bound_6.pcd",
             "original_path": "../files/conf1.pcd",
-            "sample_cloud_path": "../files/visible_sample_cloud.pcd",
             "num_rays": 10000,
             "point_radius": 0.2,
             "polygon_path": "../files/conf1_poly.txt",
@@ -27,7 +23,6 @@
     },
 
     "fixed_sphere_scanner": {
-        "num_rays_per_vp": 20000,
         "sampling_hor": 200,
         "sampling_ver": 200,
         "pattern": 0,

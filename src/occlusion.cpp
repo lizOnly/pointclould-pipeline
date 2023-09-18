@@ -153,59 +153,6 @@ void Occlusion::generateTriangleFromCluster() {
 }
 
 
-std::vector<pcl::PointXYZ> Occlusion::getSphereLightSourceCenters(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt) {
-
-    std::vector<pcl::PointXYZ> centers;
-    pcl::PointXYZ center;
-    center.x = (max_pt.x + min_pt.x) / 2;
-    center.y = (max_pt.y + min_pt.y) / 2;
-    center.z = (max_pt.z + min_pt.z) / 2;
-
-    centers.push_back(center);
-
-    // Points at the midpoints of the body diagonals (diagonal was divided by center point )
-    pcl::PointXYZ midpoint1, midpoint2, midpoint3, midpoint4,
-                  midpoint5, midpoint6, midpoint7, midpoint8;
-
-    midpoint1.x = (center.x + min_pt.x) / 2; // v2
-    midpoint1.y = (center.y + min_pt.y) / 2; 
-    midpoint1.z = (center.z + min_pt.z) / 2;
-
-    midpoint2.x = (center.x + min_pt.x) / 2; 
-    midpoint2.y = (center.y + min_pt.y) / 2; 
-    midpoint2.z = (center.z + max_pt.z) / 2;
-    
-    midpoint3.x = (center.x + min_pt.x) / 2; 
-    midpoint3.y = (center.y + max_pt.y) / 2; 
-    midpoint3.z = (center.z + min_pt.z) / 2;
-    
-    midpoint4.x = (center.x + min_pt.x) / 2; 
-    midpoint4.y = (center.y + max_pt.y) / 2; 
-    midpoint4.z = (center.z + max_pt.z) / 2;
-    
-    midpoint5.x = (center.x + max_pt.x) / 2; 
-    midpoint5.y = (center.y + min_pt.y) / 2; 
-    midpoint5.z = (center.z + min_pt.z) / 2;
-    
-    midpoint6.x = (center.x + max_pt.x) / 2; 
-    midpoint6.y = (center.y + min_pt.y) / 2; 
-    midpoint6.z = (center.z + max_pt.z) / 2;
-    
-    midpoint7.x = (center.x + max_pt.x) / 2; 
-    midpoint7.y = (center.y + max_pt.y) / 2; 
-    midpoint7.z = (center.z + min_pt.z) / 2;
-    
-    midpoint8.x = (center.x + max_pt.x) / 2; // v1
-    midpoint8.y = (center.y + max_pt.y) / 2; 
-    midpoint8.z = (center.z + max_pt.z) / 2;
-
-    centers.push_back(midpoint1); centers.push_back(midpoint2); centers.push_back(midpoint3); centers.push_back(midpoint4);
-    centers.push_back(midpoint5); centers.push_back(midpoint6); centers.push_back(midpoint7); centers.push_back(midpoint8);
-
-    return centers;
-}
-
-
 std::vector<pcl::PointXYZ> Occlusion::UniformSampleSphere(pcl::PointXYZ center, size_t num_samples) {
     
     double radius = 0.1;
@@ -744,71 +691,6 @@ void Occlusion::traverseOctree() {
 }
 
 
-// with fixed light positions, 9 in in the scene
-double Occlusion::rayBasedOcclusionLevel(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, size_t num_rays_per_vp, std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds, std::vector<pcl::ModelCoefficients::Ptr> allCoefficients) {
-
-    std::vector<pcl::PointXYZ> centers = Occlusion::getSphereLightSourceCenters(min_pt, max_pt);
-    double occlusion_level = 0.0;
-    size_t num_rays = centers.size() * num_rays_per_vp;
-    size_t occlusion_rays = 0;
-    size_t polygon_intersec_rays = 0;
-    size_t cloud_intersec_rays = 0;
-
-
-    for (size_t i = 0; i < centers.size(); ++i) {
-
-        // std::cout << "*********Center " << i << ": " << centers[i].x << ", " << centers[i].y << ", " << centers[i].z << "*********" << std::endl;
-        std::vector<pcl::PointXYZ> samples = UniformSampleSphere(centers[i], num_rays_per_vp);
-
-        // iterate over the samples
-        for (size_t j = 0; j < samples.size(); ++j) {
-            Ray3D ray = generateRay(centers[i], samples[j]);            
-
-            // check if the ray intersects any polygon or point cloud
-            if (rayIntersectPointCloud(ray)) {
-
-                // std::cout << "*--> Ray hit cloud!!!" << std::endl;
-                cloud_intersec_rays++;
-
-            } else {
-
-                for (size_t k = 0; k < polygonClouds.size(); ++k) {
-
-                    if (Occlusion::rayIntersectPolygon(ray, polygonClouds[k], allCoefficients[k])) {
-
-                        // std::cout << "*--> Ray didn't hit cloud but hit polygon of index " << k << std::endl;
-                        polygon_intersec_rays++;
-                        break;
-
-                    } else if (k == (polygonClouds.size() - 1)) {
-
-                        // std::cout << "*--> Ray did not hit anything, it's an occlusion" << std::endl;
-                        occlusion_rays++;
-
-
-                    }
-
-                }
-
-            }
-
-        }
-
-    }
-
-    occlusion_level = (double) occlusion_rays / (double) num_rays;
-    
-    std::cout << "Number of rays: " << num_rays << std::endl;
-    std::cout << "Number of cloud intersection rays: " << cloud_intersec_rays << std::endl;
-    std::cout << "Number of polygon intersection rays: " << polygon_intersec_rays << std::endl;
-    std::cout << "Number of occlusion rays: " << occlusion_rays << std::endl;
-    std::cout << "Occlusion level: " << occlusion_level << std::endl;
-    
-    return occlusion_level;
-
-}
-
-
 void Occlusion::estimateBoundary(int K_nearest) {
     std::cout << "" << std::endl;
     std::cout << "Estimating boundary..." << std::endl;
@@ -1230,7 +1112,7 @@ void Occlusion::generateRandomRays(size_t num_rays, pcl::PointXYZ& min_pt, pcl::
 }
 
 
-void Occlusion::checkRayOctreeIntersection(Ray3D& ray, pcl::PointXYZ& direction, OctreeNode& node, bool use_estimated_cloud) {
+void Occlusion::checkRayOctreeIntersection(Ray3D& ray, pcl::PointXYZ& direction, OctreeNode& node) {
 
     if (node.is_leaf) {
 
@@ -1244,11 +1126,8 @@ void Occlusion::checkRayOctreeIntersection(Ray3D& ray, pcl::PointXYZ& direction,
             for (auto& point_idx : node.point_idx) {
                 
                 pcl::PointXYZI point;
-                if (use_estimated_cloud) {
-                    point = estimated_bound_cloud->points[point_idx];
-                } else {
-                    point = input_cloud_bound->points[point_idx];
-                }
+                point = input_cloud_bound->points[point_idx];
+                
                 pcl::PointXYZ point_xyz(point.x, point.y, point.z);
 
                 if (rayIntersectSpehre(ray.origin, direction, point_xyz, point_radius)) {
@@ -1268,11 +1147,8 @@ void Occlusion::checkRayOctreeIntersection(Ray3D& ray, pcl::PointXYZ& direction,
             for (auto& point_idx : node.point_idx) {
 
                 pcl::PointXYZI point;
-                if (use_estimated_cloud) {
-                    point = estimated_bound_cloud->points[point_idx];
-                } else {
-                    point = input_cloud_bound->points[point_idx];
-                }
+                point = input_cloud_bound->points[point_idx];
+
                 pcl::PointXYZ point_xyz(point.x, point.y, point.z);
 
                 if (rayIntersectSpehre(ray.origin, direction, point_xyz, point_radius)) {
@@ -1297,7 +1173,7 @@ void Occlusion::checkRayOctreeIntersection(Ray3D& ray, pcl::PointXYZ& direction,
             pcl::PointXYZ max_pt(node.max_pt.x(), node.max_pt.y(), node.max_pt.z());
 
             if (rayBoxIntersection(ray, min_pt, max_pt)) {
-                checkRayOctreeIntersection(ray, direction, t_octree_nodes[child_idx], use_estimated_cloud);
+                checkRayOctreeIntersection(ray, direction, t_octree_nodes[child_idx]);
             }
 
         }
@@ -1306,7 +1182,7 @@ void Occlusion::checkRayOctreeIntersection(Ray3D& ray, pcl::PointXYZ& direction,
 }
 
 
-double Occlusion::randomRayBasedOcclusionLevel(bool use_openings, bool use_estimated_cloud) {
+double Occlusion::randomRayBasedOcclusionLevel(bool use_openings) {
 
     size_t num_rays = t_random_rays.size();
 
@@ -1314,9 +1190,9 @@ double Occlusion::randomRayBasedOcclusionLevel(bool use_openings, bool use_estim
 
         pcl::PointXYZ direction = ray.second.direction;
         OctreeNode root = t_octree_nodes[0];
-        checkRayOctreeIntersection(ray.second, direction, root, use_estimated_cloud);
+        checkRayOctreeIntersection(ray.second, direction, root);
         pcl::PointXYZ direction2(-direction.x, -direction.y, -direction.z);
-        checkRayOctreeIntersection(ray.second, direction2, root, use_estimated_cloud);
+        checkRayOctreeIntersection(ray.second, direction2, root);
 
         if (use_openings) {
 
@@ -2046,7 +1922,7 @@ void Occlusion::checkRayOctreeIntersectionTriangle(Ray& ray, OctreeNode& node, s
         } else if (node.children.size() > 0) {
             
             for (auto node_idx : node.children) {
-                
+
                 // std::cout << "Checking child node " << node_idx << std::endl;
                 checkRayOctreeIntersectionTriangle(ray, t_octree_nodes[node_idx], intersection_idx);
                             
@@ -2267,6 +2143,21 @@ void Occlusion::buildLeafBBoxSet() {
 
 
 void Occlusion::buildCompleteOctreeNodesTriangle() {
+
+    pcl::PointCloud<pcl::PointXYZI>::Ptr input_cloud(new pcl::PointCloud<pcl::PointXYZI>);
+
+    for (auto& tr : t_triangles) {
+
+        pcl::PointXYZI point;
+    
+        point.x = tr.second.center(0);
+        point.y = tr.second.center(1);
+        point.z = tr.second.center(2);
+        point.intensity = (float) tr.second.index;
+
+        input_cloud->points.push_back(point);
+
+    }
 
     pcl::octree::OctreePointCloudSearch<pcl::PointXYZI> octree(octree_resolution);
     octree.setInputCloud(t_octree_cloud);
@@ -2527,102 +2418,6 @@ void Occlusion::buildCompleteOctreeNodesTriangle() {
 
 }
 
-
-// build octree from center point of triangles
-void Occlusion::buildOctreeCloud() {
-
-    Eigen::Vector3d min = mesh_min_vertex;
-    Eigen::Vector3d max = mesh_max_vertex;
-    
-    min.x() -= 0.1;
-    min.y() -= 0.1;
-    min.z() -= 0.1;
-
-    max.x() += 0.1;
-    max.y() += 0.1;
-    max.z() += 0.1;
-
-    // make sure the bounding box is slightly larger than the mesh 
-    pcl::PointXYZI min_pt, min_x, min_y, min_diag, max_pt, max_x, max_y, max_diag;
-    min_pt.x = min.x();
-    min_pt.y = min.y();
-    min_pt.z = min.z();
-    min_pt.intensity = -1.0;
-
-    min_x.x = max.x();
-    min_x.y = min.y();
-    min_x.z = min.z();
-    min_x.intensity = -1.0;
-
-    min_y.x = min.x();
-    min_y.y = max.y();
-    min_y.z = min.z();
-    min_y.intensity = -1.0;
-
-    min_diag.x = max.x();
-    min_diag.y = max.y();
-    min_diag.z = min.z();
-    min_diag.intensity = -1.0;
-
-    max_pt.x = max.x();
-    max_pt.y = max.y();
-    max_pt.z = max.z();
-    max_pt.intensity = -1.0;
-
-    max_x.x = min.x();
-    max_x.y = max.y();
-    max_x.z = max.z();
-    max_x.intensity = -1.0;
-    
-    max_y.x = max.x();
-    max_y.y = min.y();
-    max_y.z = max.z();
-    max_y.intensity = -1.0;
-
-    max_diag.x = min.x();
-    max_diag.y = min.y();
-    max_diag.z = max.z();
-    max_diag.intensity = -1.0;
-
-
-    t_octree_cloud = pcl::PointCloud<pcl::PointXYZI>::Ptr(new pcl::PointCloud<pcl::PointXYZI>);
-
-    t_octree_cloud->points.push_back(min_pt);
-    t_octree_cloud->points.push_back(max_pt);
-    t_octree_cloud->points.push_back(min_x);
-    t_octree_cloud->points.push_back(max_x);
-    t_octree_cloud->points.push_back(min_y);
-    t_octree_cloud->points.push_back(max_y);
-    t_octree_cloud->points.push_back(min_diag);
-    t_octree_cloud->points.push_back(max_diag);
-
-    for (auto& tr : t_triangles) {
-
-        pcl::PointXYZI point;
-        
-        point.x = tr.second.center(0);
-        point.y = tr.second.center(1);
-        point.z = tr.second.center(2);
-        point.intensity = (float) tr.second.index;
-
-        t_octree_cloud->points.push_back(point); 
-
-        // pcl::PointXYZ pure_point;
-        // t_pure_octree_cloud->points.push_back(point);
-    }
-
-    pcl::PointXYZI min_pt_octree, max_pt_octree;
-    pcl::getMinMax3D(*t_octree_cloud, min_pt_octree, max_pt_octree);
-
-    std::cout << "Number of points in octree cloud: " << t_octree_cloud->points.size() << std::endl;
-
-    t_octree_cloud->width = t_octree_cloud->points.size();
-    t_octree_cloud->height = 1;
-    t_octree_cloud->is_dense = true;
-
-    pcl::io::savePCDFileASCII("../files/octree_cloud.pcd", *t_octree_cloud);
-
-}
 
 
 bool Occlusion::rayIntersectOctreeNode(Ray& ray, OctreeNode& node) {

@@ -125,8 +125,6 @@ class Occlusion {
 
         bool rayIntersectPointCloud(const Ray3D& ray);
         
-        std::vector<pcl::PointXYZ> getSphereLightSourceCenters(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt);
-
         std::vector<pcl::PointXYZ> UniformSampleSphere(pcl::PointXYZ center, size_t num_samples);
 
         std::vector<pcl::PointXYZ> HaltonSampleSphere(pcl::PointXYZ center, size_t num_samples);
@@ -135,13 +133,11 @@ class Occlusion {
 
         void traverseOctree();
 
-        double rayBasedOcclusionLevel(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, size_t num_rays_per_vp, std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds, std::vector<pcl::ModelCoefficients::Ptr> allCoefficients);
-
         void generateRandomRays(size_t num_rays, pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt);
 
-        void checkRayOctreeIntersection(Ray3D& ray, pcl::PointXYZ& direction, OctreeNode& node, bool use_estimated_cloud);
+        void checkRayOctreeIntersection(Ray3D& ray, pcl::PointXYZ& direction, OctreeNode& node);
 
-        double randomRayBasedOcclusionLevel(bool use_openings, bool use_estimated_cloud);
+        double randomRayBasedOcclusionLevel(bool use_openings);
 
         void parseTrianglesFromOBJ(const std::string& mesh_path);
 
@@ -186,8 +182,6 @@ class Occlusion {
         void buildCompleteOctreeNodes(bool use_estimated_cloud);
 
         void buildCompleteOctreeNodesTriangle();
-
-        void buildOctreeCloud();
 
         private:
 

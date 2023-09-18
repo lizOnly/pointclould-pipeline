@@ -106,16 +106,23 @@ void on_message(server& s, websocketpp::connection_hdl hdl, server::message_ptr 
 
         std::string payload = msg->get_payload();
 
+        // each point in the input cloud should be labeled as boundary or non-boundary
         if (payload.substr(0, 3) == "-i=") {
+
             data_holder.setFileName(payload.substr(3, payload.length()));
             data_holder.setInputPath("../files/" + payload.substr(3, payload.length()));
+
         }
+        
         if (payload.substr(0, 3) == "-p=") {
+
             data_holder.setPolygonData(payload.substr(3, payload.length()));
             std::string polygon_data = data_holder.getPolygonData();
             std::vector<std::vector<pcl::PointXYZ>> polygons = occlusion.parsePointString(polygon_data);
             data_holder.setPolygons(polygons);
+
         }
+
         if (payload.substr(0, 2) == "-o") {
             int pattern;
             std::string file_name = data_holder.getFileName();
@@ -123,13 +130,7 @@ void on_message(server& s, websocketpp::connection_hdl hdl, server::message_ptr 
             std::vector<std::vector<pcl::PointXYZ>> polygons = data_holder.getPolygons();
 
             int length = file_name.length();
-            if (file_name.substr(length - 6, length - 4) == "v1") {
-                pattern = 4; // max scanning
-            } else if (file_name.substr(length - 6, length - 4) == "v2") {
-                pattern = 5; // min scanning
-            } else {
-                pattern = 2; // center scanning
-            }
+
 
             pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
             if (pcl::io::loadPCDFile<pcl::PointXYZ>(input_path, *cloud) == -1) {
@@ -148,7 +149,7 @@ void on_message(server& s, websocketpp::connection_hdl hdl, server::message_ptr 
             std::vector<pcl::ModelCoefficients::Ptr> allCoefficients;
             // if user does not specify polygons, use default polygon
 
-            occlusion.setPointRadius(0.025);
+            occlusion.setPointRadius(0.01);
             std::vector<pcl::PointXYZ> polygon;
 
             if (polygons.size() == 0) {
@@ -163,16 +164,19 @@ void on_message(server& s, websocketpp::connection_hdl hdl, server::message_ptr 
                 polygonClouds.push_back(polygon);
             }
 
-            s.send(hdl, ray_occlusion_level, msg->get_opcode());
-
         }
         if (payload.substr(0, 3) == "-s=") {
+
             data_holder.setSegmentationPath("../files/" + payload.substr(3, payload.length()));
+
         }
         if (payload.substr(0, 4) == "-gt=") {
+
             data_holder.setGtPath("../files/" + payload.substr(4, payload.length()));
+
         }
         if (payload.substr(0, 2) == "-e") {
+
             std::cout << "Calculating evaluation metrics ... " << std::endl;
             std::string gt_path = data_holder.getGtPath();
             pcl::PointCloud<pcl::PointXYZI>::Ptr ground_truth_cloud(new pcl::PointCloud<pcl::PointXYZI>);
@@ -253,31 +257,32 @@ int main(int argc, char *argv[])
 
         auto occlusion_mesh = j.at("occlusion").at("mesh");
 
-        std::string scene_name = occlusion_mesh.at("scene_name");
         int pattern = occlusion_mesh.at("pattern");
         float octree_resolution = occlusion_mesh.at("octree_resolution");
-        bool enable_acceleration = occlusion_mesh.at("enable_acceleration");
         double samples_per_unit_area = occlusion_mesh.at("samples_per_unit_area");
         bool use_ply = occlusion_mesh.at("use_ply");
 
         Occlusion occlusion;
 
         if (use_ply) {
-            std::string ply_path = "../files/" + scene_name + "_alpha_shape.ply";
-            std::cout << "ply path is: " << ply_path << std::endl;
+
+            std::string ply_path = occlusion_mesh.at("ply_path");
+            std::cout << "Estimated .ply mesh path is: " << ply_path << std::endl;
             std::cout << "" << std::endl;
             occlusion.parseTrianglesFromPLY(ply_path);
+
         } else {
+
             std::string mesh_path = occlusion_mesh.at("path");
             std::cout << "mesh path is: " << mesh_path << std::endl;
             std::cout << "" << std::endl;
             occlusion.parseTrianglesFromOBJ(mesh_path);
+
         }
+
         occlusion.setOctreeResolution(octree_resolution);
         occlusion.haltonSampleTriangle(samples_per_unit_area);
-        occlusion.buildOctreeCloud();
         occlusion.buildCompleteOctreeNodesTriangle();
-        occlusion.setConfigInfo(scene_name, samples_per_unit_area, pattern);
         
         Eigen::Vector3d min = occlusion.getMeshMinVertex();
         Eigen::Vector3d max = occlusion.getMeshMaxVertex();
@@ -286,12 +291,12 @@ int main(int argc, char *argv[])
         std::vector<Eigen::Vector3d> origins = occlusion.viewPointPattern(min, max, center);
         
         occlusion.generateRayFromTriangle(origins);
-        double occlusion_level = occlusion.triangleBasedOcclusionLevel(enable_acceleration);
+
+        double occlusion_level = occlusion.triangleBasedOcclusionLevel();
         
         std::cout << "" << std::endl;
         std::cout << "Mesh based occlusion level is: " << occlusion_level << std::endl;
         std::cout << "" << std::endl;
-        // occlusion.generateCloudFromIntersection();
 
         helper.displayRunningTime(start);
 
@@ -330,41 +335,14 @@ int main(int argc, char *argv[])
         occlusion.setConfigInfo(scene_name, samples_per_unit_area, pattern);
 
         pcl::PointXYZI min_pt, max_pt;
-        
-
-        if (use_estimated_cloud) {
-            
-            std::string sample_cloud_path = occlusion_boundary.at("sample_cloud_path");
-            std::cout << "sample cloud path is: " << sample_cloud_path << std::endl;
-            pcl::PointCloud<pcl::PointXYZ>::Ptr sample_cloud(new pcl::PointCloud<pcl::PointXYZ>);
-            pcl::io::loadPCDFile<pcl::PointXYZ>(sample_cloud_path, *sample_cloud);
-
-            std::string original_cloud_path = occlusion_boundary.at("original_path");
-            std::cout << "original cloud path is: " << original_cloud_path << std::endl;
-
-            pcl::PointCloud<pcl::PointXYZRGB>::Ptr original_cloud_rgb(new pcl::PointCloud<pcl::PointXYZRGB>);
-            pcl::io::loadPCDFile<pcl::PointXYZRGB>(original_cloud_path, *original_cloud_rgb);
-
-            occlusion.setInputSampleCloud(sample_cloud);
-            occlusion.setInputCloudRGB(original_cloud_rgb);
-
-            occlusion.estimateBoundary(K_nearest);
-            occlusion.estimateSemantics();
-            
-            pcl::PointCloud<pcl::PointXYZI>::Ptr estimated_bound_cloud(new pcl::PointCloud<pcl::PointXYZI>);
-            estimated_bound_cloud = occlusion.getEstimatedBoundCloud();
-            pcl::getMinMax3D(*estimated_bound_cloud, min_pt, max_pt);
-
-        } else {
-            pcl::getMinMax3D(*bound_cloud, min_pt, max_pt);
-        }
-
+        pcl::getMinMax3D(*bound_cloud, min_pt, max_pt);
         pcl::PointXYZ min_pt_bound(min_pt.x, min_pt.y, min_pt.z);
         pcl::PointXYZ max_pt_bound(max_pt.x, max_pt.y, max_pt.z);
 
         occlusion.buildCompleteOctreeNodes(use_estimated_cloud);
 
         if (use_openings) {
+
             std::cout << "Using openings" << std::endl;
             std::vector<std::vector<pcl::PointXYZ>> polygons = occlusion.parsePolygonData(polygon_path);
             std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygon_clouds;
@@ -386,10 +364,12 @@ int main(int argc, char *argv[])
 
         occlusion.generateRandomRays(num_rays, min_pt_bound, max_pt_bound);
 
-        double randomRayBasedOcclusionLevel = occlusion.randomRayBasedOcclusionLevel(use_openings, use_estimated_cloud);
+        double randomRayBasedOcclusionLevel = occlusion.randomRayBasedOcclusionLevel(use_openings);
+       
         std::cout << "" << std::endl;
         std::cout << "Random ray based occlusion level is: " << randomRayBasedOcclusionLevel << std::endl;
         std::cout << "" << std::endl;
+        
         helper.displayRunningTime(start);
     
     } else if (arg1 == "-fscan") {
@@ -426,8 +406,6 @@ int main(int argc, char *argv[])
         pcl::io::loadPCDFile<pcl::PointXYZI>(gt_path, *gt_cloud);
 
         scanner.setInputCloudGT(gt_cloud);
-
-        // size_t num_rays_per_vp = scan.at("num_rays_per_vp");
 
         size_t sampling_hor = scan.at("sampling_hor");
         scanner.setSamplingHor(sampling_hor);
