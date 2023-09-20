@@ -43,7 +43,9 @@ class Reconstruction
 
         void pcd2ply(std::string path);
 
-        void ply2pcd(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, std::string file_name);
+        void ply2pcd(std::string path);
+
+        void createGT(std::string path);
 
         int findUnderScore(std::string& str);
 

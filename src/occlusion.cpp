@@ -2160,7 +2160,7 @@ void Occlusion::buildCompleteOctreeNodesTriangle() {
     }
 
     pcl::octree::OctreePointCloudSearch<pcl::PointXYZI> octree(octree_resolution);
-    octree.setInputCloud(t_octree_cloud);
+    octree.setInputCloud(input_cloud);
     octree.addPointsFromInputCloud();
 
     int max_depth = octree.getTreeDepth();
@@ -2210,7 +2210,7 @@ void Occlusion::buildCompleteOctreeNodesTriangle() {
 
             for (auto& idx : point_idx) {
 
-                size_t triangle_idx = (size_t) t_octree_cloud->points[idx].intensity;
+                size_t triangle_idx = (size_t) input_cloud->points[idx].intensity;
 
                 if (triangle_idx == -1) {
                     continue;

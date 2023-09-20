@@ -281,6 +281,7 @@ int main(int argc, char *argv[])
         }
 
         occlusion.setOctreeResolution(octree_resolution);
+        occlusion.setConfigInfo(samples_per_unit_area, pattern);
         occlusion.haltonSampleTriangle(samples_per_unit_area);
         occlusion.buildCompleteOctreeNodesTriangle();
         
@@ -301,12 +302,6 @@ int main(int argc, char *argv[])
         helper.displayRunningTime(start);
 
     } else if (arg1 == "-bounoc") {
-        // calculate based on how many intersections a ray has with the boundary of the point cloud
-
-        auto occlusion_mesh = j.at("occlusion").at("mesh");
-        std::string scene_name = occlusion_mesh.at("scene_name");
-        int pattern = occlusion_mesh.at("pattern");
-        double samples_per_unit_area = occlusion_mesh.at("samples_per_unit_area");
 
         auto occlusion_boundary = j.at("occlusion").at("boundary_cloud");
         bool use_estimated_cloud = occlusion_boundary.at("use_estimated_cloud");
@@ -332,7 +327,6 @@ int main(int argc, char *argv[])
         occlusion.setPointRadius(point_radius);
         occlusion.setOctreeResolution(octree_resolution);
         occlusion.setInputCloudBound(bound_cloud);
-        occlusion.setConfigInfo(scene_name, samples_per_unit_area, pattern);
 
         pcl::PointXYZI min_pt, max_pt;
         pcl::getMinMax3D(*bound_cloud, min_pt, max_pt);
@@ -490,6 +484,26 @@ int main(int argc, char *argv[])
         std::cout << "input cloud path is: " << path << std::endl;
 
         recon.pcd2ply(path);
+
+        helper.displayRunningTime(start);
+
+    } else if (arg1 == "-t2pcd"){
+
+        Reconstruction recon;
+        std::string path = j.at("transfer").at("path_ply");
+        std::cout << "input cloud path is: " << path << std::endl;
+
+        recon.ply2pcd(path);
+
+        helper.displayRunningTime(start);
+    
+    } else if (arg1 == "-gt"){
+
+        Reconstruction recon;
+        std::string path = j.at("transfer").at("path_pcd");
+        std::cout << "input cloud path is: " << path << std::endl;
+
+        recon.createGT(path);
 
         helper.displayRunningTime(start);
 

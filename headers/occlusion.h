@@ -70,8 +70,7 @@ class Occlusion {
             allCoefficients = coefficients;
         };
 
-        void setConfigInfo(std::string scene_name, int samples_per_unit_area, int pattern) {
-            this->scene_name = scene_name;
+        void setConfigInfo(int samples_per_unit_area, int pattern) {
             this->samples_per_unit_area = samples_per_unit_area;
             this->pattern = pattern;
         };

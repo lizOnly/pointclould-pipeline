@@ -287,10 +287,22 @@ void Reconstruction::pcd2ply(std::string path) {
 }
 
 
-void Reconstruction::ply2pcd(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, std::string file_name) {
+void Reconstruction::ply2pcd(std::string path) {
 
-    std::string path = "../files/" + file_name.substr(0, file_name.length() - 4) + ".pcd";
-    pcl::io::savePCDFileASCII(path, *cloud);
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+    pcl::io::loadPLYFile<pcl::PointXYZRGB>(path, *cloud);
+
+    std::string output_path = path.substr(0, path.length() - 4) + ".pcd";
+    pcl::io::savePCDFileASCII(output_path, *cloud);
 
 }
 
+void Reconstruction::createGT(std::string path) {
+
+    pcl::PointCloud<pcl::PointXYZI>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZI>);
+    pcl::io::loadPCDFile<pcl::PointXYZI>(path, *cloud);
+
+    std::string output_path = path.substr(0, path.length() - 4) + "_gt.pcd";
+    pcl::io::savePCDFileASCII(output_path, *cloud);
+
+}
