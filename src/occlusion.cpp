@@ -835,15 +835,10 @@ void Occlusion::estimateSemantics() {
 }
 
 
-void Occlusion::buildCompleteOctreeNodes(bool use_estimated_cloud) {
+void Occlusion::buildCompleteOctreeNodes() {
 
     pcl::octree::OctreePointCloudSearch<pcl::PointXYZI> octree(octree_resolution);
-    if (use_estimated_cloud) {
-        std::cout << "Using estimated bound cloud to build octree" << std::endl;
-        octree.setInputCloud(estimated_bound_cloud);
-    } else {
-        octree.setInputCloud(input_cloud_bound);
-    }
+    octree.setInputCloud(input_cloud_bound);
     octree.addPointsFromInputCloud();
 
     int max_depth = octree.getTreeDepth();

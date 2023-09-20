@@ -304,7 +304,6 @@ int main(int argc, char *argv[])
     } else if (arg1 == "-bounoc") {
 
         auto occlusion_boundary = j.at("occlusion").at("boundary_cloud");
-        bool use_estimated_cloud = occlusion_boundary.at("use_estimated_cloud");
 
         std::string path = occlusion_boundary.at("path");
         std::cout << "input cloud path is: " << path << std::endl;
@@ -312,6 +311,20 @@ int main(int argc, char *argv[])
 
         pcl::PointCloud<pcl::PointXYZI>::Ptr bound_cloud(new pcl::PointCloud<pcl::PointXYZI>);
         pcl::io::loadPCDFile<pcl::PointXYZI>(path, *bound_cloud);
+
+        size_t clutter_count = 0;
+        for (auto& p : bound_cloud->points) {
+            if (p.intensity == 0) {
+                clutter_count++;
+            }
+        }
+
+        if (clutter_count == bound_cloud->size()) {
+            std::cout << "Indicating that input cloud has no intensity field, now we have to change all i value to 1" << std::endl;
+            for (auto& p : bound_cloud->points) {
+                p.intensity = 1;
+            }
+        }
 
         std::string polygon_path = occlusion_boundary.at("polygon_path");
         std::cout << "polygon path is: " << polygon_path << std::endl;
@@ -333,7 +346,7 @@ int main(int argc, char *argv[])
         pcl::PointXYZ min_pt_bound(min_pt.x, min_pt.y, min_pt.z);
         pcl::PointXYZ max_pt_bound(max_pt.x, max_pt.y, max_pt.z);
 
-        occlusion.buildCompleteOctreeNodes(use_estimated_cloud);
+        occlusion.buildCompleteOctreeNodes();
 
         if (use_openings) {
 

@@ -10,9 +10,7 @@
         },
 
         "boundary_cloud": {
-            "scene_name": "duck3",
-            "path": "../files/duck3_bound_1.pcd",
-            "original_path": "../files/duck3.pcd",
+            "path": "../files/duck3.pcd",
             "num_rays": 10000,
             "point_radius": 0.2,
             "polygon_path": "../files/conf1_poly.txt",

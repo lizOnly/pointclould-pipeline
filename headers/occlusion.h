@@ -178,7 +178,7 @@ class Occlusion {
 
         void buildLeafBBoxSet();
 
-        void buildCompleteOctreeNodes(bool use_estimated_cloud);
+        void buildCompleteOctreeNodes();
 
         void buildCompleteOctreeNodesTriangle();
 

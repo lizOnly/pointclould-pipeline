@@ -103,8 +103,10 @@ void Reconstruction::pointCloudReconstructionFromTxt(std::string path)
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
     std::ifstream file(path);
     std::cout << "Loading point cloud data from " << path << std::endl;
+
     float x, y, z;
     int r, g, b;
+
     while (file >> x >> y >> z >> r >> g >> b)
     {   
         // std::cout << "x: " << x << " y: " << y << " z: " << z << " r: " << r << " g: " << g << " b: " << b << std::endl;
@@ -117,6 +119,7 @@ void Reconstruction::pointCloudReconstructionFromTxt(std::string path)
         point.b = b;
         cloud->points.push_back(point);
     }
+
     cloud->width = cloud->points.size();
     std::cout << "Loaded " << cloud->width << " points" << std::endl;
     cloud->height = 1;
@@ -139,7 +142,9 @@ int Reconstruction::findUnderScore(std::string& str) {
         }
 
     }
+
     return -1;
+    
 }
 
 
