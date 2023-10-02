@@ -264,17 +264,6 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr Occlusion::estimatePolygon(std::vector<pcl::
     chull.setInputCloud(cloud_projected);
     chull.reconstruct(*cloud_hull);
 
-    // std::cout << "Convex hull has: " << cloud_hull->points.size() << " data points." << std::endl;
-    // std::cout << "Points are: " << std::endl;
-    
-    // for (size_t i = 0; i < cloud_hull->points.size(); ++i) {
-
-    //     std::cout << "    " << cloud_hull->points[i].x << " "
-    //               << cloud_hull->points[i].y << " "
-    //               << cloud_hull->points[i].z << std::endl;
-
-    // }
-
     return cloud_hull;
 }
 
@@ -310,10 +299,12 @@ std::vector<pcl::PointXYZ> Occlusion::generateDefaultPolygon() {
     default_point.x = 0;
     default_point.y = 0;
     default_point.z = 0;
+
     pcl::PointXYZ default_point2;
     default_point2.x = 1;
     default_point2.y = 1;
     default_point2.z = 1;
+
     pcl::PointXYZ default_point3;
     default_point3.x = 1;
     default_point3.y = 0;
@@ -583,69 +574,6 @@ bool Occlusion::rayIntersectPointCloud(const Ray3D& ray) {
     return false;
 }
 
-
-pcl::PointCloud<pcl::PointXYZI>::Ptr Occlusion::computeMedianDistance(double radius, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_density) {
-
-    std::cout << "Computing median distance..." << std::endl;
-    pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
-    kdtree.setInputCloud(cloud);
-
-    pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_median_distance(new pcl::PointCloud<pcl::PointXYZI>);
-    double density_threshold = 10.0;
-
-    for (size_t i = 0; i < cloud->points.size(); ++i) {
-
-        // futures.push_back(std::async(std::launch::async, [=, &mtx, &cloud_with_median_distance, &kdtree]() {
-  
-            std::vector<int> pointIdxRadiusSearch;
-            std::vector<float> pointRadiusSquaredDistance;
-        
-            pcl::PointXYZI point;
-            point.x = cloud->points[i].x;
-            point.y = cloud->points[i].y;
-            point.z = cloud->points[i].z;
-            point.intensity = 0.025;
-
-            pcl::PointXYZI point_with_density = cloud_with_density->points[i];
-
-            double density = point_with_density.intensity;
-
-            if (density < density_threshold) {
-                cloud_with_median_distance->points.push_back(point);
-                continue;
-            }
-
-            double search_radius = radius;
-            
-            if (kdtree.radiusSearch(cloud->points[i], search_radius, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
-                if(pointIdxRadiusSearch.size() < 2) {
-                    continue;
-                }
-                std::vector<double> distances;
-
-                for (size_t j = 0; j < pointIdxRadiusSearch.size(); ++j) {
-
-                    for (size_t k = j + 1; k < pointIdxRadiusSearch.size(); ++k) {
-
-                        double distance = sqrt(pow(cloud->points[pointIdxRadiusSearch[j]].x - cloud->points[pointIdxRadiusSearch[k]].x, 2) +
-                                                pow(cloud->points[pointIdxRadiusSearch[j]].y - cloud->points[pointIdxRadiusSearch[k]].y, 2) +
-                                                pow(cloud->points[pointIdxRadiusSearch[j]].z - cloud->points[pointIdxRadiusSearch[k]].z, 2));
-                        
-                        distances.push_back(distance);
-                    }
-                }
-
-                std::sort(distances.begin(), distances.end());
-                point.intensity = distances[distances.size() / 2];
-            }
-            
-            cloud_with_median_distance->points.push_back(point);
-
-    }
-
-    return cloud_with_median_distance;
-
-}
 
 
 void Occlusion::traverseOctree() {
@@ -1059,6 +987,67 @@ void Occlusion::buildCompleteOctreeNodes() {
 }
 
 
+std::vector<Eigen::Vector3d> Occlusion::create_scanning_pattern() {
+
+    std::vector<Eigen::Vector3d> patterns;
+
+    patterns.resize(sampling_hor * sampling_ver);
+
+    double hor = static_cast<double>(sampling_hor);
+    double ver = static_cast<double>(sampling_ver);
+
+    for(size_t i = 0; i < sampling_hor; i++){
+
+        const double cos_i = cos(i / hor * 2 * M_PI);
+        const double sin_i = sin(i / hor * 2 * M_PI);
+
+        for(size_t j = 0; j < sampling_ver; j++){
+
+            double sin_j = sin(j / ver * 2 * M_PI);
+            double cos_j = cos(j / ver * 2 * M_PI);
+            Eigen::Vector3d dir(cos_i * sin_j, sin_j * sin_i, cos_j);
+            patterns[j + i * sampling_ver] = dir;
+
+        }
+
+    }
+
+    return patterns;
+
+}
+
+
+void Occlusion::generateScannerRays(std::vector<Eigen::Vector3d> origins) {
+
+    std::vector<Eigen::Vector3d> pattern = create_scanning_pattern();
+
+    double radius = 1;
+    size_t ray_idx = 0;
+
+    for (size_t i = 0; i < origins.size(); i++) {
+
+        Eigen::Vector3d origin = origins[i];
+
+        for (size_t j = 0; j < pattern.size(); j++) {
+
+            Eigen::Vector3d dir = pattern[j];
+            Eigen::Vector3d look_at(origin.x() + radius * dir.x(), origin.y() + radius * dir.y(), origin.z() + radius * dir.z());
+
+            Ray ray;
+            ray.origin = origin;
+            ray.direction.x() = look_at.x() - origin.x();
+            ray.direction.y() = look_at.y() - origin.y();
+            ray.direction.z() = look_at.z() - origin.z();
+            ray.index = ray_idx;
+            t_scanner_rays[ray.index] = ray;
+            ray_idx++;
+
+        }
+    
+    }
+}
+
+
 void Occlusion::generateRandomRays(size_t num_rays, pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt) {
 
     if (min_pt.x > max_pt.x || min_pt.y > max_pt.y || min_pt.z > max_pt.z) {
@@ -1392,6 +1381,7 @@ void Occlusion::parseTrianglesFromPLY(const std::string& ply_path) {
     }
 
     std::vector<Eigen::Vector3d> vertices;
+    std::vector<Eigen::Vector3i> colors;
 
     Eigen::Vector3d min_vertex(std::numeric_limits<double>::max(), std::numeric_limits<double>::max(), std::numeric_limits<double>::max());
     Eigen::Vector3d max_vertex(std::numeric_limits<double>::lowest(), std::numeric_limits<double>::lowest(), std::numeric_limits<double>::lowest());
@@ -1403,6 +1393,7 @@ void Occlusion::parseTrianglesFromPLY(const std::string& ply_path) {
         int r, g, b; 
         ss >> vertex.x() >> vertex.y() >> vertex.z() >> r >> g >> b;
         vertices.push_back(vertex);
+        colors.push_back(Eigen::Vector3i(r, g, b));
 
         min_vertex = min_vertex.cwiseMin(vertex);
         max_vertex = max_vertex.cwiseMax(vertex);
@@ -1430,6 +1421,14 @@ void Occlusion::parseTrianglesFromPLY(const std::string& ply_path) {
         triangle.v3 = vertices[v3];
         triangle.center = (triangle.v1 + triangle.v2 + triangle.v3) / 3.0;
         triangle.index = t_triangles.size(); 
+
+        int r1 = colors[v1].x();
+        int g1 = colors[v1].y();
+        int b1 = colors[v1].z();  
+
+        if (r1 == 0 && g1 == 255 && b1 == 0) {
+            triangle.is_boundary = true;
+        }   
 
         double area = calculateTriangleArea(triangle);
         triangle.area = area;
@@ -1720,76 +1719,6 @@ void Occlusion::generateRayFromTriangle(std::vector<Eigen::Vector3d>& origins) {
 }
 
 
-// generate a ray from the light source to the point on the sphere
-void Occlusion::generateRaysWithIdx(std::vector<Eigen::Vector3d>& origins, size_t num_rays_per_vp) {
-
-    std::cout << "" << std::endl;
-    std::cout << "Generating rays..." << std::endl;
-    size_t idx = 0;
-    double radius = 1.0; // radius of the sphere
-    // uniform sampling on a sphere which center is the origin
-    static std::default_random_engine generator;
-    static std::uniform_real_distribution<double> distribution(0.0, 1.0);
-
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr sphere_light_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
-
-    for (auto& origin : origins) {
-
-        pcl::PointXYZRGB origin_point;
-        origin_point.x = origin(0);
-        origin_point.y = origin(1);
-        origin_point.z = origin(2);
-        origin_point.r = 255;
-        origin_point.g = 0;
-        origin_point.b = 255;
-
-        sphere_light_cloud->points.push_back(origin_point);
-
-        for (size_t i = 0; i < num_rays_per_vp; ++i) {
-
-            pcl::PointXYZRGB point;
-            double theta = 2 * M_PI * distribution(generator);  // Azimuthal angle
-            double phi = acos(2 * distribution(generator) - 1); // Polar angle
-
-            Eigen::Vector3d surface_point;
-            surface_point(0) = origin(0) + radius * sin(phi) * cos(theta); // x component
-            surface_point(1) = origin(1) + radius * sin(phi) * sin(theta); // y component
-            surface_point(2) = origin(2) + radius * cos(phi);
-            
-            Eigen::Vector3d direction;
-            direction = surface_point - origin;
-            direction.normalize();
-            
-            point.x = surface_point(0);
-            point.y = surface_point(1);
-            point.z = surface_point(2);
-            point.r = 255;
-            point.g = 0;
-            point.b = 255;
-
-            sphere_light_cloud->points.push_back(point);
-
-            Ray ray;
-            ray.origin = origin;
-            ray.direction = direction;
-            ray.index = idx;
-            t_rays[ray.index] = ray;
-            idx++;
-
-        }
-    }
-
-    sphere_light_cloud->width = sphere_light_cloud->points.size();
-    sphere_light_cloud->height = 1;
-    sphere_light_cloud->is_dense = true;
-
-    pcl::io::savePCDFileASCII("../files/sphere_light_cloud.pcd", *sphere_light_cloud);
-
-    std::cout << "Number of rays: " << t_rays.size() << std::endl;
-
-}
-
-
 // Möller–Trumbore intersection algorithm
 bool Occlusion::rayTriangleIntersect(Triangle& tr, Ray& ray, Eigen::Vector3d& intersection_point) {
 
@@ -1841,9 +1770,9 @@ bool Occlusion::rayTriangleIntersect(Triangle& tr, Ray& ray, Eigen::Vector3d& in
 bool Occlusion::getRayTriangleIntersectionPt(Triangle& tr, Ray& ray, size_t idx, Intersection& intersection) {
 
     Eigen::Vector3d intersection_point = Eigen::Vector3d::Zero();
-    bool isIntersect = rayTriangleIntersect(tr, ray, intersection_point);
+    bool is_intersect = rayTriangleIntersect(tr, ray, intersection_point);
 
-    if (isIntersect) {
+    if (is_intersect) {
 
         intersection.point = intersection_point;
         intersection.index = idx;
@@ -1859,9 +1788,13 @@ bool Occlusion::getRayTriangleIntersectionPt(Triangle& tr, Ray& ray, size_t idx,
         tr.intersection_idx.push_back(idx);
         ray.intersection_idx.push_back(idx);
 
+        if (t_triangles[tr.index].is_boundary) {
+            intersection.is_boundary = true;
+        }
+
     } 
 
-    return isIntersect;
+    return is_intersect;
 }
 
 
@@ -2053,6 +1986,85 @@ double Occlusion::triangleBasedOcclusionLevel() {
     
     return occlusion_level;
 }
+
+
+void Occlusion::scannerIntersectTriangle() {
+
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr scanned_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+    pcl::PointCloud<pcl::PointXYZI>::Ptr scanned_bound_cloud(new pcl::PointCloud<pcl::PointXYZI>);
+
+    size_t intersection_idx = 0;
+    std::cout << "Scanning mesh..." << std::endl;
+    std::cout << "" << std::endl;
+
+    OctreeNode root_node = t_octree_nodes[0];
+
+    for (auto& ray : t_scanner_rays) {
+
+        checkRayOctreeIntersectionTriangle(ray.second, root_node, intersection_idx);
+
+        if (ray.second.intersection_idx.size() == 1) {
+            t_intersections[ray.second.intersection_idx[0]].is_first_hit = true;
+            continue;
+        } else if (ray.second.intersection_idx.size() > 1) {
+            computeFirstHitIntersection(ray.second);
+        }
+
+    }
+
+    for (auto& intersection : t_intersections) {
+
+        pcl::PointXYZRGB point;
+        point.x = intersection.second.point.x();
+        point.y = intersection.second.point.y();
+        point.z = intersection.second.point.z();
+
+        pcl::PointXYZI bound_point;
+        bound_point.x = intersection.second.point.x();
+        bound_point.y = intersection.second.point.y();
+        bound_point.z = intersection.second.point.z();
+
+        if (intersection.second.is_first_hit) {
+
+            if (intersection.second.is_boundary) {
+                
+                point.r = 0;
+                point.g = 255;
+                point.b = 0;
+
+                bound_point.intensity = 1.0;
+
+            } else {
+                
+                point.r = 0;
+                point.g = 0;
+                point.b = 255;
+
+                bound_point.intensity = 0.0;
+
+            }
+
+            scanned_cloud->points.push_back(point);
+            scanned_bound_cloud->points.push_back(bound_point);
+
+        }
+
+    }
+
+    scanned_cloud->width = scanned_cloud->points.size();
+    scanned_cloud->height = 1;
+    scanned_cloud->is_dense = true;
+
+    pcl::io::savePCDFileASCII("../files/mesh_scanned_cloud_" + std::to_string(pattern) + ".pcd", *scanned_cloud);
+
+    scanned_bound_cloud->width = scanned_bound_cloud->points.size();
+    scanned_bound_cloud->height = 1;
+    scanned_bound_cloud->is_dense = true;
+
+    pcl::io::savePCDFileASCII("../files/mesh_scanned_bound_cloud_" + std::to_string(pattern) + ".pcd", *scanned_bound_cloud);
+
+}
+
 
 
 void Occlusion::buildLeafBBoxSet() {

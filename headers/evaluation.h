@@ -68,7 +68,11 @@ class Evaluation {
         
     private:
 
-        size_t tp, fp, fn, tn;
+        size_t tp = 0;
+        size_t fp = 0;
+        size_t fn = 0;
+        size_t tn = 0;
+        
         std::vector<bool> ground_truth_labels;
         std::vector<bool> predicted_labels;
 

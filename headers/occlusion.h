@@ -70,10 +70,21 @@ class Occlusion {
             allCoefficients = coefficients;
         };
 
-        void setConfigInfo(int samples_per_unit_area, int pattern) {
+        void setSamplesPerUnitArea(int samples_per_unit_area) {
             this->samples_per_unit_area = samples_per_unit_area;
+        };
+
+        void setPattern(int pattern) {
             this->pattern = pattern;
         };
+
+        void setSamplingHor(size_t hor) {
+            sampling_hor = hor;
+        }
+
+        void setSamplingVer(size_t ver) {
+            sampling_ver = ver;
+        }
 
 
         template <typename PointT>
@@ -128,8 +139,6 @@ class Occlusion {
 
         std::vector<pcl::PointXYZ> HaltonSampleSphere(pcl::PointXYZ center, size_t num_samples);
         
-        pcl::PointCloud<pcl::PointXYZI>::Ptr computeMedianDistance(double radius, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_with_density);
-
         void traverseOctree();
 
         void generateRandomRays(size_t num_rays, pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt);
@@ -154,7 +163,7 @@ class Occlusion {
 
         void generateRayFromTriangle(std::vector<Eigen::Vector3d>& origins);
 
-        void generateRaysWithIdx(std::vector<Eigen::Vector3d>& origins, size_t num_rays_per_vp);
+        void scannerIntersectTriangle();
 
         std::vector<Eigen::Vector3d> viewPointPattern(Eigen::Vector3d& min, Eigen::Vector3d& max, Eigen::Vector3d& center);
 
@@ -182,11 +191,18 @@ class Occlusion {
 
         void buildCompleteOctreeNodesTriangle();
 
+        std::vector<Eigen::Vector3d> create_scanning_pattern();
+
+        void generateScannerRays(std::vector<Eigen::Vector3d> origins);
+
         private:
 
             std::string scene_name;
             int samples_per_unit_area;
             int pattern;
+
+            size_t sampling_hor;
+            size_t sampling_ver;
 
             std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds;
             std::vector<pcl::ModelCoefficients::Ptr> allCoefficients;
@@ -216,6 +232,7 @@ class Occlusion {
             std::unordered_map<size_t, Intersection> t_intersections; // table of intersections
             std::unordered_map<size_t, Triangle> t_triangles; // table of triangles
             std::unordered_map<size_t, Ray> t_rays; // tables of rays
+            std::unordered_map<size_t, Ray> t_scanner_rays;
             std::unordered_map<size_t, Sample> t_samples; // table of samples
         
             pcl::PointCloud<pcl::PointXYZI>::Ptr t_octree_cloud; // octree cloud to store center of triangles

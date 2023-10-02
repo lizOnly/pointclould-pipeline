@@ -2,15 +2,15 @@
     "occlusion": {
         "mesh": {
             "path": "../files/cube.obj",
-            "ply_path": "../files/conf1_alpha_shape.ply",
+            "ply_path": "../files/horizontal_scene_mesh.ply",
             "pattern": 0,
             "octree_resolution": 0.5,
             "samples_per_unit_area": 10,
-            "use_ply": false
+            "use_ply": true
         },
 
         "boundary_cloud": {
-            "path": "../files/duck3.pcd",
+            "path": "../files/mesh_scanned_bound_cloud_6.pcd",
             "num_rays": 10000,
             "point_radius": 0.2,
             "polygon_path": "../files/conf1_poly.txt",
@@ -23,12 +23,20 @@
     "fixed_sphere_scanner": {
         "sampling_hor": 200,
         "sampling_ver": 200,
-        "pattern": 1,
+        "pattern": 2,
         "scene_name": "duck3",
         "path": "../files/duck3.pcd",
         "gt_path": "../files/duck3_gt.pcd",
         "octree_resolution": 0.3,
         "point_radius": 0.01
+    },
+
+    "scan_mesh": {
+        "sampling_hor": 200,
+        "sampling_ver": 200,
+        "pattern": 6,
+        "mesh_path": "../files/joined_mesh.ply",
+        "octree_resolution": 0.5
     },
 
     "evaluation": {

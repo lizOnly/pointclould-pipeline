@@ -79,7 +79,8 @@ class Scanner {
         size_t sampling_hor;
         size_t sampling_ver;
         
-
+        std::unordered_map<size_t, Triangle> t_triangles;
+        std::unordered_map<size_t, Intersection> t_intersections;
         std::unordered_map<size_t, OctreeNode> t_octree_nodes;
         std::unordered_map<size_t, Ray3D> t_rays;
 

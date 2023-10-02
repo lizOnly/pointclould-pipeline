@@ -30,14 +30,14 @@ struct Intersection {
     double distance_to_look_at_point;
     double distance_to_origin;
     bool is_first_hit = false;
-
+    bool is_boundary = false;
 };
 
 struct Ray { 
 
     size_t index;
-    size_t source_triangle_index;
-    size_t source_sample_index;
+    size_t source_triangle_index = -1;
+    size_t source_sample_index = -1;
     size_t first_hit_intersection_idx;
     Eigen::Vector3d origin;
     Eigen::Vector3d look_at_point;
@@ -69,7 +69,7 @@ struct Triangle {
     std::vector<size_t> sample_idx;
     std::vector<size_t> intersection_idx;
     std::vector<size_t> ray_idx;
-    
+    bool is_boundary = false;
 };
 
 

@@ -36,6 +36,7 @@ class DataHolder {
         std::string input_path;
         std::string polygon_data;
         std::vector<std::vector<pcl::PointXYZ>> polygons;
+        std::string boundary_cloud_path;
         std::string segmentation_path;
         std::string gt_path;
 
@@ -57,6 +58,10 @@ class DataHolder {
 
         void setPolygons(std::vector<std::vector<pcl::PointXYZ>> polygons) {
             this->polygons = polygons;
+        }
+
+        void setBoundaryCloudPath(std::string boundary_cloud_path) {
+            this->boundary_cloud_path = boundary_cloud_path;
         }
 
         void setSegmentationPath(std::string segmentation_path) {
@@ -81,6 +86,10 @@ class DataHolder {
 
         std::vector<std::vector<pcl::PointXYZ>> getPolygons() {
             return this->polygons;
+        }
+
+        std::string getBoundaryCloudPath() {
+            return this->boundary_cloud_path;
         }
 
         std::string getSegmentationPath() {
@@ -124,32 +133,41 @@ void on_message(server& s, websocketpp::connection_hdl hdl, server::message_ptr 
         }
 
         if (payload.substr(0, 2) == "-o") {
-            int pattern;
-            std::string file_name = data_holder.getFileName();
-            std::string input_path = data_holder.getInputPath();
+
+            std::string bound_path = data_holder.getBoundaryCloudPath();
             std::vector<std::vector<pcl::PointXYZ>> polygons = data_holder.getPolygons();
 
-            int length = file_name.length();
+            pcl::PointCloud<pcl::PointXYZI>::Ptr bound_cloud(new pcl::PointCloud<pcl::PointXYZI>);
+            pcl::io::loadPCDFile<pcl::PointXYZI>(bound_path, *bound_cloud);
 
-
-            pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
-            if (pcl::io::loadPCDFile<pcl::PointXYZ>(input_path, *cloud) == -1) {
-                PCL_ERROR("Couldn't read file\n");
+            size_t clutter_count = 0;
+            for (auto& p : bound_cloud->points) {
+                if (p.intensity == 0) {
+                    clutter_count++;
+                }
             }
 
-            pcl::PointXYZ minPt, maxPt;
-            pcl::getMinMax3D(*cloud, minPt, maxPt);
-
-            pcl::PointCloud<pcl::PointXYZRGB>::Ptr colored_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);          
-            if (pcl::io::loadPCDFile<pcl::PointXYZRGB>(input_path, *colored_cloud) == -1) {
-                PCL_ERROR("Couldn't read file\n");
+            if (clutter_count == bound_cloud->size()) {
+                std::cout << "Indicating that input cloud has no intensity field, now we have to change all i value to 1" << std::endl;
+                for (auto& p : bound_cloud->points) {
+                    p.intensity = 1;
+                }
             }
+
+            pcl::PointXYZI min_pt, max_pt;
+            pcl::getMinMax3D(*bound_cloud, min_pt, max_pt);
+            pcl::PointXYZ min_pt_bound(min_pt.x, min_pt.y, min_pt.z);
+            pcl::PointXYZ max_pt_bound(max_pt.x, max_pt.y, max_pt.z);
 
             std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygonClouds;
             std::vector<pcl::ModelCoefficients::Ptr> allCoefficients;
             // if user does not specify polygons, use default polygon
 
-            occlusion.setPointRadius(0.01);
+            occlusion.setPointRadius(0.2);
+            occlusion.setOctreeResolution(0.5);
+            occlusion.setInputCloudBound(bound_cloud);
+            occlusion.buildCompleteOctreeNodes();
+
             std::vector<pcl::PointXYZ> polygon;
 
             if (polygons.size() == 0) {
@@ -164,7 +182,24 @@ void on_message(server& s, websocketpp::connection_hdl hdl, server::message_ptr 
                 polygonClouds.push_back(polygon);
             }
 
+            occlusion.setPolygonClouds(polygonClouds);
+            occlusion.setAllCoefficients(allCoefficients);
+
+            occlusion.generateRandomRays(10000, min_pt_bound, max_pt_bound);
+
+            double occlusion_level = occlusion.randomRayBasedOcclusionLevel(true);
+            std::string occlusion_level_str = "-occlusion_level=" + std::to_string(occlusion_level);
+
+            s.send(hdl, occlusion_level_str, msg->get_opcode());
         }
+
+        if (payload.substr(0, 3) ==  "-b=") {
+
+            data_holder.setFileName(payload.substr(3, payload.length()));
+            data_holder.setBoundaryCloudPath("../files/" + payload.substr(3, payload.length()));
+
+        }
+
         if (payload.substr(0, 3) == "-s=") {
 
             data_holder.setSegmentationPath("../files/" + payload.substr(3, payload.length()));
@@ -189,23 +224,11 @@ void on_message(server& s, websocketpp::connection_hdl hdl, server::message_ptr 
             std::cout << "segmented_cloud loaded " << segmented_cloud->size() << std::endl;
 
             Evaluation eval;
-            eval.compareClouds(segmented_cloud, ground_truth_cloud, false);
-            
-            float iou = eval.calculateIoU();
-            std::string iou_str = "-iou=" + std::to_string(iou);
-            s.send(hdl, iou_str, msg->get_opcode());
-            
-            float accuracy = eval.calculateAccuracy();
-            std::string accuracy_str = "-accuracy=" + std::to_string(accuracy);
-            s.send(hdl, accuracy_str, msg->get_opcode());
-            
-            float precision = eval.calculatePrecision();
-            std::string precision_str = "-precision=" + std::to_string(precision);
-            s.send(hdl, precision_str, msg->get_opcode());
 
-            float recall = eval.calculateRecall();
-            std::string recall_str = "-recall=" + std::to_string(recall);
-            s.send(hdl, recall_str, msg->get_opcode());
+            eval.setColorLabelMap();
+            eval.setGroundTruthMap();
+
+            eval.compareClouds(segmented_cloud, ground_truth_cloud, false);
             
             float f1_score = eval.calculateF1Score();
             std::string f1_score_str = "-f1_score=" + std::to_string(f1_score);
@@ -281,7 +304,8 @@ int main(int argc, char *argv[])
         }
 
         occlusion.setOctreeResolution(octree_resolution);
-        occlusion.setConfigInfo(samples_per_unit_area, pattern);
+        occlusion.setPattern(pattern);
+        occlusion.setSamplesPerUnitArea(samples_per_unit_area);
         occlusion.haltonSampleTriangle(samples_per_unit_area);
         occlusion.buildCompleteOctreeNodesTriangle();
         
@@ -436,6 +460,44 @@ int main(int argc, char *argv[])
 
         scanner.sphere_scanner(pattern, scene_name);
         
+        helper.displayRunningTime(start);
+
+    } else if (arg1 == "-scanm"){ // scan mesh
+
+        Occlusion occlusion;
+
+        auto scan_mesh = j.at("scan_mesh");
+        
+        std::string mesh_path = scan_mesh.at("mesh_path");
+        std::cout << "mesh path is: " << mesh_path << std::endl;
+        std::cout << "" << std::endl;
+
+        occlusion.parseTrianglesFromPLY(mesh_path);
+
+        double octree_resolution = scan_mesh.at("octree_resolution");
+        occlusion.setOctreeResolution(octree_resolution);
+        
+        size_t sampling_hor = scan_mesh.at("sampling_hor");
+        occlusion.setSamplingHor(sampling_hor);
+
+        size_t sampling_ver = scan_mesh.at("sampling_ver");
+        occlusion.setSamplingVer(sampling_ver);
+
+        int pattern = scan_mesh.at("pattern");
+        occlusion.setPattern(pattern);
+
+        Eigen::Vector3d min = occlusion.getMeshMinVertex();
+        Eigen::Vector3d max = occlusion.getMeshMaxVertex();
+        Eigen::Vector3d center = (min + max) / 2.0;
+
+        std::vector<Eigen::Vector3d> origins = occlusion.viewPointPattern(min, max, center);
+
+        occlusion.generateScannerRays(origins);
+
+        occlusion.buildCompleteOctreeNodesTriangle();
+
+        occlusion.scannerIntersectTriangle();
+
         helper.displayRunningTime(start);
 
     } else if (arg1 == "-recon") {

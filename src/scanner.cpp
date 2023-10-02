@@ -781,6 +781,7 @@ void Scanner::sphere_scanner(int pattern, std::string scene_name) {
 
 }
 
+
 // random scanning positions
 
 std::vector<pcl::PointXYZ> Scanner::random_scanning_positions(pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, int num_scanners) {
