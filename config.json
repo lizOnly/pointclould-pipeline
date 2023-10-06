@@ -2,8 +2,8 @@
     "occlusion": {
         "mesh": {
             "path": "../files/cube.obj",
-            "ply_path": "../files/horizontal_scene_mesh.ply",
-            "pattern": 0,
+            "ply_path": "../files/joined_mesh.ply",
+            "pattern": 6,
             "octree_resolution": 0.5,
             "samples_per_unit_area": 10,
             "use_ply": true

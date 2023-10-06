@@ -1650,25 +1650,20 @@ std::vector<Eigen::Vector3d> Occlusion::viewPointPattern(Eigen::Vector3d& min, E
     } else if (pattern == 3) {
 
         origins.push_back(min_mid);
-        origins.push_back(max_mid);
+        origins.push_back(center);
 
     } else if (pattern == 4) {
 
-        origins.push_back(min_mid);
+        origins.push_back(max_mid);
         origins.push_back(center);
 
     } else if (pattern == 5) {
 
-        origins.push_back(max_mid);
-        origins.push_back(center);
-
-    } else if (pattern == 6) {
-
         origins.push_back(min_mid);
         origins.push_back(max_mid);
         origins.push_back(center);
 
-    } else if (pattern == 7) { // edge case 1 for the ground truth mesh, under the table
+    } else if (pattern == 6) { // edge case 1 for the ground truth mesh, under the table
 
         Eigen::Vector3d under_table(center.x(), center.y(), min.z());
         origins.push_back(under_table);
