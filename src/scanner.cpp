@@ -296,36 +296,31 @@ std::vector<pcl::PointXYZ> Scanner::fixed_scanning_positions(pcl::PointXYZ& min_
 
         positions.push_back(max_position);
 
-    }  else if (pattern == 3) {
+    } else if (pattern == 3) {
 
+        positions.push_back(center);
         positions.push_back(min_position);
-        positions.push_back(max_position);
 
     } else if (pattern == 4) {
 
         positions.push_back(center);
-        positions.push_back(min_position);
+        positions.push_back(max_position);
 
     } else if (pattern == 5) {
 
         positions.push_back(center);
-        positions.push_back(max_position);
-
-    } else if (pattern == 6) {
-
-        positions.push_back(center);
         positions.push_back(min_position);
         positions.push_back(max_position);
 
-    } else if (pattern == 7) { // extreme case
+    } else if (pattern == 6) { // extreme case
 
         positions.push_back(min_pt);
 
-    } else if (pattern == 8) { // extreme case
+    } else if (pattern == 7) { // extreme case
 
         positions.push_back(max_pt);
 
-    } else if (pattern == 9) {
+    } else if (pattern == 8) {
 
 
     }
@@ -608,7 +603,7 @@ void Scanner::generateRays(std::vector<pcl::PointXYZ> origins) {
     cloud->height = 1;
     cloud->is_dense = true;
 
-    pcl::io::savePCDFileASCII ("../files/regular_scanner_cloud.pcd", *cloud);
+    pcl::io::savePCDFileASCII (output_root_path + "regular_scanner_cloud.pcd", *cloud);
 
 }
 
@@ -656,7 +651,7 @@ void Scanner::generateRaysHalton(size_t num_rays_per_vp, std::vector<pcl::PointX
     cloud->height = 1;
     cloud->is_dense = true;
 
-    pcl::io::savePCDFileASCII ("../files/sphere_scanners.pcd", *cloud);
+    pcl::io::savePCDFileASCII (output_root_path + "sphere_scanners.pcd", *cloud);
 
     std::cout << "" << std::endl;
     std::cout << "Number of rays: " << t_rays.size() << std::endl;
@@ -761,21 +756,21 @@ void Scanner::sphere_scanner(int pattern, std::string scene_name) {
     scanned_cloud_bound_color->height = 1;
     scanned_cloud_bound_color->is_dense = true;
 
-    pcl::io::savePCDFileASCII ("../files/" + scene_name + "_gt_" + std::to_string(pattern) + ".pcd", *scanned_cloud_gt);
+    pcl::io::savePCDFileASCII (output_root_path + scene_name + "_gt_" + std::to_string(pattern) + ".pcd", *scanned_cloud_gt);
     std::cout << "Saved " << scanned_cloud_gt->size() << " data points to gt cloud" << std::endl;
     std::cout << "" << std::endl;
 
-    pcl::io::savePCDFileASCII ("../files/" + scene_name + "_color_" + std::to_string(pattern) + ".pcd", *scanned_cloud_color);
+    pcl::io::savePCDFileASCII (output_root_path + scene_name + "_color_" + std::to_string(pattern) + ".pcd", *scanned_cloud_color);
     std::cout << "Saved " << scanned_cloud_color->size() << " data points to color cloud" << std::endl;
     std::cout << "" << std::endl;
 
-    pcl::io::savePCDFileASCII ("../files/" + scene_name + "_bound_" + std::to_string(pattern) + ".pcd", *scanned_cloud_bound);
+    pcl::io::savePCDFileASCII (output_root_path + scene_name + "_bound_" + std::to_string(pattern) + ".pcd", *scanned_cloud_bound);
     std::cout << "Saved " << scanned_cloud_bound->size() << " data points to bound cloud" << std::endl;
     std::cout << "Number of clutter points: " << clutter_count << std::endl;
     std::cout << "Clutter ratio is: " << (double)clutter_count / (double)scanned_cloud_bound->size() << std::endl;
     std::cout << "" << std::endl;
 
-    pcl::io::savePCDFileASCII ("../files/" + scene_name + "_bound_color_" + std::to_string(pattern) + ".pcd", *scanned_cloud_bound_color);
+    pcl::io::savePCDFileASCII (output_root_path + scene_name + "_bound_color_" + std::to_string(pattern) + ".pcd", *scanned_cloud_bound_color);
     std::cout << "Saved " << scanned_cloud_bound_color->size() << " data points to bound color cloud" << std::endl;
     std::cout << "" << std::endl;
 
@@ -961,7 +956,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::multi_square_scanner(double step
     scanned_cloud->height = 1;
     scanned_cloud->is_dense = true;
 
-    std::string outputPath = "../files/scanned_" + file_name.substr(0, file_name.length() - 4) + ".pcd";
+    std::string outputPath = output_root_path + "scanned_" + file_name.substr(0, file_name.length() - 4) + ".pcd";
     pcl::io::savePCDFileASCII (outputPath, *scanned_cloud); 
 
     return scanned_cloud;   
@@ -1051,7 +1046,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Scanner::random_scanner(double step, doub
     scanned_cloud->height = 1;
     scanned_cloud->is_dense = true;
 
-    std::string outputPath = "../files/random_scanned_" + file_name.substr(0, file_name.length() - 4) + "-" + std::to_string(num_random_positions) + ".pcd";
+    std::string outputPath = output_root_path + "random_scanned_" + file_name.substr(0, file_name.length() - 4) + "-" + std::to_string(num_random_positions) + ".pcd";
     pcl::io::savePCDFileASCII (outputPath, *scanned_cloud);
 
     return scanned_cloud;

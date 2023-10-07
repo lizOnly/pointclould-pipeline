@@ -124,7 +124,7 @@ void Reconstruction::pointCloudReconstructionFromTxt(std::string path)
     std::cout << "Loaded " << cloud->width << " points" << std::endl;
     cloud->height = 1;
 
-    pcl::io::savePCDFile("../files/recon_cloud.pcd", *cloud);
+    pcl::io::savePCDFile(output_root_path + "recon_cloud.pcd", *cloud);
 }
 
 /*
@@ -262,7 +262,7 @@ void Reconstruction::buildGroundTruthCloud(std::string folder_path) {
     cloud->height = 1;
     cloud->is_dense = true;
 
-    pcl::io::savePCDFile("../files/gt.pcd", *cloud);
+    pcl::io::savePCDFile(output_root_path + "gt.pcd", *cloud);
 
     std::cout << "Saved " << cloud->points.size() << " points" << std::endl;
     std::cout << "" << std::endl;
@@ -270,7 +270,7 @@ void Reconstruction::buildGroundTruthCloud(std::string folder_path) {
     bound_cloud->width = bound_cloud->points.size();
     bound_cloud->height = 1;
 
-    pcl::io::savePCDFile("../files/bound_cloud.pcd", *bound_cloud);
+    pcl::io::savePCDFile(output_root_path + "bound_cloud.pcd", *bound_cloud);
 
     std::cout << "clutter count: " << clutter_count << std::endl;
     double clutter_ratio = (double)clutter_count / (double)cloud->width;

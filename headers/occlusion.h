@@ -30,6 +30,10 @@ class Occlusion {
             return mesh_max_vertex;
         };
 
+        void setOutputRootPath(std::string path) {
+            output_root_path = path;
+        };
+
         pcl::PointCloud<pcl::PointXYZI>::Ptr getEstimatedBoundCloud() {
             return estimated_bound_cloud;
         };
@@ -100,8 +104,6 @@ class Occlusion {
             cloud_filtered->width = cloud_filtered->points.size();
             cloud_filtered->height = 1;
             cloud_filtered->is_dense = true;
-
-            pcl::io::savePCDFileASCII("../files/v_" + file_name, *cloud_filtered);
 
             return cloud_filtered;
         };
@@ -185,8 +187,6 @@ class Occlusion {
             return bbox;
         };
 
-        void buildLeafBBoxSet();
-
         void buildCompleteOctreeNodes();
 
         void buildCompleteOctreeNodesTriangle();
@@ -196,6 +196,8 @@ class Occlusion {
         void generateScannerRays(std::vector<Eigen::Vector3d> origins);
 
         private:
+
+            std::string output_root_path;
 
             std::string scene_name;
             int samples_per_unit_area;
@@ -228,7 +230,6 @@ class Occlusion {
             Eigen::Vector3d mesh_min_vertex; // min vertex of mesh
             Eigen::Vector3d mesh_max_vertex; // max vertex of mesh
 
-
             std::unordered_map<size_t, Intersection> t_intersections; // table of intersections
             std::unordered_map<size_t, Triangle> t_triangles; // table of triangles
             std::unordered_map<size_t, Ray> t_rays; // tables of rays
@@ -237,9 +238,7 @@ class Occlusion {
         
             pcl::PointCloud<pcl::PointXYZI>::Ptr t_octree_cloud; // octree cloud to store center of triangles
             pcl::PointCloud<pcl::PointXYZ>::Ptr t_pure_octree_cloud; // pure octree cloud to store center of triangles
-            
-            std::vector<LeafBBox> t_octree_leaf_bbox; // bounding box of octree leaf nodes
-            std::vector<LeafBBox> t_octree_leaf_bbox_triangle;
+
 
             Eigen::Vector3d oc_cloud_min_pt;
             Eigen::Vector3d oc_cloud_max_pt;

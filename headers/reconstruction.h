@@ -33,6 +33,10 @@ class Reconstruction
 
         }
 
+        void setOutputRootPath(std::string path) {
+            output_root_path = path;
+        };
+
         void poissonReconstruction(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);
         
         void marchingCubesReconstruction(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);
@@ -50,6 +54,8 @@ class Reconstruction
         int findUnderScore(std::string& str);
 
     private:   
+
+        std::string output_root_path;
 
         double interior_ratio;
 

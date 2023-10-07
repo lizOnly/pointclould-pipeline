@@ -6,7 +6,7 @@
 #include <pcl/common/transforms.h>
 
 #include "../headers/BaseStruct.h"
-#include "../headers/Helper.h"
+#include "../headers/helper.h"
 
 
 Helper::Helper()
@@ -25,64 +25,6 @@ void Helper::displayRunningTime(std::chrono::high_resolution_clock::time_point s
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
     std::cout << "Time taken by this run: " << duration.count() << " seconds" << std::endl;
-}
-
-
-pcl::PointCloud<pcl::PointXYZ>::Ptr Helper::centerCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt) {
-
-    pcl::PointXYZ center;
-    center.x = (max_pt.x + min_pt.x) / 2;
-    center.y = (max_pt.y + min_pt.y) / 2;
-    center.z = (max_pt.z + min_pt.z) / 2;
-
-    for (size_t i = 0; i < cloud->points.size(); ++i) {
-
-        cloud->points[i].x -= center.x;
-        cloud->points[i].y -= center.y;
-        cloud->points[i].z -= center.z;
-
-    }
-
-    Eigen::Affine3f transform = Eigen::Affine3f::Identity();
-    transform.rotate(Eigen::AngleAxisf(-M_PI/2, Eigen::Vector3f::UnitX()));
-    pcl::transformPointCloud(*cloud, *cloud, transform);
-    std::cout << "Transformed cloud" << std::endl;
-
-    cloud->width = cloud->points.size();
-    cloud->height = 1;
-    cloud->is_dense = true;
-    
-    return cloud;
-}
-
-
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr Helper::centerColoredCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud, pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, std::string file_name) {
-    
-    pcl::PointXYZ center;
-    center.x = (max_pt.x + min_pt.x) / 2;
-    center.y = (max_pt.y + min_pt.y) / 2;
-    center.z = (max_pt.z + min_pt.z) / 2;
-
-    for (size_t i = 0; i < coloredCloud->points.size(); ++i) {
-
-        coloredCloud->points[i].x -= center.x;
-        coloredCloud->points[i].y -= center.y;
-        coloredCloud->points[i].z -= center.z;
-    
-    }
-
-    Eigen::Affine3f transform = Eigen::Affine3f::Identity();
-    transform.rotate(Eigen::AngleAxisf(-M_PI / 2, Eigen::Vector3f::UnitX()));
-    pcl::transformPointCloud(*coloredCloud, *coloredCloud, transform);
-    std::cout << "Transformed colored cloud" << std::endl;
-
-    coloredCloud->width = coloredCloud->points.size();
-    coloredCloud->height = 1;
-    coloredCloud->is_dense = true;
-    
-    pcl::io::savePCDFileASCII("../files/c_" + file_name, *coloredCloud);
-
-    return coloredCloud;
 }
 
 
@@ -161,11 +103,6 @@ void Helper::extractWalls(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud) {
     cloud_walls_west->width = cloud_walls_west->points.size();
     cloud_walls_west->height = 1;
 
-    pcl::io::savePCDFileASCII("../files/walls_north.pcd", *cloud_walls_north);
-    pcl::io::savePCDFileASCII("../files/walls_south.pcd", *cloud_walls_south);
-    pcl::io::savePCDFileASCII("../files/walls_east.pcd", *cloud_walls_east);
-    pcl::io::savePCDFileASCII("../files/walls_west.pcd", *cloud_walls_west);
-    pcl::io::savePCDFileASCII("../files/walls.pcd", *cloud_walls);
 }
 
 
@@ -187,6 +124,5 @@ void Helper::removePointsInSpecificColor(pcl::PointCloud<pcl::PointXYZRGB>::Ptr 
     filtered_cloud->height = 1;
     filtered_cloud->is_dense = true;
 
-    pcl::io::savePCDFileASCII("../files/specific_color_filtered_cloud.pcd", *filtered_cloud);
 
 }

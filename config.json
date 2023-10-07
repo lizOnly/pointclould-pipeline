@@ -1,19 +1,25 @@
-{
+{   
+    
+    "globals": {
+        "input_root_path": "../files/",
+        "output_root_path": "../files/"
+    },
+
     "occlusion": {
         "mesh": {
-            "path": "../files/cube.obj",
-            "ply_path": "../files/joined_mesh.ply",
-            "pattern": 6,
+            "path": "cube.obj",
+            "ply_path": "joined_mesh_2.ply",
+            "pattern": 5,
             "octree_resolution": 0.5,
             "samples_per_unit_area": 10,
             "use_ply": true
         },
 
         "boundary_cloud": {
-            "path": "../files/mesh_scanned_bound_cloud_6.pcd",
+            "path": "mesh_scanned_bound_cloud_6.pcd",
             "num_rays": 10000,
             "point_radius": 0.2,
-            "polygon_path": "../files/conf1_poly.txt",
+            "polygon_path": "conf1_poly.txt",
             "octree_resolution": 0.5,
             "use_openings": false,
             "K_nearest": 10
@@ -25,8 +31,8 @@
         "sampling_ver": 200,
         "pattern": 2,
         "scene_name": "duck3",
-        "path": "../files/duck3.pcd",
-        "gt_path": "../files/duck3_gt.pcd",
+        "path": "duck3.pcd",
+        "gt_path": "duck3_gt.pcd",
         "octree_resolution": 0.3,
         "point_radius": 0.01
     },
@@ -34,26 +40,25 @@
     "scan_mesh": {
         "sampling_hor": 200,
         "sampling_ver": 200,
-        "pattern": 6,
-        "mesh_path": "../files/joined_mesh.ply",
+        "pattern": 5,
+        "mesh_path": "joined_mesh.ply",
         "octree_resolution": 0.5
     },
 
     "evaluation": {
-        "path": "../files/conf2.pcd",
-        "seg_path": "../files/conf2_color_0_seg.pcd",
-        "gt_path": "../files/conf2_gt_0.pcd",
+        "seg_path": "conf2_color_0_seg.pcd",
+        "gt_path": "conf2_gt_0.pcd",
         "compare_bound": false
     },
 
     "recon": {
-        "path": "../files/copy/copyRoom_1.txt",
-        "gt_path": "../files/copy/anno/"
+        "path": "copy/copyRoom_1.txt",
+        "gt_path": "copy/anno/"
     },
 
     "transfer": {
-        "path_pcd": "../files/duck3_color_1.pcd",
-        "path_ply": "../files/duck3.ply"
+        "path_pcd": "duck3.pcd",
+        "path_ply": "duck3.ply"
     }
 
 }

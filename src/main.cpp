@@ -108,6 +108,13 @@ void on_message(server& s, websocketpp::connection_hdl hdl, server::message_ptr 
     std::cout << "on_message called with hdl: " << hdl.lock().get()
               << " and message: " << msg->get_payload()
               << std::endl;
+
+    std::ifstream f("../config.json", std::ifstream::in);
+    json j;
+    f >> j;
+
+    std::string input_root_path = j.at("globals").at("input_root_path");
+
     Occlusion occlusion;
     // Echo the message back
     try {
@@ -119,7 +126,7 @@ void on_message(server& s, websocketpp::connection_hdl hdl, server::message_ptr 
         if (payload.substr(0, 3) == "-i=") {
 
             data_holder.setFileName(payload.substr(3, payload.length()));
-            data_holder.setInputPath("../files/" + payload.substr(3, payload.length()));
+            data_holder.setInputPath(input_root_path + payload.substr(3, payload.length()));
 
         }
         
@@ -196,18 +203,18 @@ void on_message(server& s, websocketpp::connection_hdl hdl, server::message_ptr 
         if (payload.substr(0, 3) ==  "-b=") {
 
             data_holder.setFileName(payload.substr(3, payload.length()));
-            data_holder.setBoundaryCloudPath("../files/" + payload.substr(3, payload.length()));
+            data_holder.setBoundaryCloudPath(input_root_path + payload.substr(3, payload.length()));
 
         }
 
         if (payload.substr(0, 3) == "-s=") {
 
-            data_holder.setSegmentationPath("../files/" + payload.substr(3, payload.length()));
+            data_holder.setSegmentationPath(input_root_path + payload.substr(3, payload.length()));
 
         }
         if (payload.substr(0, 4) == "-gt=") {
 
-            data_holder.setGtPath("../files/" + payload.substr(4, payload.length()));
+            data_holder.setGtPath(input_root_path + payload.substr(4, payload.length()));
 
         }
         if (payload.substr(0, 2) == "-e") {
@@ -274,6 +281,14 @@ int main(int argc, char *argv[])
     std::cout << "Parsing arguments ... " << std::endl;
     std::cout << "" << std::endl;
 
+    std::string input_root_path = j.at("globals").at("input_root_path");
+    std::cout << "input root path is: " << input_root_path << std::endl;
+    std::cout << "" << std::endl;
+
+    std::string output_root_path = j.at("globals").at("output_root_path");
+    std::cout << "output path is: " << output_root_path << std::endl;
+    std::cout << "" << std::endl;
+
     Helper helper;
     // compute mesh based occlusion level
     if (arg1 == "-moc") {
@@ -290,6 +305,7 @@ int main(int argc, char *argv[])
         if (use_ply) {
 
             std::string ply_path = occlusion_mesh.at("ply_path");
+            ply_path = input_root_path + ply_path;
             std::cout << "Estimated .ply mesh path is: " << ply_path << std::endl;
             std::cout << "" << std::endl;
             occlusion.parseTrianglesFromPLY(ply_path);
@@ -297,12 +313,14 @@ int main(int argc, char *argv[])
         } else {
 
             std::string mesh_path = occlusion_mesh.at("path");
+            mesh_path = input_root_path + mesh_path;
             std::cout << "mesh path is: " << mesh_path << std::endl;
             std::cout << "" << std::endl;
             occlusion.parseTrianglesFromOBJ(mesh_path);
 
         }
 
+        occlusion.setOutputRootPath(output_root_path);
         occlusion.setOctreeResolution(octree_resolution);
         occlusion.setPattern(pattern);
         occlusion.setSamplesPerUnitArea(samples_per_unit_area);
@@ -330,7 +348,8 @@ int main(int argc, char *argv[])
         auto occlusion_boundary = j.at("occlusion").at("boundary_cloud");
 
         std::string path = occlusion_boundary.at("path");
-        std::cout << "input cloud path is: " << path << std::endl;
+        path = input_root_path + path;
+        std::cout << "input cloud path is: " << input_root_path + path << std::endl;
         std::cout << "" << std::endl;
 
         pcl::PointCloud<pcl::PointXYZI>::Ptr bound_cloud(new pcl::PointCloud<pcl::PointXYZI>);
@@ -351,6 +370,7 @@ int main(int argc, char *argv[])
         }
 
         std::string polygon_path = occlusion_boundary.at("polygon_path");
+        polygon_path = input_root_path + polygon_path;
         std::cout << "polygon path is: " << polygon_path << std::endl;
         std::cout << "" << std::endl;
 
@@ -361,6 +381,7 @@ int main(int argc, char *argv[])
         int K_nearest = occlusion_boundary.at("K_nearest");
 
         Occlusion occlusion;
+        occlusion.setOutputRootPath(output_root_path);
         occlusion.setPointRadius(point_radius);
         occlusion.setOctreeResolution(octree_resolution);
         occlusion.setInputCloudBound(bound_cloud);
@@ -374,7 +395,7 @@ int main(int argc, char *argv[])
 
         if (use_openings) {
 
-            std::cout << "Using openings" << std::endl;
+            std::cout << "Using openings ... " << std::endl;
             std::vector<std::vector<pcl::PointXYZ>> polygons = occlusion.parsePolygonData(polygon_path);
             std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygon_clouds;
             std::vector<pcl::ModelCoefficients::Ptr> all_coefficients;
@@ -408,6 +429,7 @@ int main(int argc, char *argv[])
         Scanner scanner;
         auto scan = j.at("fixed_sphere_scanner");
         std::string path = scan.at("path");
+        path = input_root_path + path;
 
         pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
         pcl::io::loadPCDFile<pcl::PointXYZ>(path, *cloud);
@@ -431,8 +453,9 @@ int main(int argc, char *argv[])
         std::cout << "" << std::endl;
 
         std::string gt_path = scan.at("gt_path");
+        gt_path = input_root_path + gt_path;
 
-
+        scanner.setOutputRootPath(output_root_path);
         pcl::PointCloud<pcl::PointXYZI>::Ptr gt_cloud(new pcl::PointCloud<pcl::PointXYZI>);
         pcl::io::loadPCDFile<pcl::PointXYZI>(gt_path, *gt_cloud);
 
@@ -469,11 +492,13 @@ int main(int argc, char *argv[])
         auto scan_mesh = j.at("scan_mesh");
         
         std::string mesh_path = scan_mesh.at("mesh_path");
+        mesh_path = input_root_path + mesh_path;
         std::cout << "mesh path is: " << mesh_path << std::endl;
         std::cout << "" << std::endl;
 
         occlusion.parseTrianglesFromPLY(mesh_path);
 
+        occlusion.setOutputRootPath(output_root_path);
         double octree_resolution = scan_mesh.at("octree_resolution");
         occlusion.setOctreeResolution(octree_resolution);
         
@@ -506,6 +531,7 @@ int main(int argc, char *argv[])
 
         auto recon = j.at("recon");
         std::string path = recon.at("path");
+        path = input_root_path + path;
 
         Reconstruction reconstruct;
 
@@ -519,6 +545,7 @@ int main(int argc, char *argv[])
 
         auto recon = j.at("recon");
         std::string gt_path = recon.at("gt_path");
+        gt_path = input_root_path + gt_path;
 
         Reconstruction reconstruct;
 
@@ -531,7 +558,9 @@ int main(int argc, char *argv[])
         Evaluation eval;
         auto evaluation = j.at("evaluation");
         std::string seg_path = evaluation.at("seg_path");
+        seg_path = input_root_path + seg_path;
         std::string gt_path = evaluation.at("gt_path");
+        gt_path = input_root_path + gt_path;
         bool compare_bound = evaluation.at("compare_bound");
 
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr segmented_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -556,6 +585,7 @@ int main(int argc, char *argv[])
     } else if (arg1 == "-t2ply") {
         Reconstruction recon;
         std::string path = j.at("transfer").at("path_pcd");
+        path = input_root_path + path;
         std::cout << "input cloud path is: " << path << std::endl;
 
         recon.pcd2ply(path);
@@ -566,6 +596,7 @@ int main(int argc, char *argv[])
 
         Reconstruction recon;
         std::string path = j.at("transfer").at("path_ply");
+        path = input_root_path + path;
         std::cout << "input cloud path is: " << path << std::endl;
 
         recon.ply2pcd(path);
@@ -576,6 +607,7 @@ int main(int argc, char *argv[])
 
         Reconstruction recon;
         std::string path = j.at("transfer").at("path_pcd");
+        path = input_root_path + path;
         std::cout << "input cloud path is: " << path << std::endl;
 
         recon.createGT(path);
@@ -588,6 +620,7 @@ int main(int argc, char *argv[])
         instructions["-moc"] = "Compute occlusion level of a mesh";
         instructions["-bounoc"] = "Compute occlusion level of a point cloud";
         instructions["-fscan"] = "Compute occlusion level of a point cloud using fixed sphere scanning";
+        instructions["-scanm"] = "Scan mesh using fixed sphere scanning";
         instructions["-recon"] = "Reconstruct point cloud from .txt file";
         instructions["-recongt"] = "Reconstruct ground truth point cloud from .txt file";
         instructions["-eval"] = "Evaluate segmentation results";

@@ -71,7 +71,7 @@ void Occlusion::regionGrowingSegmentation(pcl::PointCloud<pcl::PointXYZ>::Ptr cl
     std::cout << "Number of clusters is equal to " << rg_clusters.size() << std::endl;
 
     pcl::PointCloud <pcl::PointXYZRGB>::Ptr colored_cloud = reg.getColoredCloud();
-    pcl::io::savePCDFileASCII("../files/rg.pcd", *colored_cloud);
+    pcl::io::savePCDFileASCII(output_root_path + "rg.pcd", *colored_cloud);
 
 }
 
@@ -146,7 +146,7 @@ void Occlusion::generateTriangleFromCluster() {
     polygon_clouds->height = 1;
     polygon_clouds->is_dense = true;
 
-    pcl::io::savePCDFileASCII("../files/polygon_clouds.pcd", *polygon_clouds);
+    pcl::io::savePCDFileASCII(output_root_path + "polygon_clouds.pcd", *polygon_clouds);
 
     std::cout << "Number of triangles is: " << t_triangles.size() << std::endl;
 
@@ -205,7 +205,7 @@ std::vector<pcl::PointXYZ> Occlusion::HaltonSampleSphere(pcl::PointXYZ center, s
     cloud->height = 1;
     cloud->is_dense = true;
 
-    pcl::io::savePCDFileASCII("../files/halton_sphere.pcd", *cloud);
+    pcl::io::savePCDFileASCII(output_root_path + "halton_sphere.pcd", *cloud);
 
     return samples;
 }
@@ -708,13 +708,13 @@ void Occlusion::estimateBoundary(int K_nearest) {
     estimated_bound_cloud->height = 1;
     estimated_bound_cloud->is_dense = true;
 
-    pcl::io::savePCDFileASCII("../files/" + scene_name + "_" + std::to_string(samples_per_unit_area) + "_" + std::to_string(pattern) + "_estimated_bound.pcd", *estimated_bound_cloud);
+    pcl::io::savePCDFileASCII(output_root_path + scene_name + "_" + std::to_string(samples_per_unit_area) + "_" + std::to_string(pattern) + "_estimated_bound.pcd", *estimated_bound_cloud);
 
     estimated_rgb_bound_cloud->width = estimated_rgb_bound_cloud->points.size();
     estimated_rgb_bound_cloud->height = 1;
     estimated_rgb_bound_cloud->is_dense = true;
 
-    pcl::io::savePCDFileASCII("../files/" + scene_name + "_" + std::to_string(samples_per_unit_area) + "_" + std::to_string(pattern) + "_estimated_rgb_bound.pcd", *estimated_rgb_bound_cloud);
+    pcl::io::savePCDFileASCII(output_root_path + scene_name + "_" + std::to_string(samples_per_unit_area) + "_" + std::to_string(pattern) + "_estimated_rgb_bound.pcd", *estimated_rgb_bound_cloud);
 
 }
 
@@ -758,7 +758,7 @@ void Occlusion::estimateSemantics() {
     estimated_semantics_cloud->height = 1;
     estimated_semantics_cloud->is_dense = true;
 
-    pcl::io::savePCDFileASCII("../files/" + scene_name + "_" + std::to_string(samples_per_unit_area) + "_" + std::to_string(pattern) + "_estimated_semantics.pcd", *estimated_semantics_cloud);
+    pcl::io::savePCDFileASCII(output_root_path + scene_name + "_" + std::to_string(samples_per_unit_area) + "_" + std::to_string(pattern) + "_estimated_semantics.pcd", *estimated_semantics_cloud);
 
 }
 
@@ -1517,7 +1517,7 @@ void Occlusion::uniformSampleTriangle(double samples_per_unit_area) {
     sample_cloud->height = 1;
     sample_cloud->is_dense = true;
 
-    pcl::io::savePCDFileASCII("../files/uniform_sample_cloud.pcd", *sample_cloud);
+    pcl::io::savePCDFileASCII(output_root_path + "uniform_sample_cloud.pcd", *sample_cloud);
 
     std::cout << "Number of samples: " << t_samples.size() << std::endl;
 
@@ -1596,7 +1596,7 @@ void Occlusion::haltonSampleTriangle(double samples_per_unit_area) {
     sample_cloud->height = 1;
     sample_cloud->is_dense = true;
 
-    pcl::io::savePCDFileASCII("../files/halton_sample_cloud.pcd", *sample_cloud);
+    pcl::io::savePCDFileASCII(output_root_path + "halton_sample_cloud.pcd", *sample_cloud);
 
     std::cout << "Number of samples: " << t_samples.size() << std::endl;
     std::cout << "" << std::endl;
@@ -1881,6 +1881,7 @@ double Occlusion::triangleBasedOcclusionLevel() {
                 
                 size_t first_hit_intersection_idx = t_rays[ray_idx].intersection_idx[0];
                 t_intersections[first_hit_intersection_idx].is_first_hit = true;
+                t_rays[ray_idx].first_hit_intersection_idx = first_hit_intersection_idx;
             
             } else if (t_rays[ray_idx].intersection_idx.size() > 1) {
                 
@@ -1971,7 +1972,7 @@ double Occlusion::triangleBasedOcclusionLevel() {
     visible_sample_cloud->height = 1;
     visible_sample_cloud->is_dense = true;
 
-    pcl::io::savePCDFileASCII("../files/visible_sample_cloud.pcd", *visible_sample_cloud);
+    pcl::io::savePCDFileASCII(output_root_path + "visible_sample_cloud.pcd", *visible_sample_cloud);
     std::cout << "Saved " << visible_sample_cloud->points.size() << " visible samples." << std::endl;
     std::cout << "" << std::endl;
 
@@ -2050,97 +2051,14 @@ void Occlusion::scannerIntersectTriangle() {
     scanned_cloud->height = 1;
     scanned_cloud->is_dense = true;
 
-    pcl::io::savePCDFileASCII("../files/mesh_scanned_cloud_" + std::to_string(pattern) + ".pcd", *scanned_cloud);
+    pcl::io::savePCDFileASCII(output_root_path + "mesh_scanned_cloud_" + std::to_string(pattern) + ".pcd", *scanned_cloud);
 
     scanned_bound_cloud->width = scanned_bound_cloud->points.size();
     scanned_bound_cloud->height = 1;
     scanned_bound_cloud->is_dense = true;
 
-    pcl::io::savePCDFileASCII("../files/mesh_scanned_bound_cloud_" + std::to_string(pattern) + ".pcd", *scanned_bound_cloud);
+    pcl::io::savePCDFileASCII(output_root_path + "mesh_scanned_bound_cloud_" + std::to_string(pattern) + ".pcd", *scanned_bound_cloud);
 
-}
-
-
-
-void Occlusion::buildLeafBBoxSet() {
-
-    pcl::octree::OctreePointCloudSearch<pcl::PointXYZI> octree(octree_resolution);
-    octree.setInputCloud(t_octree_cloud);
-    octree.addPointsFromInputCloud();
-
-    int max_depth = octree.getTreeDepth();
-    std::cout << "Max depth: " << max_depth << std::endl;
-
-    int num_leaf_nodes = octree.getLeafCount();
-    std::cout << "Total number of leaf nodes: " << num_leaf_nodes << std::endl;
-
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr t_octree_cloud_rgb(new pcl::PointCloud<pcl::PointXYZRGB>);
-
-    pcl::octree::OctreePointCloudSearch<pcl::PointXYZI>::LeafNodeIterator it;
-    pcl::octree::OctreePointCloudSearch<pcl::PointXYZI>::LeafNodeIterator it_end = octree.leaf_depth_end();
-
-    for (it = octree.leaf_depth_begin(max_depth); it != it_end; ++it) {
-
-
-        Eigen::Vector3f min_pt, max_pt;        
-        octree.getVoxelBounds(it, min_pt, max_pt);
-
-        LeafBBox bbox;
-        bbox.min_pt.x() = static_cast<double>(min_pt.x());
-        bbox.min_pt.y() = static_cast<double>(min_pt.y());
-        bbox.min_pt.z() = static_cast<double>(min_pt.z());
-        
-        bbox.max_pt.x() = static_cast<double>(max_pt.x());
-        bbox.max_pt.y() = static_cast<double>(max_pt.y());
-        bbox.max_pt.z() = static_cast<double>(max_pt.z());
-
-        std::vector<int> point_idx = it.getLeafContainer().getPointIndicesVector();
-
-        LeafBBox bbox_triangle;
-
-        Eigen::Vector3d min_pt_triangle = std::numeric_limits<double>::max() * Eigen::Vector3d::Ones();
-        Eigen::Vector3d max_pt_triangle = std::numeric_limits<double>::lowest() * Eigen::Vector3d::Ones();
-
-        for (auto& idx : point_idx) {
-
-            size_t triangle_idx = (size_t) t_octree_cloud->points[idx].intensity;
-
-            if (triangle_idx == -1) {
-                continue;
-            }
-
-            Triangle triangle = t_triangles[triangle_idx];
-
-            min_pt_triangle = min_pt_triangle.cwiseMin(triangle.v1);
-            min_pt_triangle = min_pt_triangle.cwiseMin(triangle.v2);
-            min_pt_triangle = min_pt_triangle.cwiseMin(triangle.v3);
-
-            max_pt_triangle = max_pt_triangle.cwiseMax(triangle.v1);
-            max_pt_triangle = max_pt_triangle.cwiseMax(triangle.v2);
-            max_pt_triangle = max_pt_triangle.cwiseMax(triangle.v3);
-
-            bbox_triangle.min_pt = min_pt_triangle;
-            bbox_triangle.max_pt = max_pt_triangle;
-
-            // std::cout << "Triangle index: " << triangle_idx << std::endl;
-            bbox.triangle_idx.push_back(triangle_idx);
-            bbox_triangle.triangle_idx.push_back(triangle_idx);
-
-        }
-
-        t_octree_leaf_bbox.push_back(bbox);
-        t_octree_leaf_bbox_triangle.push_back(bbox_triangle);
-
-    }
-
-    t_octree_cloud_rgb->width = t_octree_cloud_rgb->points.size();
-    t_octree_cloud_rgb->height = 1;
-    t_octree_cloud_rgb->is_dense = true;
-
-    // std::cout << "Number of points in octree cloud with bbox: " << t_octree_cloud_rgb->points.size() << std::endl;
-    // pcl::io::savePCDFileASCII("../files/octree_cloud_rgb.pcd", *t_octree_cloud_rgb);
-
-    std::cout << "Number of leaf bbox: " << t_octree_leaf_bbox.size() << std::endl;
 }
 
 
@@ -2551,14 +2469,14 @@ void Occlusion::generateCloudFromIntersection() {
     cloud->height = 1;
     cloud->is_dense = true;
     std::cout << "" << std::endl;
-    pcl::io::savePCDFileASCII("../files/intersection_cloud.pcd", *cloud);
+    pcl::io::savePCDFileASCII(output_root_path + "intersection_cloud.pcd", *cloud);
     std::cout << "Saved " << cloud->points.size() << " data points to cloud generated from mesh." << std::endl;
 
     cloud_first_hit->width = cloud_first_hit->points.size();
     cloud_first_hit->height = 1;
     cloud_first_hit->is_dense = true;
 
-    pcl::io::savePCDFileASCII("../files/intersection_cloud_first_hit.pcd", *cloud_first_hit);
+    pcl::io::savePCDFileASCII(output_root_path + "intersection_cloud_first_hit.pcd", *cloud_first_hit);
     std::cout << "Saved " << cloud_first_hit->points.size() << " data points to first hit cloud generated from mesh." << std::endl;
     std::cout << "" << std::endl;
 }

@@ -10,6 +10,10 @@ class Scanner {
 
         ~Scanner();
 
+        void setOutputRootPath(std::string path) {
+            output_root_path = path;
+        };
+
         void setPointRadius(float radius) {
             point_radius = radius;
         }
@@ -69,6 +73,8 @@ class Scanner {
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr random_scanner(double step, double searchRadius, size_t num_random_positions, pcl::PointXYZ& min_pt, pcl::PointXYZ& max_pt, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr coloredCloud, std::string file_name);
 
     private:
+
+        std::string output_root_path;
 
         pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud;
         pcl::PointCloud<pcl::PointXYZI>::Ptr input_cloud_gt;
