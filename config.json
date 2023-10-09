@@ -1,15 +1,15 @@
 {   
     
     "globals": {
-        "input_root_path": "../files/",
-        "output_root_path": "../files/"
+        "input_root_path": "/home/lizeth/Documents/Repositories/pointclould-pipeline/data/",
+        "output_root_path": "/home/lizeth/Documents/Repositories/pointclould-pipeline/results/"
     },
 
     "occlusion": {
         "mesh": {
             "path": "cube.obj",
             "ply_path": "joined_mesh_2.ply",
-            "pattern": 5,
+            "pattern": 0,
             "octree_resolution": 0.5,
             "samples_per_unit_area": 10,
             "use_ply": true

@@ -1,7 +1,12 @@
 # Ignore all files in build directory
 **/.build
+**/.idea
+**/cmake-build-debug
 **/build
+**/data
+**/results
 
 **/files/*
 
 .vscode
+
