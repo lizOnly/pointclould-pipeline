@@ -34,6 +34,10 @@ class Occlusion {
             output_root_path = path;
         };
 
+        void setShapeName(std::string name) {
+            shape_name = name;
+        };
+
         pcl::PointCloud<pcl::PointXYZI>::Ptr getEstimatedBoundCloud() {
             return estimated_bound_cloud;
         };
@@ -198,6 +202,7 @@ class Occlusion {
         private:
 
             std::string output_root_path;
+            std::string shape_name;
 
             std::string scene_name;
             int samples_per_unit_area;

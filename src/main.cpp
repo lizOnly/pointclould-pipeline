@@ -301,6 +301,7 @@ int main(int argc, char *argv[])
         bool use_ply = occlusion_mesh.at("use_ply");
 
         Occlusion occlusion;
+        std::string shape_name;
 
         if (use_ply) {
 
@@ -309,6 +310,7 @@ int main(int argc, char *argv[])
             std::cout << "Estimated .ply mesh path is: " << ply_path << std::endl;
             std::cout << "" << std::endl;
             occlusion.parseTrianglesFromPLY(ply_path);
+            shape_name = ply_path;
 
         } else {
 
@@ -317,10 +319,16 @@ int main(int argc, char *argv[])
             std::cout << "mesh path is: " << mesh_path << std::endl;
             std::cout << "" << std::endl;
             occlusion.parseTrianglesFromOBJ(mesh_path);
+            shape_name = mesh_path;
 
         }
 
+        //remove .ply and all path extension from ply_path
+        shape_name = shape_name.substr(0, shape_name.find_last_of("."));
+        shape_name = shape_name.substr(shape_name.find_last_of("/") + 1, shape_name.length());
+
         occlusion.setOutputRootPath(output_root_path);
+        occlusion.setShapeName(shape_name);
         occlusion.setOctreeResolution(octree_resolution);
         occlusion.setPattern(pattern);
         occlusion.setSamplesPerUnitArea(samples_per_unit_area);

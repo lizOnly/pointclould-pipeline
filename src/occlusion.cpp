@@ -1972,7 +1972,10 @@ double Occlusion::triangleBasedOcclusionLevel() {
     visible_sample_cloud->height = 1;
     visible_sample_cloud->is_dense = true;
 
-    pcl::io::savePCDFileASCII(output_root_path + "visible_sample_cloud.pcd", *visible_sample_cloud);
+    //convert pattern to string
+    std::string str_pattern = std::to_string(this->pattern);
+
+    pcl::io::savePCDFileASCII(output_root_path + shape_name + "_pattern_" + str_pattern + "_visible_sample_cloud.pcd", *visible_sample_cloud);
     std::cout << "Saved " << visible_sample_cloud->points.size() << " visible samples." << std::endl;
     std::cout << "" << std::endl;
 
