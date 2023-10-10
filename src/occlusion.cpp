@@ -1275,8 +1275,9 @@ double Occlusion::randomRayBasedOcclusionLevel(bool use_openings) {
 
     double occlusion_level = ((2.0 / 3.0) * no_bound_ray_count + (1.0 / 3.0) * (one_bound_ray_count)) / num_rays;
 
-    occlusion_level = sqrt(occlusion_level);
-
+    //occlusion_level = sqrt(occlusion_level);
+    double pow = 2.0/3.0;
+    occlusion_level = std::pow(occlusion_level, pow);
     std::cout << "Occlusion level: " << occlusion_level << std::endl;
 
     return occlusion_level;
