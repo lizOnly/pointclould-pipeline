@@ -504,6 +504,14 @@ int main(int argc, char *argv[])
         std::cout << "mesh path is: " << mesh_path << std::endl;
         std::cout << "" << std::endl;
 
+        //add shape name to occlusion object
+        std::string shape_name;
+        shape_name = mesh_path;
+        shape_name = shape_name.substr(0, shape_name.find_last_of("."));
+        shape_name = shape_name.substr(shape_name.find_last_of("/") + 1, shape_name.length());
+        occlusion.setShapeName(shape_name);
+
+
         occlusion.parseTrianglesFromPLY(mesh_path);
 
         occlusion.setOutputRootPath(output_root_path);

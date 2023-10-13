@@ -2055,13 +2055,15 @@ void Occlusion::scannerIntersectTriangle() {
     scanned_cloud->height = 1;
     scanned_cloud->is_dense = true;
 
-    pcl::io::savePCDFileASCII(output_root_path + "mesh_scanned_cloud_" + std::to_string(pattern) + ".pcd", *scanned_cloud);
+    std::string save_filename = output_root_path + shape_name + "_mesh_scanned_bound_cloud_" + std::to_string(pattern) + ".pcd";
+
+    pcl::io::savePCDFileASCII(output_root_path + shape_name + "_mesh_scanned_cloud_"  + std::to_string(pattern) + ".pcd", *scanned_cloud);
 
     scanned_bound_cloud->width = scanned_bound_cloud->points.size();
     scanned_bound_cloud->height = 1;
     scanned_bound_cloud->is_dense = true;
 
-    pcl::io::savePCDFileASCII(output_root_path + "mesh_scanned_bound_cloud_" + std::to_string(pattern) + ".pcd", *scanned_bound_cloud);
+    pcl::io::savePCDFileASCII(output_root_path + shape_name + "_mesh_scanned_bound_cloud_" + std::to_string(pattern) + ".pcd", *scanned_bound_cloud);
 
 }
 
