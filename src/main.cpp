@@ -293,63 +293,77 @@ int main(int argc, char *argv[])
     // compute mesh based occlusion level
     if (arg1 == "-moc") {
 
-        auto occlusion_mesh = j.at("occlusion").at("mesh");
+        //create occlusion levels array
+        std::vector<double> occlusion_levels;
 
-        int pattern = occlusion_mesh.at("pattern");
-        float octree_resolution = occlusion_mesh.at("octree_resolution");
-        double samples_per_unit_area = occlusion_mesh.at("samples_per_unit_area");
-        bool use_ply = occlusion_mesh.at("use_ply");
+        for (int i = 0; i < 6; i++)
+        {
 
-        Occlusion occlusion;
-        std::string shape_name;
+            auto occlusion_mesh = j.at("occlusion").at("mesh");
 
-        if (use_ply) {
+            int pattern = occlusion_mesh.at("pattern");
+            float octree_resolution = occlusion_mesh.at("octree_resolution");
+            double samples_per_unit_area = occlusion_mesh.at("samples_per_unit_area");
+            bool use_ply = occlusion_mesh.at("use_ply");
 
-            std::string ply_path = occlusion_mesh.at("ply_path");
-            ply_path = input_root_path + ply_path;
-            std::cout << "Estimated .ply mesh path is: " << ply_path << std::endl;
+            Occlusion occlusion;
+            std::string shape_name;
+
+            if (use_ply) {
+
+                std::string ply_path = occlusion_mesh.at("ply_path");
+                ply_path = input_root_path + ply_path;
+                std::cout << "Estimated .ply mesh path is: " << ply_path << std::endl;
+                std::cout << "" << std::endl;
+                occlusion.parseTrianglesFromPLY(ply_path);
+                shape_name = ply_path;
+
+            } else {
+
+                std::string mesh_path = occlusion_mesh.at("path");
+                mesh_path = input_root_path + mesh_path;
+                std::cout << "mesh path is: " << mesh_path << std::endl;
+                std::cout << "" << std::endl;
+                occlusion.parseTrianglesFromOBJ(mesh_path);
+                shape_name = mesh_path;
+
+            }
+
+            //remove .ply and all path extension from ply_path
+            shape_name = shape_name.substr(0, shape_name.find_last_of("."));
+            shape_name = shape_name.substr(shape_name.find_last_of("/") + 1, shape_name.length());
+
+            occlusion.setOutputRootPath(output_root_path);
+            occlusion.setShapeName(shape_name);
+            occlusion.setOctreeResolution(octree_resolution);
+            occlusion.setPattern(i);
+            occlusion.setSamplesPerUnitArea(samples_per_unit_area);
+            occlusion.haltonSampleTriangle(samples_per_unit_area);
+            occlusion.buildCompleteOctreeNodesTriangle();
+
+            Eigen::Vector3d min = occlusion.getMeshMinVertex();
+            Eigen::Vector3d max = occlusion.getMeshMaxVertex();
+            Eigen::Vector3d center = (min + max) / 2.0;
+
+
+            std::vector<Eigen::Vector3d> origins = occlusion.viewPointPattern(min, max, center);
+
+            occlusion.generateRayFromTriangle(origins);
+
+            double occlusion_level = occlusion.triangleBasedOcclusionLevel();
+            occlusion_levels.push_back(occlusion_level);
+
             std::cout << "" << std::endl;
-            occlusion.parseTrianglesFromPLY(ply_path);
-            shape_name = ply_path;
-
-        } else {
-
-            std::string mesh_path = occlusion_mesh.at("path");
-            mesh_path = input_root_path + mesh_path;
-            std::cout << "mesh path is: " << mesh_path << std::endl;
+            std::cout << "Mesh based occlusion level is: " << occlusion_level << std::endl;
             std::cout << "" << std::endl;
-            occlusion.parseTrianglesFromOBJ(mesh_path);
-            shape_name = mesh_path;
-
+        }
+        //print all occlusion levels with the pattern
+        for (int i = 0; i < occlusion_levels.size(); i++) {
+            std::cout << "Pattern " << i << " occlusion level is: " << occlusion_levels[i] << std::endl;
         }
 
-        //remove .ply and all path extension from ply_path
-        shape_name = shape_name.substr(0, shape_name.find_last_of("."));
-        shape_name = shape_name.substr(shape_name.find_last_of("/") + 1, shape_name.length());
-
-        occlusion.setOutputRootPath(output_root_path);
-        occlusion.setShapeName(shape_name);
-        occlusion.setOctreeResolution(octree_resolution);
-        occlusion.setPattern(pattern);
-        occlusion.setSamplesPerUnitArea(samples_per_unit_area);
-        occlusion.haltonSampleTriangle(samples_per_unit_area);
-        occlusion.buildCompleteOctreeNodesTriangle();
-        
-        Eigen::Vector3d min = occlusion.getMeshMinVertex();
-        Eigen::Vector3d max = occlusion.getMeshMaxVertex();
-        Eigen::Vector3d center = (min + max) / 2.0;
-
-        std::vector<Eigen::Vector3d> origins = occlusion.viewPointPattern(min, max, center);
-        
-        occlusion.generateRayFromTriangle(origins);
-
-        double occlusion_level = occlusion.triangleBasedOcclusionLevel();
-        
-        std::cout << "" << std::endl;
-        std::cout << "Mesh based occlusion level is: " << occlusion_level << std::endl;
-        std::cout << "" << std::endl;
-
         helper.displayRunningTime(start);
+
 
     } else if (arg1 == "-bounoc") {
 
