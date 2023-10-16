@@ -555,7 +555,62 @@ int main(int argc, char *argv[])
 
         helper.displayRunningTime(start);
 
-    } else if (arg1 == "-recon") {
+    }
+    else
+        if (arg1 == "-scanm_all"){ // scan mesh
+        //iterate all patterns from 0 to 6
+        for (int i = 0; i < 6; i++) {
+
+            Occlusion occlusion;
+
+            auto scan_mesh = j.at("scan_mesh");
+
+            std::string mesh_path = scan_mesh.at("mesh_path");
+            mesh_path = input_root_path + mesh_path;
+            std::cout << "mesh path is: " << mesh_path << std::endl;
+            std::cout << "" << std::endl;
+
+            //add shape name to occlusion object
+            std::string shape_name;
+            shape_name = mesh_path;
+            shape_name = shape_name.substr(0, shape_name.find_last_of("."));
+            shape_name = shape_name.substr(shape_name.find_last_of("/") + 1, shape_name.length());
+            occlusion.setShapeName(shape_name);
+
+
+            occlusion.parseTrianglesFromPLY(mesh_path);
+
+            occlusion.setOutputRootPath(output_root_path);
+            double octree_resolution = scan_mesh.at("octree_resolution");
+            occlusion.setOctreeResolution(octree_resolution);
+
+            size_t sampling_hor = scan_mesh.at("sampling_hor");
+            occlusion.setSamplingHor(sampling_hor);
+
+            size_t sampling_ver = scan_mesh.at("sampling_ver");
+            occlusion.setSamplingVer(sampling_ver);
+
+            //int pattern = scan_mesh.at("pattern");
+            int pattern = i;
+            occlusion.setPattern(pattern);
+
+            Eigen::Vector3d min = occlusion.getMeshMinVertex();
+            Eigen::Vector3d max = occlusion.getMeshMaxVertex();
+            Eigen::Vector3d center = (min + max) / 2.0;
+
+            std::vector<Eigen::Vector3d> origins = occlusion.viewPointPattern(min, max, center);
+
+            occlusion.generateScannerRays(origins);
+
+            occlusion.buildCompleteOctreeNodesTriangle();
+
+            occlusion.scannerIntersectTriangle();
+
+            helper.displayRunningTime(start);
+        }
+
+    }
+    else if (arg1 == "-recon") {
         
         // Since we use S3d as our dataset, we have to reconstruct the ground truth point cloud from .txt file
 
