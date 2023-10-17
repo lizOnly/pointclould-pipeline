@@ -451,7 +451,7 @@ int main(int argc, char *argv[])
 
         //create a simple matrix
         double occlusion_ratios [5][3];
-        std::vector<double> radius = {0.5, 1, 0.5};
+        std::vector<double> radius = {0.5, 1, 1.5};
         //iterate the patterns from 0 to 6
         for (int pattern = 0; pattern < 6; ++pattern) {
             //iterate the radius
