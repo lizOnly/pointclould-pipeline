@@ -564,110 +564,139 @@ int main(int argc, char *argv[])
 
         //create a simple matrix
         double occlusion_ratios [5][4];
+        double occlusion_ratios_std [5][4];
+        double occlusion_temp [10];
         std::vector<double> rays = {10, 100, 1000, 10000};
         //iterate the patterns from 0 to 6
         for (int pattern = 0; pattern < 6; ++pattern) {
             //iterate the radius
             for (int r = 0; r < rays.size(); ++r) {
 
-                auto occlusion_boundary = j.at("occlusion").at("boundary_cloud");
+                for (int i = 0; i < 10; ++i) {
 
-                std::string path = occlusion_boundary.at("path");
-                path = input_root_path + path;
-                std::cout << "input cloud path is: " << input_root_path + path << std::endl;
-                std::cout << "" << std::endl;
+                    auto occlusion_boundary = j.at("occlusion").at("boundary_cloud");
 
-                //replace path with the new pattern
-                std::string pattern_str = std::to_string(pattern);
-                path.replace(path.find("0"), 1, pattern_str);
+                    std::string path = occlusion_boundary.at("path");
+                    path = input_root_path + path;
+                    std::cout << "input cloud path is: " << input_root_path + path << std::endl;
+                    std::cout << "" << std::endl;
 
-                pcl::PointCloud<pcl::PointXYZI>::Ptr bound_cloud(new pcl::PointCloud<pcl::PointXYZI>);
-                pcl::io::loadPCDFile<pcl::PointXYZI>(path, *bound_cloud);
+                    //replace path with the new pattern
+                    std::string pattern_str = std::to_string(pattern);
+                    path.replace(path.find("0"), 1, pattern_str);
 
-                size_t clutter_count = 0;
-                for (auto &p: bound_cloud->points) {
-                    if (p.intensity == 0) {
-                        clutter_count++;
-                    }
-                }
+                    pcl::PointCloud<pcl::PointXYZI>::Ptr bound_cloud(new pcl::PointCloud<pcl::PointXYZI>);
+                    pcl::io::loadPCDFile<pcl::PointXYZI>(path, *bound_cloud);
 
-                if (clutter_count == bound_cloud->size()) {
-                    std::cout
-                            << "Indicating that input cloud has no intensity field, now we have to change all i value to 1"
-                            << std::endl;
+                    size_t clutter_count = 0;
                     for (auto &p: bound_cloud->points) {
-                        p.intensity = 1;
-                    }
-                }
-
-                std::string polygon_path = occlusion_boundary.at("polygon_path");
-                polygon_path = input_root_path + polygon_path;
-                std::cout << "polygon path is: " << polygon_path << std::endl;
-                std::cout << "" << std::endl;
-
-                //size_t num_rays = occlusion_boundary.at("num_rays");
-                size_t num_rays = rays[r];
-                double point_radius = occlusion_boundary.at("point_radius");
-                //double point_radius = r;
-                float octree_resolution = occlusion_boundary.at("octree_resolution");
-                bool use_openings = occlusion_boundary.at("use_openings");
-                int K_nearest = occlusion_boundary.at("K_nearest");
-
-                Occlusion occlusion;
-                occlusion.setOutputRootPath(output_root_path);
-                occlusion.setPointRadius(point_radius);
-                occlusion.setOctreeResolution(octree_resolution);
-                occlusion.setInputCloudBound(bound_cloud);
-
-                pcl::PointXYZI min_pt, max_pt;
-                pcl::getMinMax3D(*bound_cloud, min_pt, max_pt);
-                pcl::PointXYZ min_pt_bound(min_pt.x, min_pt.y, min_pt.z);
-                pcl::PointXYZ max_pt_bound(max_pt.x, max_pt.y, max_pt.z);
-
-                occlusion.buildCompleteOctreeNodes();
-
-                if (use_openings) {
-
-                    std::cout << "Using openings ... " << std::endl;
-                    std::vector<std::vector<pcl::PointXYZ>> polygons = occlusion.parsePolygonData(polygon_path);
-                    std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygon_clouds;
-                    std::vector<pcl::ModelCoefficients::Ptr> all_coefficients;
-
-                    for (int i = 0; i < polygons.size(); i++) {
-                        pcl::ModelCoefficients::Ptr coefficients = occlusion.computePlaneCoefficients(polygons[i]);
-                        all_coefficients.push_back(coefficients);
-                        pcl::PointCloud<pcl::PointXYZ>::Ptr polygon = occlusion.estimatePolygon(polygons[i],
-                                                                                                coefficients);
-                        polygon_clouds.push_back(polygon);
+                        if (p.intensity == 0) {
+                            clutter_count++;
+                        }
                     }
 
-                    occlusion.setPolygonClouds(polygon_clouds);
-                    occlusion.setAllCoefficients(all_coefficients);
+                    if (clutter_count == bound_cloud->size()) {
+                        std::cout
+                                << "Indicating that input cloud has no intensity field, now we have to change all i value to 1"
+                                << std::endl;
+                        for (auto &p: bound_cloud->points) {
+                            p.intensity = 1;
+                        }
+                    }
 
-                } else {
-                    std::cout << "Not using openings" << std::endl;
+                    std::string polygon_path = occlusion_boundary.at("polygon_path");
+                    polygon_path = input_root_path + polygon_path;
+                    std::cout << "polygon path is: " << polygon_path << std::endl;
+                    std::cout << "" << std::endl;
+
+                    //size_t num_rays = occlusion_boundary.at("num_rays");
+                    size_t num_rays = rays[r];
+                    double point_radius = occlusion_boundary.at("point_radius");
+                    //double point_radius = r;
+                    float octree_resolution = occlusion_boundary.at("octree_resolution");
+                    bool use_openings = occlusion_boundary.at("use_openings");
+                    int K_nearest = occlusion_boundary.at("K_nearest");
+
+                    Occlusion occlusion;
+                    occlusion.setOutputRootPath(output_root_path);
+                    occlusion.setPointRadius(point_radius);
+                    occlusion.setOctreeResolution(octree_resolution);
+                    occlusion.setInputCloudBound(bound_cloud);
+
+                    pcl::PointXYZI min_pt, max_pt;
+                    pcl::getMinMax3D(*bound_cloud, min_pt, max_pt);
+                    pcl::PointXYZ min_pt_bound(min_pt.x, min_pt.y, min_pt.z);
+                    pcl::PointXYZ max_pt_bound(max_pt.x, max_pt.y, max_pt.z);
+
+                    occlusion.buildCompleteOctreeNodes();
+
+                    if (use_openings) {
+
+                        std::cout << "Using openings ... " << std::endl;
+                        std::vector<std::vector<pcl::PointXYZ>> polygons = occlusion.parsePolygonData(polygon_path);
+                        std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> polygon_clouds;
+                        std::vector<pcl::ModelCoefficients::Ptr> all_coefficients;
+
+                        for (int i = 0; i < polygons.size(); i++) {
+                            pcl::ModelCoefficients::Ptr coefficients = occlusion.computePlaneCoefficients(polygons[i]);
+                            all_coefficients.push_back(coefficients);
+                            pcl::PointCloud<pcl::PointXYZ>::Ptr polygon = occlusion.estimatePolygon(polygons[i],
+                                                                                                    coefficients);
+                            polygon_clouds.push_back(polygon);
+                        }
+
+                        occlusion.setPolygonClouds(polygon_clouds);
+                        occlusion.setAllCoefficients(all_coefficients);
+
+                    } else {
+                        std::cout << "Not using openings" << std::endl;
+                    }
+
+                    occlusion.generateRandomRays(num_rays, min_pt_bound, max_pt_bound);
+
+                    double randomRayBasedOcclusionLevel = occlusion.randomRayBasedOcclusionLevel(use_openings);
+
+                    std::cout << "" << std::endl;
+                    std::cout << "Random ray based occlusion level is: " << randomRayBasedOcclusionLevel << std::endl;
+                    std::cout << "" << std::endl;
+                    occlusion_temp[i] = randomRayBasedOcclusionLevel;
+
+
+                    helper.displayRunningTime(start);
                 }
-
-                occlusion.generateRandomRays(num_rays, min_pt_bound, max_pt_bound);
-
-                double randomRayBasedOcclusionLevel = occlusion.randomRayBasedOcclusionLevel(use_openings);
-
-                std::cout << "" << std::endl;
-                std::cout << "Random ray based occlusion level is: " << randomRayBasedOcclusionLevel << std::endl;
-                std::cout << "" << std::endl;
+                //calculate the mean of the 10 occlusion levels
+                double sum = 0;
+                for (int i = 0; i < 10; ++i) {
+                    sum += occlusion_temp[i];
+                }
+                double mean = sum / 10;
+                //calculate the standard deviation of the 10 occlusion levels
+                double sum_of_diff = 0;
+                for (int i = 0; i < 10; ++i) {
+                    sum_of_diff += pow(occlusion_temp[i] - mean, 2);
+                }
+                double std_dev = sqrt(sum_of_diff / 10);
 
                 // fill randomRayBasedOcclusionLevel into the matrix
-                occlusion_ratios[pattern][r] = randomRayBasedOcclusionLevel;
-
-                helper.displayRunningTime(start);
+                occlusion_ratios[pattern][r] = mean;
+                occlusion_ratios_std[pattern][r] = std_dev;
             }
         }
 
         // print occlusion ratios matrix
         for (int i = 0; i < 6; ++i) {
             std::cout << "Pattern " << i << " occlusion level is: " << std::endl;
-            for (int j = 0; j < 3; ++j) {
+            for (int j = 0; j < rays.size(); ++j) {
                 std::cout << occlusion_ratios[i][j] << " ";
+            }
+            std::cout << std::endl;
+        }
+
+        // print standard deviation matrix
+        for (int i = 0; i < 6; ++i) {
+            std::cout << "Pattern " << i << " standard deviation is: " << std::endl;
+            for (int j = 0; j < rays.size(); ++j) {
+                std::cout << occlusion_ratios_std[i][j] << " ";
             }
             std::cout << std::endl;
         }
