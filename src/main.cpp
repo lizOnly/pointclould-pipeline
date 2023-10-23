@@ -296,7 +296,7 @@ int main(int argc, char *argv[])
         //create occlusion levels array
         std::vector<double> occlusion_levels;
 
-        for (int i = 0; i < 6; i++)
+        for (int i = 0; i < 1; i++)
         {
 
             auto occlusion_mesh = j.at("occlusion").at("mesh");
@@ -350,7 +350,10 @@ int main(int argc, char *argv[])
 
             occlusion.generateRayFromTriangle(origins);
 
-            double occlusion_level = occlusion.triangleBasedOcclusionLevel();
+            // area_region 0 is  mixed
+            // area_region 1 is  boundary only
+            // area_region 2 is  clutter only
+            double occlusion_level = occlusion.triangleBasedOcclusionLevel(2);
             occlusion_levels.push_back(occlusion_level);
 
             std::cout << "" << std::endl;

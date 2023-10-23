@@ -1857,8 +1857,11 @@ void Occlusion::checkRayOctreeIntersectionTriangle(Ray& ray, OctreeNode& node, s
 }
 
 
-double Occlusion::triangleBasedOcclusionLevel() {    
+double Occlusion::triangleBasedOcclusionLevel(int area_region) {
 
+    // if area_region is 0 then compute occlusion for all triangles
+    // if area_region is 1 then compute occlusion for only boundary triangles
+    // if area_region is 2 then compute occlusion for only clutter triangles
     size_t intersection_idx = 0;
 
     double epsilon = 1e-4;
@@ -1919,47 +1922,79 @@ double Occlusion::triangleBasedOcclusionLevel() {
 
     for (auto& tri : t_triangles) {
         
-        int total_samples = tri.second.sample_idx.size();
 
-        if (total_samples == 0) {
-            continue;
-        }
+            int total_samples = tri.second.sample_idx.size();
 
-        total_area += tri.second.area;
-        int visible_samples = 0;
-        double visible_weight = 0.0;
-
-
-        for (auto& sample_idx : tri.second.sample_idx) {
-
-            if (t_samples[sample_idx].is_visible) {
-    
-                visible_samples++;
-
-                pcl::PointXYZ visible_point;
-                visible_point.x = t_samples[sample_idx].point.x();
-                visible_point.y = t_samples[sample_idx].point.y();
-                visible_point.z = t_samples[sample_idx].point.z();
-
-                visible_sample_cloud->points.push_back(visible_point);
-            
+            if (total_samples == 0) {
+                continue;
             }
 
-        }
+            total_area += tri.second.area;
+            int visible_samples = 0;
+            double visible_weight = 0.0;
 
-        visible_weight = (double) visible_samples / (double) total_samples;
 
-        if (std::isnan(visible_weight)) {
+            for (auto &sample_idx: tri.second.sample_idx) {
 
-            // std::cout << "Visible weight is NaN" << std::endl;
-            // std::cout << "Visible samples: " << visible_samples << std::endl;
-            // std::cout << "Total samples: " << total_samples << std::endl;
-            visible_weight = 0.0;
+                if (t_samples[sample_idx].is_visible) {
+                    switch (area_region) {
+                        case 0:
+                        {
+                            visible_samples++;
 
-        }
-                    
-        double visible_area = visible_weight * tri.second.area;
-        total_visible_area += visible_area;
+                            pcl::PointXYZ visible_point;
+                            visible_point.x = t_samples[sample_idx].point.x();
+                            visible_point.y = t_samples[sample_idx].point.y();
+                            visible_point.z = t_samples[sample_idx].point.z();
+
+                            visible_sample_cloud->points.push_back(visible_point);
+                            break;
+                        }
+                        case 1:
+                            if (tri.second.is_boundary) {
+
+                                visible_samples++;
+
+                                pcl::PointXYZ visible_point;
+                                visible_point.x = t_samples[sample_idx].point.x();
+                                visible_point.y = t_samples[sample_idx].point.y();
+                                visible_point.z = t_samples[sample_idx].point.z();
+
+                                visible_sample_cloud->points.push_back(visible_point);
+                            }
+                            break;
+                        case 2:
+                            if (!tri.second.is_boundary) {
+
+                                visible_samples++;
+
+                                pcl::PointXYZ visible_point;
+                                visible_point.x = t_samples[sample_idx].point.x();
+                                visible_point.y = t_samples[sample_idx].point.y();
+                                visible_point.z = t_samples[sample_idx].point.z();
+
+                                visible_sample_cloud->points.push_back(visible_point);
+                            }
+                            break;
+                    }
+
+                }
+
+            }
+
+            visible_weight = (double) visible_samples / (double) total_samples;
+
+            if (std::isnan(visible_weight)) {
+
+                // std::cout << "Visible weight is NaN" << std::endl;
+                // std::cout << "Visible samples: " << visible_samples << std::endl;
+                // std::cout << "Total samples: " << total_samples << std::endl;
+                visible_weight = 0.0;
+
+            }
+
+            double visible_area = visible_weight * tri.second.area;
+            total_visible_area += visible_area;
 
     }
 
