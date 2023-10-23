@@ -373,6 +373,7 @@ int main(int argc, char *argv[])
             float octree_resolution = occlusion_mesh.at("octree_resolution");
             double samples_per_unit_area = occlusion_mesh.at("samples_per_unit_area");
             bool use_ply = occlusion_mesh.at("use_ply");
+            int area_region = occlusion_mesh.at("area_region");
 
             Occlusion occlusion;
             std::string shape_name;
@@ -421,7 +422,7 @@ int main(int argc, char *argv[])
             // area_region 0 is  mixed
             // area_region 1 is  boundary only
             // area_region 2 is  clutter only
-            double occlusion_level = occlusion.triangleBasedOcclusionLevel(0);
+            double occlusion_level = occlusion.triangleBasedOcclusionLevel(area_region);
             occlusion_levels.push_back(occlusion_level);
 
             std::cout << "" << std::endl;
