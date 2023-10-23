@@ -457,12 +457,12 @@ int main(int argc, char *argv[])
             }
         }
 
-        if (clutter_count == bound_cloud->size()) {
+       /* if (clutter_count == bound_cloud->size()) {
             std::cout << "Indicating that input cloud has no intensity field, now we have to change all i value to 1" << std::endl;
             for (auto& p : bound_cloud->points) {
                 p.intensity = 1;
             }
-        }
+        }*/
 
         std::string polygon_path = occlusion_boundary.at("polygon_path");
         polygon_path = input_root_path + polygon_path;
