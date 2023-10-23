@@ -1216,6 +1216,16 @@ double Occlusion::randomRayBasedOcclusionLevel(bool use_openings) {
 
     size_t clutter_ray_count = 0;
 
+    //save the rays
+    std::ofstream ray_file;
+    std::string file_name = output_root_path + shape_name  + "_random_rays.txt";
+    ray_file.open(file_name);
+    //write the origin and direction
+    for (auto& ray : t_random_rays) {
+        ray_file << ray.second.origin.x << " " << ray.second.origin.y << " " << ray.second.origin.z << " " << ray.second.direction.x << " " << ray.second.direction.y << " " << ray.second.direction.z << std::endl;
+    }
+    ray_file.close();
+
     for (auto& ray : t_random_rays) {
 
         if (ray.second.first_dir_intersect_bound && ray.second.second_dir_intersect_bound) {

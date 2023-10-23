@@ -481,6 +481,14 @@ int main(int argc, char *argv[])
         occlusion.setOctreeResolution(octree_resolution);
         occlusion.setInputCloudBound(bound_cloud);
 
+        //add shape name to occlusion object
+        std::string shape_name;
+        shape_name = path;
+        shape_name = shape_name.substr(0, shape_name.find_last_of("."));
+        shape_name = shape_name.substr(shape_name.find_last_of("/") + 1, shape_name.length());
+        occlusion.setShapeName(shape_name);
+
+
         pcl::PointXYZI min_pt, max_pt;
         pcl::getMinMax3D(*bound_cloud, min_pt, max_pt);
         pcl::PointXYZ min_pt_bound(min_pt.x, min_pt.y, min_pt.z);
