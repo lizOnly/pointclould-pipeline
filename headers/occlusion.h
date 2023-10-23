@@ -183,7 +183,7 @@ class Occlusion {
 
         void checkRayOctreeIntersectionTriangle(Ray& ray, OctreeNode& node, size_t& idx);
 
-        double triangleBasedOcclusionLevel();
+        double triangleBasedOcclusionLevel(int area_region);
 
         void generateCloudFromIntersection();
 

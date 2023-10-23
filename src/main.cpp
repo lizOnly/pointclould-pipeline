@@ -295,8 +295,76 @@ int main(int argc, char *argv[])
 
         //create occlusion levels array
         std::vector<double> occlusion_levels;
+        auto occlusion_mesh = j.at("occlusion").at("mesh");
 
-        for (int i = 0; i < 1; i++)
+        int pattern = occlusion_mesh.at("pattern");
+        float octree_resolution = occlusion_mesh.at("octree_resolution");
+        double samples_per_unit_area = occlusion_mesh.at("samples_per_unit_area");
+        bool use_ply = occlusion_mesh.at("use_ply");
+        int area_region = occlusion_mesh.at("area_region");
+
+        Occlusion occlusion;
+        std::string shape_name;
+
+        if (use_ply) {
+
+            std::string ply_path = occlusion_mesh.at("ply_path");
+            ply_path = input_root_path + ply_path;
+            std::cout << "Estimated .ply mesh path is: " << ply_path << std::endl;
+            std::cout << "" << std::endl;
+            occlusion.parseTrianglesFromPLY(ply_path);
+            shape_name = ply_path;
+
+        } else {
+
+            std::string mesh_path = occlusion_mesh.at("path");
+            mesh_path = input_root_path + mesh_path;
+            std::cout << "mesh path is: " << mesh_path << std::endl;
+            std::cout << "" << std::endl;
+            occlusion.parseTrianglesFromOBJ(mesh_path);
+            shape_name = mesh_path;
+
+        }
+
+        //remove .ply and all path extension from ply_path
+        shape_name = shape_name.substr(0, shape_name.find_last_of("."));
+        shape_name = shape_name.substr(shape_name.find_last_of("/") + 1, shape_name.length());
+
+        occlusion.setOutputRootPath(output_root_path);
+        occlusion.setShapeName(shape_name);
+        occlusion.setOctreeResolution(octree_resolution);
+        occlusion.setPattern(pattern);
+        occlusion.setSamplesPerUnitArea(samples_per_unit_area);
+        occlusion.haltonSampleTriangle(samples_per_unit_area);
+        occlusion.buildCompleteOctreeNodesTriangle();
+
+        Eigen::Vector3d min = occlusion.getMeshMinVertex();
+        Eigen::Vector3d max = occlusion.getMeshMaxVertex();
+        Eigen::Vector3d center = (min + max) / 2.0;
+
+
+        std::vector<Eigen::Vector3d> origins = occlusion.viewPointPattern(min, max, center);
+
+        occlusion.generateRayFromTriangle(origins);
+
+        // area_region 0 is  mixed
+        // area_region 1 is  boundary only
+        // area_region 2 is  clutter only
+        double occlusion_level = occlusion.triangleBasedOcclusionLevel(area_region);
+        occlusion_levels.push_back(occlusion_level);
+
+        std::cout << "" << std::endl;
+        std::cout << "Mesh based occlusion level is: " << occlusion_level << std::endl;
+        std::cout << "" << std::endl;
+
+        helper.displayRunningTime(start);
+    }
+    if (arg1 == "-moc_all") {
+
+        //create occlusion levels array
+        std::vector<double> occlusion_levels;
+
+        for (int i = 0; i < 6; i++)
         {
 
             auto occlusion_mesh = j.at("occlusion").at("mesh");
@@ -353,7 +421,7 @@ int main(int argc, char *argv[])
             // area_region 0 is  mixed
             // area_region 1 is  boundary only
             // area_region 2 is  clutter only
-            double occlusion_level = occlusion.triangleBasedOcclusionLevel(2);
+            double occlusion_level = occlusion.triangleBasedOcclusionLevel(0);
             occlusion_levels.push_back(occlusion_level);
 
             std::cout << "" << std::endl;
@@ -368,7 +436,8 @@ int main(int argc, char *argv[])
         helper.displayRunningTime(start);
 
 
-    } else if (arg1 == "-bounoc") {
+    }
+    else if (arg1 == "-bounoc") {
 
         auto occlusion_boundary = j.at("occlusion").at("boundary_cloud");
 
