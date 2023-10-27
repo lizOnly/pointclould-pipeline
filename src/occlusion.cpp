@@ -1220,13 +1220,15 @@ double Occlusion::randomRayBasedOcclusionLevel(bool use_openings) {
     std::ofstream ray_file;
     std::string file_name = output_root_path + shape_name  + "_random_rays.txt";
     ray_file.open(file_name);
-    //write the origin and direction
+ /*   //write the origin and direction
     for (auto& ray : t_random_rays) {
         ray_file << ray.second.origin.x << " " << ray.second.origin.y << " " << ray.second.origin.z << " " << ray.second.direction.x << " " << ray.second.direction.y << " " << ray.second.direction.z << std::endl;
     }
     ray_file.close();
-
+*/
     for (auto& ray : t_random_rays) {
+
+        ray_file << ray.second.origin.x << " " << ray.second.origin.y << " " << ray.second.origin.z << " " << ray.second.direction.x << " " << ray.second.direction.y << " " << ray.second.direction.z;
 
         if (ray.second.first_dir_intersect_bound && ray.second.second_dir_intersect_bound) {
 
@@ -1235,7 +1237,7 @@ double Occlusion::randomRayBasedOcclusionLevel(bool use_openings) {
             } else {
                 two_bounds_ray_no_clutter_count++;
             }
-
+            ray_file <<" 2"<< std::endl;
             two_bounds_ray_count++;
 
         } else if (ray.second.first_dir_intersect_bound || ray.second.second_dir_intersect_bound) {
@@ -1245,7 +1247,7 @@ double Occlusion::randomRayBasedOcclusionLevel(bool use_openings) {
             } else {
                 one_bound_ray_no_clutter_count++;
             }
-
+            ray_file <<" 1"<< std::endl;
             one_bound_ray_count++;
 
         } else {
@@ -1255,7 +1257,7 @@ double Occlusion::randomRayBasedOcclusionLevel(bool use_openings) {
             } else {
                 no_bound_ray_no_clutter_count++;
             }
-            
+            ray_file <<" 0"<< std::endl;
             no_bound_ray_count++;
 
         }
@@ -1265,6 +1267,7 @@ double Occlusion::randomRayBasedOcclusionLevel(bool use_openings) {
         }
 
     }
+    ray_file.close();
 
     std::cout << "Number of rays with two bound intersections: " << two_bounds_ray_count << std::endl;
     std::cout << "Number of rays with two bound intersections and clutter: " << two_bounds_ray_with_clutter_count << std::endl;
@@ -1284,6 +1287,7 @@ double Occlusion::randomRayBasedOcclusionLevel(bool use_openings) {
     std::cout << "Clutter ratio: " << clutter_ratio << std::endl;
 
     double occlusion_level = ((2.0 / 3.0) * no_bound_ray_count + (1.0 / 3.0) * (one_bound_ray_count)) / num_rays;
+//    double occlusion_level = (2.0 * no_bound_ray_count + (one_bound_ray_count)) / (2*num_rays);
 
     //occlusion_level = sqrt(occlusion_level);
     double pow = 2.0/3.0;
