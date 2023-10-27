@@ -1891,18 +1891,18 @@ double Occlusion::triangleBasedOcclusionLevel(int area_region) {
             checkRayOctreeIntersectionTriangle(t_rays[ray_idx], root_node, intersection_idx);
 
             if (t_rays[ray_idx].intersection_idx.size() == 0) {
-                
+
                 sample.second.is_visible = true;
                 break; // with this break enabled, we are not computing all the intersections for each ray
-            
+
             } else if (t_rays[ray_idx].intersection_idx.size() == 1) {
-                
+
                 size_t first_hit_intersection_idx = t_rays[ray_idx].intersection_idx[0];
                 t_intersections[first_hit_intersection_idx].is_first_hit = true;
                 t_rays[ray_idx].first_hit_intersection_idx = first_hit_intersection_idx;
-            
+
             } else if (t_rays[ray_idx].intersection_idx.size() > 1) {
-                
+
                 computeFirstHitIntersection(t_rays[ray_idx]);
 
             }
@@ -1920,7 +1920,7 @@ double Occlusion::triangleBasedOcclusionLevel(int area_region) {
                 sample.second.is_visible = true;
                 break;
 
-            } 
+            }
 
         }
 
@@ -1936,32 +1936,44 @@ double Occlusion::triangleBasedOcclusionLevel(int area_region) {
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr visible_sample_cloud(new pcl::PointCloud<pcl::PointXYZ>);
 
-    for (auto& tri : t_triangles) {
-        
-
-            int total_samples = tri.second.sample_idx.size();
-
-            if (total_samples == 0) {
-                continue;
-            }
-
-            total_area += tri.second.area;
-            int visible_samples = 0;
-            double visible_weight = 0.0;
-
-            if (tri.second.is_boundary) {
-                total_area_boundary += tri.second.area;
-            } else {
-                total_area_clutter += tri.second.area;
-            }
+    for (auto &tri: t_triangles) {
 
 
-            for (auto &sample_idx: tri.second.sample_idx) {
+        int total_samples = tri.second.sample_idx.size();
 
-                if (t_samples[sample_idx].is_visible) {
-                    switch (area_region) {
-                        case 0:
-                        {
+        if (total_samples == 0) {
+            continue;
+        }
+
+        total_area += tri.second.area;
+        int visible_samples = 0;
+        double visible_weight = 0.0;
+
+        if (tri.second.is_boundary) {
+            total_area_boundary += tri.second.area;
+        } else {
+            total_area_clutter += tri.second.area;
+        }
+
+
+        for (auto &sample_idx: tri.second.sample_idx) {
+
+            if (t_samples[sample_idx].is_visible) {
+                switch (area_region) {
+                    case 0: {
+                        visible_samples++;
+
+                        pcl::PointXYZ visible_point;
+                        visible_point.x = t_samples[sample_idx].point.x();
+                        visible_point.y = t_samples[sample_idx].point.y();
+                        visible_point.z = t_samples[sample_idx].point.z();
+
+                        visible_sample_cloud->points.push_back(visible_point);
+                        break;
+                    }
+                    case 1:
+                        if (tri.second.is_boundary) {
+
                             visible_samples++;
 
                             pcl::PointXYZ visible_point;
@@ -1970,67 +1982,60 @@ double Occlusion::triangleBasedOcclusionLevel(int area_region) {
                             visible_point.z = t_samples[sample_idx].point.z();
 
                             visible_sample_cloud->points.push_back(visible_point);
-                            break;
                         }
-                        case 1:
-                            if (tri.second.is_boundary) {
+                        break;
+                    case 2:
+                        if (!tri.second.is_boundary) {
 
-                                visible_samples++;
+                            visible_samples++;
 
-                                pcl::PointXYZ visible_point;
-                                visible_point.x = t_samples[sample_idx].point.x();
-                                visible_point.y = t_samples[sample_idx].point.y();
-                                visible_point.z = t_samples[sample_idx].point.z();
+                            pcl::PointXYZ visible_point;
+                            visible_point.x = t_samples[sample_idx].point.x();
+                            visible_point.y = t_samples[sample_idx].point.y();
+                            visible_point.z = t_samples[sample_idx].point.z();
 
-                                visible_sample_cloud->points.push_back(visible_point);
-                            }
-                            break;
-                        case 2:
-                            if (!tri.second.is_boundary) {
-
-                                visible_samples++;
-
-                                pcl::PointXYZ visible_point;
-                                visible_point.x = t_samples[sample_idx].point.x();
-                                visible_point.y = t_samples[sample_idx].point.y();
-                                visible_point.z = t_samples[sample_idx].point.z();
-
-                                visible_sample_cloud->points.push_back(visible_point);
-                            }
-                            break;
-                    }
-
+                            visible_sample_cloud->points.push_back(visible_point);
+                        }
+                        break;
                 }
 
             }
 
-            visible_weight = (double) visible_samples / (double) total_samples;
+        }
 
-            if (std::isnan(visible_weight)) {
+        visible_weight = (double) visible_samples / (double) total_samples;
 
-                // std::cout << "Visible weight is NaN" << std::endl;
-                // std::cout << "Visible samples: " << visible_samples << std::endl;
-                // std::cout << "Total samples: " << total_samples << std::endl;
-                visible_weight = 0.0;
+        if (std::isnan(visible_weight)) {
 
-            }
+            // std::cout << "Visible weight is NaN" << std::endl;
+            // std::cout << "Visible samples: " << visible_samples << std::endl;
+            // std::cout << "Total samples: " << total_samples << std::endl;
+            visible_weight = 0.0;
 
-            double visible_area = visible_weight * tri.second.area;
-            total_visible_area += visible_area;
+        }
+
+        double visible_area = visible_weight * tri.second.area;
+        total_visible_area += visible_area;
 
     }
 
     std::cout << "" << std::endl;
-    std::cout << "Total area: " << total_area << std::endl;
     std::cout << "Total visible area: " << total_visible_area << std::endl;
+
+
+
     std::cout << "" << std::endl;
 
-    if (area_region == 1)
+    if (area_region == 1) {
         occlusion_level = 1.0 - total_visible_area / total_area_boundary;
-    else if (area_region == 2)
+        std::cout << "Total  area boundary: " << total_area_boundary << std::endl;
+    } else if (area_region == 2) {
         occlusion_level = 1.0 - total_visible_area / total_area_clutter;
-    else
+        std::cout << "Total  area clutter: " << total_area << std::endl;
+    } else {
         occlusion_level = 1.0 - total_visible_area / total_area;
+        std::cout << "Total area mixed: " << total_area << std::endl;
+    }
 
     visible_sample_cloud->width = visible_sample_cloud->points.size();
     visible_sample_cloud->height = 1;
