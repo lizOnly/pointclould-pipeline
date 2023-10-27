@@ -1926,6 +1926,8 @@ double Occlusion::triangleBasedOcclusionLevel(int area_region) {
 
     double occlusion_level = 0.0;
     double total_area = 0.0;
+    double total_area_boundary = 0.0;
+    double total_area_clutter = 0.0;
     double total_visible_area = 0.0;
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr visible_sample_cloud(new pcl::PointCloud<pcl::PointXYZ>);
@@ -1942,6 +1944,12 @@ double Occlusion::triangleBasedOcclusionLevel(int area_region) {
             total_area += tri.second.area;
             int visible_samples = 0;
             double visible_weight = 0.0;
+
+            if (tri.second.is_boundary) {
+                total_area_boundary += tri.second.area;
+            } else {
+                total_area_clutter += tri.second.area;
+            }
 
 
             for (auto &sample_idx: tri.second.sample_idx) {
@@ -2012,7 +2020,13 @@ double Occlusion::triangleBasedOcclusionLevel(int area_region) {
     std::cout << "Total area: " << total_area << std::endl;
     std::cout << "Total visible area: " << total_visible_area << std::endl;
     std::cout << "" << std::endl;
-    occlusion_level = 1.0 - total_visible_area / total_area;
+
+    if (area_region == 1)
+        occlusion_level = 1.0 - total_visible_area / total_area_boundary;
+    else if (area_region == 2)
+        occlusion_level = 1.0 - total_visible_area / total_area_clutter;
+    else
+        occlusion_level = 1.0 - total_visible_area / total_area;
 
     visible_sample_cloud->width = visible_sample_cloud->points.size();
     visible_sample_cloud->height = 1;
