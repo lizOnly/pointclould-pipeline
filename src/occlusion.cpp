@@ -1219,13 +1219,32 @@ double Occlusion::randomRayBasedOcclusionLevel(bool use_openings) {
     //save the rays
     std::ofstream ray_file;
     std::string file_name = output_root_path + shape_name  + "_random_rays.txt";
-    ray_file.open(file_name);
+    std::string ray_filename = output_root_path + shape_name  + "_one_ray.txt";
+
  /*   //write the origin and direction
     for (auto& ray : t_random_rays) {
         ray_file << ray.second.origin.x << " " << ray.second.origin.y << " " << ray.second.origin.z << " " << ray.second.direction.x << " " << ray.second.direction.y << " " << ray.second.direction.z << std::endl;
     }
     ray_file.close();
 */
+    ray_file.open(ray_filename);
+    for (auto& ray : t_random_rays)
+    {
+        ray_file << ray.second.origin.x << " " << ray.second.origin.y << " " << ray.second.origin.z << " " << ray.second.direction.x << " " << ray.second.direction.y << " " << ray.second.direction.z<< std::endl;
+        //iterate ray.second.first_dir_bound_intersection_idx
+        for (auto& idx : ray.second.first_dir_bound_intersection_idx) {
+            ray_file << " " << idx;
+        }
+        ray_file << std::endl;
+        for (auto& idx : ray.second.second_dir_bound_intersection_idx) {
+            ray_file << " " << idx;
+        }
+        ray_file << std::endl;
+        break;
+    }
+    ray_file.close();
+
+    ray_file.open(file_name);
     for (auto& ray : t_random_rays) {
 
         ray_file << ray.second.origin.x << " " << ray.second.origin.y << " " << ray.second.origin.z << " " << ray.second.direction.x << " " << ray.second.direction.y << " " << ray.second.direction.z;
