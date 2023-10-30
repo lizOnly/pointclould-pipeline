@@ -1248,8 +1248,6 @@ double Occlusion::randomRayBasedOcclusionLevel(bool use_openings) {
     for (auto& ray : t_random_rays) {
         ray_file << ray.second.origin.x << " " << ray.second.origin.y << " " << ray.second.origin.z << " " << ray.second.direction.x << " " << ray.second.direction.y << " " << ray.second.direction.z;
 
-        ray_file << ray.second.origin.x << " " << ray.second.origin.y << " " << ray.second.origin.z << " " << ray.second.direction.x << " " << ray.second.direction.y << " " << ray.second.direction.z;
-
         if (ray.second.first_dir_intersect_bound && ray.second.second_dir_intersect_bound) {
 
             if (ray.second.intersect_clutter) {
