@@ -1246,6 +1246,7 @@ double Occlusion::randomRayBasedOcclusionLevel(bool use_openings) {
 
     ray_file.open(file_name);
     for (auto& ray : t_random_rays) {
+        ray_file << ray.second.origin.x << " " << ray.second.origin.y << " " << ray.second.origin.z << " " << ray.second.direction.x << " " << ray.second.direction.y << " " << ray.second.direction.z;
 
         ray_file << ray.second.origin.x << " " << ray.second.origin.y << " " << ray.second.origin.z << " " << ray.second.direction.x << " " << ray.second.direction.y << " " << ray.second.direction.z;
 

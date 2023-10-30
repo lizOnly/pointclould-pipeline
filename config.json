@@ -1,24 +1,25 @@
 {   
     
     "globals": {
-        "input_root_path": "/home/lizeth/Documents/Repositories/pointclould-pipeline/data/",
-        "output_root_path": "/home/lizeth/Documents/Repositories/pointclould-pipeline/results/"
+        "input_root_path": "/mnt/Chest/Repositories/pointclould-pipeline/data/",
+        "output_root_path": "/mnt/Chest/Repositories/pointclould-pipeline/results/"
     },
 
     "occlusion": {
         "mesh": {
             "path": "cube.obj",
-            "ply_path": "joined_mesh_2.ply",
+            "ply_path": "horizontal_room.ply",
             "pattern": 0,
             "octree_resolution": 0.5,
             "samples_per_unit_area": 10,
-            "use_ply": true
+            "use_ply": true,
+            "area_region": 0
         },
 
         "boundary_cloud": {
-            "path": "mesh_scanned_bound_cloud_6.pcd",
+            "path": "horizontal_room_mesh_scanned_cloud_2.pcd",
             "num_rays": 10000,
-            "point_radius": 0.2,
+            "point_radius": 1,
             "polygon_path": "conf1_poly.txt",
             "octree_resolution": 0.5,
             "use_openings": false,
@@ -41,7 +42,7 @@
         "sampling_hor": 200,
         "sampling_ver": 200,
         "pattern": 5,
-        "mesh_path": "joined_mesh.ply",
+        "mesh_path": "vertical_room.ply",
         "octree_resolution": 0.5
     },
 
